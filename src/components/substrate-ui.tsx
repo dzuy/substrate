@@ -1,4 +1,5 @@
 import { Link, type Href } from 'expo-router';
+import { Image } from 'expo-image';
 import {
   Pressable,
   ScrollView,
@@ -176,20 +177,11 @@ export function BrandMark({ size = 104 }: { size?: number }) {
 export function FaceGuide() {
   return (
     <View style={styles.faceFrame}>
-      <View style={styles.faceAura} />
-      <View style={styles.face}>
-        <View style={styles.hair} />
-        <View style={styles.neck} />
-        <View style={styles.head}>
-          <View style={styles.eyeRow}>
-            <View style={styles.eye} />
-            <View style={styles.eye} />
-          </View>
-          <View style={styles.nose} />
-          <View style={styles.mouth} />
-        </View>
-        <View style={styles.shoulders} />
-      </View>
+      <Image
+        source={require('@/assets/images/photo-placeholder-woman.png')}
+        style={styles.faceImage}
+        contentFit="contain"
+      />
     </View>
   );
 }
@@ -371,85 +363,17 @@ const styles = StyleSheet.create({
   faceFrame: {
     minHeight: 188,
     borderRadius: 20,
-    backgroundColor: Colors.light.blush,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: Colors.light.border,
   },
-  faceAura: {
-    position: 'absolute',
-    width: 166,
-    height: 166,
-    borderRadius: 83,
-    backgroundColor: '#F1D4C6',
-  },
-  face: {
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    width: 150,
-    height: 172,
-  },
-  hair: {
-    width: 70,
-    height: 54,
-    borderTopLeftRadius: 52,
-    borderTopRightRadius: 52,
-    backgroundColor: '#3E251D',
-  },
-  neck: {
-    position: 'absolute',
-    bottom: 34,
-    width: 30,
-    height: 42,
-    backgroundColor: '#DFA37E',
-    borderRadius: 18,
-    zIndex: 1,
-  },
-  head: {
-    position: 'absolute',
-    top: 38,
-    width: 72,
-    height: 92,
-    borderRadius: 32,
-    backgroundColor: '#E8B089',
-    zIndex: 2,
-    alignItems: 'center',
-    paddingTop: 35,
-  },
-  eyeRow: {
-    flexDirection: 'row',
-    gap: 21,
-  },
-  eye: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.light.text,
-  },
-  nose: {
-    marginTop: 10,
-    width: 7,
-    height: 15,
-    borderRadius: 5,
-    backgroundColor: '#D89271',
-  },
-  mouth: {
-    marginTop: 10,
-    width: 23,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: '#9C4B55',
-  },
-  shoulders: {
-    position: 'absolute',
-    bottom: 0,
-    width: 112,
-    height: 52,
-    borderTopLeftRadius: 72,
-    borderTopRightRadius: 72,
-    backgroundColor: '#E0A07D',
+  faceImage: {
+    width: '100%',
+    height: 224,
+    opacity: 1,
   },
   metricRing: {
     width: 150,
