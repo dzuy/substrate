@@ -13,7 +13,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Colors, Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 
-type TextVariant = 'brand' | 'title' | 'subtitle' | 'body' | 'small' | 'section' | 'tag';
+type TextVariant =
+  | 'brand'
+  | 'title'
+  | 'subtitle'
+  | 'body'
+  | 'small'
+  | 'section'
+  | 'tag'
+  | 'metricLabel';
 
 export function AppShell({
   children,
@@ -187,15 +195,21 @@ export function FaceGuide() {
 }
 
 export function MetricRing({ value, label }: { value: string; label: string }) {
+  const labelLines = label.split(' ');
+
   return (
     <View style={styles.metricRing}>
       <View style={styles.metricInner}>
         <SubstrateText variant="subtitle" color={Colors.light.accent}>
           {value}
         </SubstrateText>
-        <SubstrateText variant="small" color={Colors.light.textMuted} style={styles.metricLabel}>
-          {label}
-        </SubstrateText>
+        <View style={styles.metricLabel}>
+          {labelLines.map((line) => (
+            <SubstrateText key={line} variant="metricLabel" color={Colors.light.textMuted}>
+              {line}
+            </SubstrateText>
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -438,10 +452,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0A07D',
   },
   metricRing: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 10,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 11,
     borderColor: Colors.light.accentSoft,
     borderRightColor: Colors.light.accent,
     borderBottomColor: '#F4D9AA',
@@ -449,16 +463,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   metricInner: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 116,
+    height: 116,
+    borderRadius: 58,
     backgroundColor: '#FFFDFC',
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.two,
   },
   metricLabel: {
-    textAlign: 'center',
+    alignItems: 'center',
   },
 });
 
@@ -478,8 +492,8 @@ const stylesText = StyleSheet.create({
   },
   subtitle: {
     fontFamily: Fonts.sans,
-    fontSize: 27,
-    lineHeight: 31,
+    fontSize: 34,
+    lineHeight: 37,
     fontWeight: '800',
   },
   body: {
@@ -511,5 +525,12 @@ const stylesText = StyleSheet.create({
     fontWeight: '700',
     paddingHorizontal: 10,
     paddingVertical: 6,
+  },
+  metricLabel: {
+    fontFamily: Fonts.sans,
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '800',
+    textAlign: 'center',
   },
 });
