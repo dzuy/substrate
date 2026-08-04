@@ -11,6 +11,7 @@ import {
 
 import { AppShell, BrandMark, Card, PrimaryButton, SubstrateText } from '@/components/substrate-ui';
 import { Colors, Fonts, Spacing } from '@/constants/theme';
+import { isSupabaseConfigured } from '@/lib/env';
 import { signInWithEmailPassword, signUpWithEmailPassword } from '@/services/auth';
 
 type AuthMode = 'sign-in' | 'sign-up';
@@ -29,6 +30,11 @@ export function AuthScreen() {
     const trimmedEmail = email.trim();
     setMessage('');
     setError('');
+
+    if (!isSupabaseConfigured) {
+      setError('Supabase is not configured for this deployment.');
+      return;
+    }
 
     if (!trimmedEmail || !password) {
       setError('Enter your email and password.');
@@ -143,11 +149,19 @@ export function AuthScreen() {
             </View>
           ) : null}
 
+          {!isSupabaseConfigured ? (
+            <View style={styles.feedbackError}>
+              <SubstrateText variant="small" color={Colors.light.accentDeep}>
+                Supabase environment variables are missing from this deployment.
+              </SubstrateText>
+            </View>
+          ) : null}
+
           <Pressable
             accessibilityRole="button"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !isSupabaseConfigured}
             onPress={handleSubmit}
-            style={isSubmitting && styles.disabled}>
+            style={(isSubmitting || !isSupabaseConfigured) && styles.disabled}>
             <PrimaryButton label={isSignIn ? 'Sign In' : 'Create Account'} />
           </Pressable>
 
