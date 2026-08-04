@@ -68,6 +68,23 @@ export async function advanceActiveEntryDate(userId: string) {
   return nextDate;
 }
 
+export async function getActiveOrNextEntryDate(userId: string) {
+  let activeDate = await getActiveEntryDate(userId);
+  const entry = await getOrCreateDailyEntry(userId, activeDate);
+
+  if (entry.error || !entry.data) {
+    return { data: activeDate, error: entry.error };
+  }
+
+  if (entry.data.status === 'planned') {
+    activeDate = addDays(activeDate, 1);
+    await AsyncStorage.setItem(buildActiveEntryDateKey(userId), activeDate);
+    return { data: activeDate, error: null };
+  }
+
+  return { data: activeDate, error: null };
+}
+
 export function formatDisplayDate(date: string) {
   const parsed = parseEntryDate(date);
 

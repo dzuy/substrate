@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import { AuthScreen } from '@/components/auth-screen';
-import { SubstrateText } from '@/components/substrate-ui';
+import { BottomNav, SubstrateText } from '@/components/substrate-ui';
 import { Colors } from '@/constants/theme';
 import { AuthProvider, useAuth } from '@/lib/auth-context';
 
@@ -35,6 +35,7 @@ function RootNavigator() {
   }
 
   return (
+    <View style={styles.appFrame}>
       <Stack
         screenOptions={{
           headerShown: false,
@@ -43,14 +44,22 @@ function RootNavigator() {
         <Stack.Screen name="index" />
         <Stack.Screen name="photo" />
         <Stack.Screen name="check-in" />
+        <Stack.Screen name="environment" />
         <Stack.Screen name="skin-story" />
         <Stack.Screen name="daily-plan" />
         <Stack.Screen name="progress" />
+        <Stack.Screen name="profile" />
       </Stack>
+      <BottomNav />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  appFrame: {
+    flex: 1,
+    backgroundColor: Colors.light.background,
+  },
   loadingScreen: {
     flex: 1,
     alignItems: 'center',

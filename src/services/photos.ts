@@ -3,6 +3,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
+import type { PhotoAnalysis } from '@/types/database';
 
 export const dailyPhotosBucket = 'daily-photos';
 
@@ -91,6 +92,50 @@ export async function getLatestDailyPhoto(dailyEntryId: string) {
   };
 }
 
+export async function analyzeDailyPhoto(photoId: string) {
+  try {
+    const response = await supabase.functions.invoke('analyze-photo', {
+      body: { photoId },
+    });
+
+    if (response.error) {
+      return { data: null, error: response.error };
+    }
+
+    return { data: response.data?.qualityChecks as PhotoAnalysis | undefined, error: null };
+  } catch (error) {
+    return { data: null, error: error instanceof Error ? error : new Error('Photo analysis failed.') };
+  }
+}
+
+export function toPhotoAnalysis(value: unknown): PhotoAnalysis | undefined {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+
+  const source = value as Record<string, unknown>;
+
+  return {
+    provider: toString(source.provider),
+    model: toString(source.model),
+    analyzedAt: toString(source.analyzedAt),
+    faceDetected: typeof source.faceDetected === 'boolean' ? source.faceDetected : undefined,
+    lighting: toNumber(source.lighting),
+    sharpness: toNumber(source.sharpness),
+    framing: toNumber(source.framing),
+    redness: toNumber(source.redness),
+    dryness: toNumber(source.dryness),
+    congestion: toNumber(source.congestion),
+    fatigue: toNumber(source.fatigue),
+    toneUnevenness: toNumber(source.toneUnevenness),
+    confidence: toNumber(source.confidence),
+    summary: toString(source.summary),
+    retakeReasons: Array.isArray(source.retakeReasons)
+      ? source.retakeReasons.filter((item): item is string => typeof item === 'string')
+      : undefined,
+  };
+}
+
 export async function recordDailyPhoto(params: {
   userId: string;
   dailyEntryId: string;
@@ -168,4 +213,12 @@ function inferContentType(fileName: string | null | undefined, uri: string) {
     return 'image/webp';
   }
   return 'image/jpeg';
+}
+
+function toNumber(value: unknown) {
+  return typeof value === 'number' ? value : undefined;
+}
+
+function toString(value: unknown) {
+  return typeof value === 'string' ? value : undefined;
 }

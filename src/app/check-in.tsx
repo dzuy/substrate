@@ -14,34 +14,32 @@ import {
 import { Colors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
-  formatDisplayDate,
   getActiveEntryDate,
   getOrCreateDailyEntry,
   saveDailyCheckIn,
 } from '@/services/daily-entries';
 import type { CheckInResponses } from '@/types/database';
 
-const feelings = ['Calm', 'Dry', 'Reactive', 'Congested'];
-const stress = ['Low', 'Medium', 'High'];
 const sleep = ['Poor', 'Okay', 'Rested'];
-const activity = ['Light', 'Moderate', 'Intense'];
-const cycle = ['Follicular', 'Ovulatory', 'Luteal', 'Not tracking'];
+const stress = ['Low', 'Medium', 'High'];
+const alcohol = ['None', 'Light', 'Moderate', 'High'];
+const cycle = ['Menstrual', 'Follicular', 'Ovulatory', 'Luteal', 'Not tracking'];
+const routine = ['No change', 'Strong actives', 'New product', 'Treatment'];
 
 export default function CheckInScreen() {
   const router = useRouter();
   const { user } = useAuth();
   const [entryId, setEntryId] = useState<string | null>(null);
-  const [skinFeel, setSkinFeel] = useState<NonNullable<CheckInResponses['skinFeel']>>('Reactive');
-  const [stressLevel, setStressLevel] = useState<NonNullable<CheckInResponses['stressLevel']>>('Medium');
   const [sleepQuality, setSleepQuality] = useState<NonNullable<CheckInResponses['sleepQuality']>>('Poor');
-  const [activityLevel, setActivityLevel] = useState<NonNullable<CheckInResponses['activityLevel']>>('Light');
+  const [stressLevel, setStressLevel] = useState<NonNullable<CheckInResponses['stressLevel']>>('Medium');
+  const [alcoholConsumption, setAlcoholConsumption] = useState<NonNullable<CheckInResponses['alcoholConsumption']>>('None');
   const [cyclePhase, setCyclePhase] = useState<NonNullable<CheckInResponses['cyclePhase']>>('Luteal');
+  const [routineChange, setRoutineChange] = useState<NonNullable<CheckInResponses['routineChange']>>('No change');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
-  const [entryDate, setEntryDate] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -73,7 +71,6 @@ export default function CheckInScreen() {
         }
 
         setEntryId(data.id);
-        setEntryDate(activeDate);
         hydrateCheckIn(data.check_in);
         setLastSavedAt(hasCheckInResponses(data.check_in) ? data.updated_at : null);
         setSaveMessage(hasCheckInResponses(data.check_in) ? 'Loaded saved responses for this test day.' : '');
@@ -89,20 +86,20 @@ export default function CheckInScreen() {
   );
 
   function hydrateCheckIn(checkIn: CheckInResponses) {
-    if (checkIn.skinFeel) {
-      setSkinFeel(checkIn.skinFeel);
+    if (checkIn.sleepQuality) {
+      setSleepQuality(checkIn.sleepQuality);
     }
     if (checkIn.stressLevel) {
       setStressLevel(checkIn.stressLevel);
     }
-    if (checkIn.sleepQuality) {
-      setSleepQuality(checkIn.sleepQuality);
-    }
-    if (checkIn.activityLevel) {
-      setActivityLevel(checkIn.activityLevel);
+    if (checkIn.alcoholConsumption) {
+      setAlcoholConsumption(checkIn.alcoholConsumption);
     }
     if (checkIn.cyclePhase) {
       setCyclePhase(checkIn.cyclePhase);
+    }
+    if (checkIn.routineChange) {
+      setRoutineChange(checkIn.routineChange);
     }
   }
 
@@ -117,11 +114,11 @@ export default function CheckInScreen() {
     setSaveMessage('');
 
     const { data, error } = await saveDailyCheckIn(entryId, {
-      skinFeel,
-      stressLevel,
       sleepQuality,
-      activityLevel,
+      stressLevel,
+      alcoholConsumption,
       cyclePhase,
+      routineChange,
     });
 
     setIsSaving(false);
@@ -133,7 +130,7 @@ export default function CheckInScreen() {
 
     setLastSavedAt(data?.updated_at ?? new Date().toISOString());
     setSaveMessage('Check-in saved to Supabase.');
-    router.push('/skin-story');
+    router.push('/environment');
   }
 
   return (
@@ -142,7 +139,6 @@ export default function CheckInScreen() {
       <ScreenHeader
         eyebrow="Step 2"
         title="Daily check-in"
-        body={`Test day ${entryDate ? formatDisplayDate(entryDate) : ''}. Add the context signals that may explain this skin state.`}
       />
 
       <Card style={styles.card}>
@@ -155,29 +151,7 @@ export default function CheckInScreen() {
           </View>
         ) : null}
 
-        <Question title="How does your skin feel?">
-          {feelings.map((item) => (
-            <Pill
-              key={item}
-              label={item}
-              selected={skinFeel === item}
-              onPress={() => setSkinFeel(item as NonNullable<CheckInResponses['skinFeel']>)}
-            />
-          ))}
-        </Question>
-
-        <Question title="Stress level">
-          {stress.map((item) => (
-            <Pill
-              key={item}
-              label={item}
-              selected={stressLevel === item}
-              onPress={() => setStressLevel(item as NonNullable<CheckInResponses['stressLevel']>)}
-            />
-          ))}
-        </Question>
-
-        <Question title="Sleep quality">
+        <Question title="How did you sleep?">
           {sleep.map((item) => (
             <Pill
               key={item}
@@ -188,24 +162,46 @@ export default function CheckInScreen() {
           ))}
         </Question>
 
-        <Question title="Activity level">
-          {activity.map((item) => (
+        <Question title="How stressed do you feel?">
+          {stress.map((item) => (
             <Pill
               key={item}
               label={item}
-              selected={activityLevel === item}
-              onPress={() => setActivityLevel(item as NonNullable<CheckInResponses['activityLevel']>)}
+              selected={stressLevel === item}
+              onPress={() => setStressLevel(item as NonNullable<CheckInResponses['stressLevel']>)}
             />
           ))}
         </Question>
 
-        <Question title="Cycle phase">
+        <Question title="Did you drink alcohol?">
+          {alcohol.map((item) => (
+            <Pill
+              key={item}
+              label={item}
+              selected={alcoholConsumption === item}
+              onPress={() => setAlcoholConsumption(item as NonNullable<CheckInResponses['alcoholConsumption']>)}
+            />
+          ))}
+        </Question>
+
+        <Question title="Where are you in your cycle?">
           {cycle.map((item) => (
             <Pill
               key={item}
               label={item}
               selected={cyclePhase === item}
               onPress={() => setCyclePhase(item as NonNullable<CheckInResponses['cyclePhase']>)}
+            />
+          ))}
+        </Question>
+
+        <Question title="Anything different in your routine?">
+          {routine.map((item) => (
+            <Pill
+              key={item}
+              label={item}
+              selected={routineChange === item}
+              onPress={() => setRoutineChange(item as NonNullable<CheckInResponses['routineChange']>)}
             />
           ))}
         </Question>
@@ -229,7 +225,7 @@ export default function CheckInScreen() {
         disabled={isLoading || isSaving}
         onPress={handleSaveAndContinue}
         style={[styles.next, (isLoading || isSaving) && styles.disabled]}>
-        <PrimaryButton label={isSaving ? 'Saving Check-In' : "Save & View Today's Skin Story"} />
+        <PrimaryButton label={isSaving ? 'Saving Check-In' : 'Next'} />
       </Pressable>
     </AppShell>
   );

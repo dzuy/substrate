@@ -1,11 +1,14 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type CheckInResponses = {
-  skinFeel?: 'Calm' | 'Dry' | 'Reactive' | 'Congested';
-  stressLevel?: 'Low' | 'Medium' | 'High';
   sleepQuality?: 'Poor' | 'Okay' | 'Rested';
+  stressLevel?: 'Low' | 'Medium' | 'High';
+  alcoholConsumption?: 'None' | 'Light' | 'Moderate' | 'High';
+  cyclePhase?: 'Follicular' | 'Ovulatory' | 'Luteal' | 'Menstrual' | 'Not tracking';
+  routineChange?: 'No change' | 'Strong actives' | 'New product' | 'Treatment';
+  // Legacy prototype fields kept so earlier test entries remain readable.
+  skinFeel?: 'Calm' | 'Dry' | 'Reactive' | 'Congested';
   activityLevel?: 'Light' | 'Moderate' | 'Intense';
-  cyclePhase?: 'Follicular' | 'Ovulatory' | 'Luteal' | 'Not tracking';
 };
 
 export type AnalysisSignals = {
@@ -14,6 +17,54 @@ export type AnalysisSignals = {
   congestion?: number;
   fatigue?: number;
   photoQuality?: number;
+  photoAnalysis?: PhotoAnalysis;
+  environment?: EnvironmentSnapshot;
+  skinHealthScore?: number;
+  scoreBand?: 'stable' | 'balanced' | 'stressed' | 'reactive' | 'high_stress';
+  scoreDelta?: number;
+  drivers?: Array<{
+    label: string;
+    impact: number;
+    direction: 'positive' | 'negative';
+  }>;
+  confidence?: number;
+};
+
+export type PhotoAnalysis = {
+  provider?: string;
+  model?: string;
+  analyzedAt?: string;
+  faceDetected?: boolean;
+  lighting?: number;
+  sharpness?: number;
+  framing?: number;
+  redness?: number;
+  dryness?: number;
+  congestion?: number;
+  fatigue?: number;
+  toneUnevenness?: number;
+  confidence?: number;
+  summary?: string;
+  retakeReasons?: string[];
+};
+
+export type EnvironmentSnapshot = {
+  temperatureF?: number;
+  humidity?: number;
+  uvIndex?: number;
+  usAqi?: number;
+  pm25?: number;
+  pm10?: number;
+  ozone?: number;
+  locationLabel?: string;
+  provider?: string;
+};
+
+export type ProfileLocation = {
+  query?: string;
+  label?: string;
+  latitude: number;
+  longitude: number;
 };
 
 export type SkinStory = {
@@ -39,17 +90,29 @@ export type Database = {
         Row: {
           id: string;
           email: string | null;
+          location_query: string | null;
+          location_label: string | null;
+          latitude: number | null;
+          longitude: number | null;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id: string;
           email?: string | null;
+          location_query?: string | null;
+          location_label?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           email?: string | null;
+          location_query?: string | null;
+          location_label?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
           updated_at?: string;
         };
         Relationships: [];
@@ -109,6 +172,65 @@ export type Database = {
           quality_checks?: Json;
           content_type?: string | null;
           size_bytes?: number | null;
+        };
+        Relationships: [];
+      };
+      environment_snapshots: {
+        Row: {
+          id: string;
+          user_id: string;
+          daily_entry_id: string;
+          provider: string;
+          latitude: number | null;
+          longitude: number | null;
+          location_label: string | null;
+          temperature_f: number | null;
+          humidity: number | null;
+          uv_index: number | null;
+          us_aqi: number | null;
+          pm2_5: number | null;
+          pm10: number | null;
+          ozone: number | null;
+          captured_at: string;
+          raw_response: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          daily_entry_id: string;
+          provider?: string;
+          latitude?: number | null;
+          longitude?: number | null;
+          location_label?: string | null;
+          temperature_f?: number | null;
+          humidity?: number | null;
+          uv_index?: number | null;
+          us_aqi?: number | null;
+          pm2_5?: number | null;
+          pm10?: number | null;
+          ozone?: number | null;
+          captured_at?: string;
+          raw_response?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          provider?: string;
+          latitude?: number | null;
+          longitude?: number | null;
+          location_label?: string | null;
+          temperature_f?: number | null;
+          humidity?: number | null;
+          uv_index?: number | null;
+          us_aqi?: number | null;
+          pm2_5?: number | null;
+          pm10?: number | null;
+          ozone?: number | null;
+          captured_at?: string;
+          raw_response?: Json;
+          updated_at?: string;
         };
         Relationships: [];
       };

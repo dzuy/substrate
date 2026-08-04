@@ -66,7 +66,7 @@ export default function SkinStoryScreen() {
         setSkinStory(recommendation.data.skinStory);
         setStatusMessage(
           recommendation.data.isGenerated
-            ? 'Generated and saved this test day’s story.'
+            ? 'Generated this test day’s story.'
             : 'Loaded this test day’s saved story.'
         );
         setIsLoading(false);
@@ -80,13 +80,13 @@ export default function SkinStoryScreen() {
     }, [user])
   );
 
-  const metric = getPrimaryMetric(analysis);
+  const metric = getSkinHealthMetric(analysis);
   const contributors = skinStory?.contributors ?? [];
-  const avoid = ['Retinoids', 'Strong exfoliation', 'High-heat treatments'];
+  const avoid = buildAvoidTags(analysis);
 
   return (
     <AppShell>
-      <BackLink href={'/check-in' as Href} />
+      <BackLink href={'/environment' as Href} />
       <ScreenHeader
         eyebrow={entryDate ? formatDisplayDate(entryDate) : 'Test day'}
         title={skinStory?.headline ?? "Preparing today's skin story."}
@@ -112,15 +112,52 @@ export default function SkinStoryScreen() {
       ) : null}
 
       <Card style={styles.heroCard}>
-        <MetricRing value={`${metric.value}%`} label={metric.label} />
+        <MetricRing value={String(metric.value)} label={metric.label} />
         <View style={styles.priority}>
-          <SubstrateText variant="section">Today's priority</SubstrateText>
+          <SubstrateText variant="section">{formatScoreBand(analysis.scoreBand)}</SubstrateText>
+          {typeof analysis.scoreDelta === 'number' ? (
+            <SubstrateText variant="small" color={getDeltaColor(analysis.scoreDelta)}>
+              {formatScoreDelta(analysis.scoreDelta)} from last check-in
+            </SubstrateText>
+          ) : (
+            <SubstrateText variant="small" color={Colors.light.textMuted}>
+              First scored check-in
+            </SubstrateText>
+          )}
           <SubstrateText variant="body">{skinStory?.priority ?? 'Complete today’s check-in to personalize this.'}</SubstrateText>
         </View>
       </Card>
 
+      {analysis.environment ? (
+        <Card style={styles.card}>
+          <View style={styles.environmentHeader}>
+            <SubstrateText variant="section">Environment signals</SubstrateText>
+            {analysis.environment.locationLabel ? (
+              <SubstrateText variant="tag">{analysis.environment.locationLabel}</SubstrateText>
+            ) : null}
+          </View>
+          <View style={styles.list}>
+            <SignalRow label="UV index" detail={formatNumber(analysis.environment.uvIndex)} compact />
+            <SignalRow label="Humidity" detail={formatPercent(analysis.environment.humidity)} compact />
+            <SignalRow label="Air quality" detail={formatAqi(analysis.environment.usAqi)} compact />
+          </View>
+        </Card>
+      ) : null}
+
+      {analysis.photoAnalysis?.analyzedAt ? (
+        <Card style={styles.card}>
+          <SubstrateText variant="section">Photo signals</SubstrateText>
+          <View style={styles.list}>
+            <SignalRow label="Redness" detail={formatNumber(analysis.photoAnalysis.redness)} compact />
+            <SignalRow label="Dryness" detail={formatNumber(analysis.photoAnalysis.dryness)} compact />
+            <SignalRow label="Congestion" detail={formatNumber(analysis.photoAnalysis.congestion)} compact />
+            <SignalRow label="Recovery fatigue" detail={formatNumber(analysis.photoAnalysis.fatigue)} compact />
+          </View>
+        </Card>
+      ) : null}
+
       <Card style={styles.card}>
-        <SubstrateText variant="section">Potential contributors</SubstrateText>
+        <SubstrateText variant="section">Top drivers</SubstrateText>
         <View style={styles.list}>
           {contributors.length > 0 ? contributors.map((item) => (
             <SignalRow key={item.label} label={item.label} detail={item.detail} />
@@ -158,7 +195,11 @@ export default function SkinStoryScreen() {
   );
 }
 
-function getPrimaryMetric(analysis: AnalysisSignals) {
+function getSkinHealthMetric(analysis: AnalysisSignals) {
+  if (typeof analysis.skinHealthScore === 'number') {
+    return { label: 'skin health score', value: analysis.skinHealthScore };
+  }
+
   const entries = [
     { label: 'reactivity signal', value: analysis.redness ?? 0 },
     { label: 'dryness signal', value: analysis.dryness ?? 0 },
@@ -167,6 +208,62 @@ function getPrimaryMetric(analysis: AnalysisSignals) {
   ];
 
   return entries.sort((a, b) => b.value - a.value)[0] ?? entries[0];
+}
+
+function formatScoreBand(scoreBand: AnalysisSignals['scoreBand']) {
+  if (scoreBand === 'stable') return 'Stable and resilient';
+  if (scoreBand === 'balanced') return 'Generally balanced';
+  if (scoreBand === 'stressed') return 'Some stress showing';
+  if (scoreBand === 'reactive') return 'Elevated reactivity';
+  if (scoreBand === 'high_stress') return 'High skin stress state';
+  return "Today's priority";
+}
+
+function formatScoreDelta(delta: number) {
+  if (delta > 0) return `+${delta}`;
+  return String(delta);
+}
+
+function getDeltaColor(delta: number) {
+  if (delta > 0) return '#3D7D55';
+  if (delta < 0) return Colors.light.accentDeep;
+  return Colors.light.textMuted;
+}
+
+function buildAvoidTags(analysis: AnalysisSignals) {
+  const negativeDrivers = analysis.drivers?.filter((driver) => driver.direction === 'negative') ?? [];
+  const tags = ['Strong exfoliation', 'High-heat treatments'];
+
+  if (negativeDrivers.some((driver) => driver.label === 'Strong actives')) {
+    tags.unshift('Retinoids');
+  }
+  if (negativeDrivers.some((driver) => driver.label.includes('alcohol'))) {
+    tags.push('Dehydrating masks');
+  }
+  if (negativeDrivers.some((driver) => driver.label.includes('UV'))) {
+    tags.push('Unprotected midday sun');
+  }
+
+  return Array.from(new Set(tags)).slice(0, 4);
+}
+
+function formatNumber(value?: number) {
+  return typeof value === 'number' ? value.toFixed(1) : 'Not available';
+}
+
+function formatPercent(value?: number) {
+  return typeof value === 'number' ? `${Math.round(value)}%` : 'Not available';
+}
+
+function formatAqi(value?: number) {
+  if (typeof value !== 'number') {
+    return 'Not available';
+  }
+
+  if (value <= 50) return `${Math.round(value)} · Good`;
+  if (value <= 100) return `${Math.round(value)} · Moderate`;
+  if (value <= 150) return `${Math.round(value)} · Sensitive`;
+  return `${Math.round(value)} · Elevated`;
 }
 
 const styles = StyleSheet.create({
@@ -185,6 +282,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   card: {
+    gap: Spacing.two,
+  },
+  environmentHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: Spacing.two,
   },
   avoidCard: {

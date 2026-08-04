@@ -15,7 +15,8 @@ import {
 import { Colors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { formatDisplayDate, getActiveEntryDate, getOrCreateDailyEntry } from '@/services/daily-entries';
-import { getLatestDailyPhoto, uploadDailyPhoto } from '@/services/photos';
+import { analyzeDailyPhoto, getLatestDailyPhoto, toPhotoAnalysis, uploadDailyPhoto } from '@/services/photos';
+import type { PhotoAnalysis } from '@/types/database';
 
 const checklist = [
   'Face the camera directly',
@@ -31,9 +32,11 @@ export default function PhotoScreen() {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [photoAnalysis, setPhotoAnalysis] = useState<PhotoAnalysis | null>(null);
   const [entryDate, setEntryDate] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -77,8 +80,27 @@ export default function PhotoScreen() {
         }
 
         setPhotoUri(photo.data?.signedUrl ?? null);
+
+        const loadedAnalysis = toPhotoAnalysis(photo.data?.photo.quality_checks);
+        setPhotoAnalysis(loadedAnalysis ?? null);
         setStatusMessage(photo.data ? 'Loaded this test day’s saved photo.' : '');
         setIsLoading(false);
+
+        if (photo.data?.photo.id && !loadedAnalysis?.analyzedAt) {
+          setIsAnalyzing(true);
+          const analyzed = await analyzeDailyPhoto(photo.data.photo.id);
+
+          if (!isMounted) {
+            return;
+          }
+
+          setIsAnalyzing(false);
+
+          if (analyzed.data) {
+            setPhotoAnalysis(analyzed.data);
+            setStatusMessage('Loaded and analyzed this test day’s saved photo.');
+          }
+        }
       }
 
       loadPhotoState();
@@ -133,6 +155,7 @@ export default function PhotoScreen() {
     const image = result.assets[0];
     setPhotoUri(image.uri);
     setIsUploading(true);
+    setPhotoAnalysis(null);
     setErrorMessage('');
     setStatusMessage('Uploading photo to your private entry.');
 
@@ -156,7 +179,22 @@ export default function PhotoScreen() {
       setPhotoUri(savedPhoto.data.signedUrl);
     }
 
-    setStatusMessage('Photo saved to Supabase.');
+    setStatusMessage('Photo saved. Running basic image analysis.');
+
+    if (upload.data?.id) {
+      setIsAnalyzing(true);
+      const analyzed = await analyzeDailyPhoto(upload.data.id);
+      setIsAnalyzing(false);
+
+      if (analyzed.data) {
+        setPhotoAnalysis(analyzed.data);
+        setStatusMessage('Photo saved and analyzed.');
+      } else {
+        setStatusMessage('Photo saved. Analysis will run later if configured.');
+      }
+    } else {
+      setStatusMessage('Photo saved to Supabase.');
+    }
   }
 
   return (
@@ -178,14 +216,30 @@ export default function PhotoScreen() {
             contentFit="contain"
           />
         )}
-        {isLoading || isUploading ? (
+        {isLoading || isUploading || isAnalyzing ? (
           <View style={styles.photoOverlay}>
             <ActivityIndicator color={Colors.light.accent} />
           </View>
         ) : null}
       </View>
 
-      <Card style={styles.card}>
+      {photoAnalysis ? (
+        <Card style={styles.card}>
+          <SubstrateText variant="section">Photo quality</SubstrateText>
+          <View style={styles.list}>
+            <QualityRow label="Face" value={photoAnalysis.faceDetected ? 'Detected' : 'Retake suggested'} />
+            <QualityRow label="Lighting" value={formatScore(photoAnalysis.lighting)} />
+            <QualityRow label="Sharpness" value={formatScore(photoAnalysis.sharpness)} />
+            <QualityRow label="Framing" value={formatScore(photoAnalysis.framing)} />
+          </View>
+          {photoAnalysis.summary ? (
+            <SubstrateText variant="small" color={Colors.light.textMuted}>
+              {photoAnalysis.summary}
+            </SubstrateText>
+          ) : null}
+        </Card>
+      ) : (
+        <Card style={styles.card}>
         <SubstrateText variant="section">For best results</SubstrateText>
         <View style={styles.list}>
           {checklist.map((item) => (
@@ -196,6 +250,7 @@ export default function PhotoScreen() {
           ))}
         </View>
       </Card>
+      )}
 
       <View style={styles.summary}>
         {errorMessage ? (
@@ -212,14 +267,14 @@ export default function PhotoScreen() {
       <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"
-          disabled={isLoading || isUploading}
+          disabled={isLoading || isUploading || isAnalyzing}
           onPress={capturePhoto}
-          style={[styles.captureRing, (isLoading || isUploading) && styles.disabled]}>
+          style={[styles.captureRing, (isLoading || isUploading || isAnalyzing) && styles.disabled]}>
           <View style={styles.captureButton} />
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          disabled={isLoading || isUploading}
+          disabled={isLoading || isUploading || isAnalyzing}
           onPress={choosePhoto}
           style={styles.libraryButton}>
           <SubstrateText variant="small" color={Colors.light.accent}>
@@ -228,14 +283,29 @@ export default function PhotoScreen() {
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          disabled={isLoading || isUploading}
+          disabled={isLoading || isUploading || isAnalyzing}
           onPress={() => router.push('/check-in' as Href)}
-          style={(isLoading || isUploading) && styles.disabled}>
+          style={(isLoading || isUploading || isAnalyzing) && styles.disabled}>
           <PrimaryButton label={photoUri ? 'Continue to Check-In' : 'Skip Photo for Now'} />
         </Pressable>
       </View>
     </AppShell>
   );
+}
+
+function QualityRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.row}>
+      <View style={styles.dot} />
+      <SubstrateText variant="small">
+        {label}: {value}
+      </SubstrateText>
+    </View>
+  );
+}
+
+function formatScore(value?: number) {
+  return typeof value === 'number' ? `${Math.round(value)}/100` : 'Not available';
 }
 
 const styles = StyleSheet.create({

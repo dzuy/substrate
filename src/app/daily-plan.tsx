@@ -70,7 +70,7 @@ export default function DailyPlanScreen() {
 
         setDailyPlan(recommendation.data.dailyPlan);
         setSafetyNotes(recommendation.data.safetyNotes);
-        setStatusMessage(recommendation.data.isGenerated ? 'Generated and saved this test day’s plan.' : 'Loaded this test day’s saved plan.');
+        setStatusMessage(recommendation.data.isGenerated ? 'Generated this test day’s plan.' : 'Loaded this test day’s saved plan.');
         setIsLoading(false);
       }
 

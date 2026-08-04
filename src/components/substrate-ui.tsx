@@ -1,5 +1,6 @@
-import { Link, type Href } from 'expo-router';
+import { Link, usePathname, useRouter, type Href } from 'expo-router';
 import { Image } from 'expo-image';
+import { ChartNoAxesColumnIncreasing, CircleUserRound, Sparkles } from 'lucide-react-native';
 import {
   Pressable,
   ScrollView,
@@ -207,6 +208,55 @@ export function MetricRing({ value, label }: { value: string; label: string }) {
   );
 }
 
+export function BottomNav() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const activeItem = getActiveNavItem(pathname);
+
+  return (
+    <SafeAreaView edges={['bottom']} style={styles.navWrap}>
+      <View style={styles.navBar}>
+        {navItems.map((item) => {
+          const isActive = activeItem === item.key;
+          const Icon = item.icon;
+
+          return (
+            <Pressable
+              key={item.key}
+              accessibilityRole="button"
+              accessibilityState={{ selected: isActive }}
+              onPress={() => router.push(item.href)}
+              style={[styles.navItem, isActive && styles.navItemActive]}>
+              <Icon
+                size={19}
+                strokeWidth={2.2}
+                color={isActive ? Colors.light.accentDeep : Colors.light.textMuted}
+              />
+              <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>{item.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const navItems = [
+  { key: 'today', label: 'Today', href: '/' as Href, icon: Sparkles },
+  { key: 'progress', label: 'Progress', href: '/progress' as Href, icon: ChartNoAxesColumnIncreasing },
+  { key: 'profile', label: 'Profile', href: '/profile' as Href, icon: CircleUserRound },
+] as const;
+
+function getActiveNavItem(pathname: string) {
+  if (pathname === '/progress') {
+    return 'progress';
+  }
+  if (pathname === '/profile') {
+    return 'profile';
+  }
+  return 'today';
+}
+
 const styles = StyleSheet.create({
   viewport: {
     flex: 1,
@@ -227,7 +277,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 14,
     paddingTop: Spacing.two,
-    paddingBottom: 12,
+    paddingBottom: 92,
   },
   header: {
     gap: Spacing.one,
@@ -397,6 +447,48 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     alignItems: 'center',
+  },
+  navWrap: {
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingBottom: Spacing.two,
+    paddingTop: Spacing.one,
+    backgroundColor: Colors.light.background,
+  },
+  navBar: {
+    width: '100%',
+    maxWidth: MaxContentWidth - 28,
+    minHeight: 62,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: 'rgba(255, 255, 255, 0.94)',
+    boxShadow: '0 10px 28px rgba(45, 23, 35, 0.10)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 6,
+  },
+  navItem: {
+    flex: 1,
+    minHeight: 50,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+  },
+  navItemActive: {
+    backgroundColor: Colors.light.backgroundSelected,
+  },
+  navLabel: {
+    color: Colors.light.textMuted,
+    fontFamily: Fonts.sans,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '400',
+  },
+  navLabelActive: {
+    color: Colors.light.accentDeep,
   },
 });
 

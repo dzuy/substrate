@@ -1,4 +1,4 @@
-import { Link, type Href, useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -11,11 +11,13 @@ import {
 } from '@/components/substrate-ui';
 import { Colors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
-import { formatDisplayDate, getActiveEntryDate } from '@/services/daily-entries';
+import { formatDisplayDate, getActiveEntryDate, getActiveOrNextEntryDate } from '@/services/daily-entries';
 
 export default function WelcomeScreen() {
-  const { signOut, user } = useAuth();
+  const router = useRouter();
+  const { user } = useAuth();
   const [entryDate, setEntryDate] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -40,6 +42,22 @@ export default function WelcomeScreen() {
       };
     }, [user])
   );
+
+  async function startTestDay() {
+    if (!user) {
+      return;
+    }
+
+    setIsStarting(true);
+    const activeDate = await getActiveOrNextEntryDate(user.id);
+    setIsStarting(false);
+
+    if (activeDate.data) {
+      setEntryDate(activeDate.data);
+    }
+
+    router.push('/photo');
+  }
 
   return (
     <AppShell contentStyle={styles.content}>
@@ -67,25 +85,10 @@ export default function WelcomeScreen() {
       </View>
 
       <View style={styles.actions}>
-        <Link href={'/photo' as Href} asChild>
-          <Pressable>
-            <PrimaryButton label="Start Today" />
-          </Pressable>
-        </Link>
-
-        <Link href={'/progress' as Href} asChild>
-          <Pressable style={styles.progressButton}>
-            <SubstrateText variant="small" color={Colors.light.accent}>
-              View Progress
-            </SubstrateText>
-          </Pressable>
-        </Link>
-
-        <Pressable accessibilityRole="button" onPress={signOut} style={styles.signOutButton}>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
-            Sign out
-          </SubstrateText>
+        <Pressable accessibilityRole="button" disabled={isStarting} onPress={startTestDay} style={isStarting && styles.disabled}>
+          <PrimaryButton label={isStarting ? 'Preparing Test Day' : 'Start Today'} />
         </Pressable>
+
       </View>
     </AppShell>
   );
@@ -117,14 +120,7 @@ const styles = StyleSheet.create({
   actions: {
     gap: Spacing.two,
   },
-  signOutButton: {
-    minHeight: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressButton: {
-    minHeight: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
+  disabled: {
+    opacity: 0.65,
   },
 });

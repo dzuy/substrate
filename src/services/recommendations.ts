@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase';
-import type { AnalysisSignals, CheckInResponses, DailyPlan, SkinStory } from '@/types/database';
+import { getEnvironmentSnapshot, toEnvironmentSnapshot } from '@/services/environment';
+import { analyzeDailyPhoto, toPhotoAnalysis } from '@/services/photos';
+import type { AnalysisSignals, CheckInResponses, DailyPlan, EnvironmentSnapshot, Json, PhotoAnalysis, SkinStory } from '@/types/database';
 
 type TodayRecommendation = {
   entryId: string;
@@ -10,6 +12,16 @@ type TodayRecommendation = {
   isGenerated: boolean;
 };
 
+type ScoreDriver = NonNullable<AnalysisSignals['drivers']>[number];
+
+type GeneratedRecommendation = Required<Pick<SkinStory, 'headline' | 'summary' | 'contributors' | 'priority'>> & {
+  dailyPlan: Required<Pick<DailyPlan, 'priorities' | 'avoid'>>;
+  safetyNotes: string[];
+  provider: string;
+  model: string;
+  rawResponse: Json | null;
+};
+
 export async function getOrCreateTodayRecommendation(userId: string, dailyEntryId: string) {
   const existing = await getLatestRecommendation(userId, dailyEntryId);
 
@@ -17,7 +29,7 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
     return existing;
   }
 
-  if (existing.data) {
+  if (existing.data && typeof existing.data.analysis.skinHealthScore === 'number') {
     return { data: { ...existing.data, isGenerated: false }, error: null };
   }
 
@@ -34,7 +46,7 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
 
   const photo = await supabase
     .from('photos')
-    .select('id')
+    .select('id, quality_checks')
     .eq('daily_entry_id', dailyEntryId)
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
@@ -45,7 +57,41 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
     return { data: null, error: photo.error };
   }
 
-  const generated = buildRecommendation(entry.data.check_in, Boolean(photo.data));
+  let photoAnalysis = toPhotoAnalysis(photo.data?.quality_checks);
+
+  if (photo.data && !photoAnalysis?.analyzedAt) {
+    const analyzed = await analyzeDailyPhoto(photo.data.id);
+    photoAnalysis = analyzed.data ?? photoAnalysis;
+  }
+
+  const environment = await getEnvironmentSnapshot(userId, dailyEntryId);
+
+  if (environment.error) {
+    return { data: null, error: environment.error };
+  }
+
+  const priorScore = await getPriorSkinHealthScore(userId, entry.data.entry_date);
+  const generated = buildRecommendation(
+    entry.data.check_in,
+    Boolean(photo.data),
+    photoAnalysis,
+    toEnvironmentSnapshot(environment.data),
+    priorScore
+  );
+
+  if (existing.data) {
+    return {
+      data: {
+        entryId: dailyEntryId,
+        analysis: generated.analysis,
+        skinStory: generated.skinStory,
+        dailyPlan: generated.dailyPlan,
+        safetyNotes: generated.safetyNotes,
+        isGenerated: true,
+      },
+      error: null,
+    };
+  }
 
   const analysis = await supabase
     .from('analysis_results')
@@ -72,16 +118,23 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
     return { data: null, error: analysis.error };
   }
 
+  const recommendationContent = await generateRecommendationCopy(dailyEntryId, entry.data.check_in, generated);
   const recommendation = await supabase
     .from('recommendation_results')
     .insert({
       user_id: userId,
       daily_entry_id: dailyEntryId,
-      provider: 'substrate-prototype',
-      model: 'rules-v1',
-      skin_story: generated.skinStory,
-      daily_plan: generated.dailyPlan,
-      safety_notes: generated.safetyNotes,
+      provider: recommendationContent.provider,
+      model: recommendationContent.model,
+      skin_story: {
+        headline: recommendationContent.headline,
+        summary: recommendationContent.summary,
+        contributors: recommendationContent.contributors,
+        priority: recommendationContent.priority,
+      },
+      daily_plan: recommendationContent.dailyPlan,
+      safety_notes: recommendationContent.safetyNotes,
+      raw_response: recommendationContent.rawResponse,
     })
     .select('*')
     .single();
@@ -103,6 +156,123 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
     },
     error: null,
   };
+}
+
+async function generateRecommendationCopy(
+  dailyEntryId: string,
+  checkIn: CheckInResponses,
+  generated: Omit<TodayRecommendation, 'entryId' | 'isGenerated'>
+): Promise<GeneratedRecommendation> {
+  const fallback = {
+    headline: generated.skinStory.headline,
+    summary: generated.skinStory.summary,
+    contributors: generated.skinStory.contributors,
+    priority: generated.skinStory.priority,
+    dailyPlan: generated.dailyPlan,
+    safetyNotes: generated.safetyNotes,
+    provider: 'substrate-prototype',
+    model: 'rules-v1',
+    rawResponse: null,
+  };
+
+  try {
+    const response = await supabase.functions.invoke('generate-recommendation', {
+      body: {
+        dailyEntryId,
+        checkIn,
+        analysis: generated.analysis,
+        fallback: {
+          skinStory: generated.skinStory,
+          dailyPlan: generated.dailyPlan,
+          safetyNotes: generated.safetyNotes,
+        },
+      },
+    });
+
+    if (response.error || !response.data) {
+      console.warn('AI recommendation generation unavailable; using rules fallback.', response.error);
+      return fallback;
+    }
+
+    const normalized = normalizeAiRecommendation(response.data);
+
+    return normalized ?? fallback;
+  } catch (error) {
+    console.warn('AI recommendation generation failed; using rules fallback.', error);
+    return fallback;
+  }
+}
+
+function normalizeAiRecommendation(data: unknown): GeneratedRecommendation | null {
+  if (!data || typeof data !== 'object') {
+    return null;
+  }
+
+  const value = data as {
+    skinStory?: SkinStory;
+    dailyPlan?: DailyPlan;
+    safetyNotes?: unknown;
+    provider?: unknown;
+    model?: unknown;
+    rawResponse?: unknown;
+  };
+  const skinStory = value.skinStory;
+  const dailyPlan = value.dailyPlan;
+
+  if (!skinStory?.headline || !skinStory.summary || !skinStory.priority || !dailyPlan?.priorities?.length || !dailyPlan.avoid?.length) {
+    return null;
+  }
+
+  return {
+    headline: skinStory.headline,
+    summary: skinStory.summary,
+    contributors: skinStory.contributors?.length ? skinStory.contributors : [],
+    priority: skinStory.priority,
+    dailyPlan: {
+      priorities: dailyPlan.priorities,
+      avoid: dailyPlan.avoid,
+    },
+    safetyNotes: Array.isArray(value.safetyNotes) ? value.safetyNotes.filter((item): item is string => typeof item === 'string') : [],
+    provider: typeof value.provider === 'string' ? value.provider : 'openai',
+    model: typeof value.model === 'string' ? value.model : 'unknown',
+    rawResponse: isJson(value.rawResponse) ? value.rawResponse : null,
+  };
+}
+
+function isJson(value: unknown): value is Json {
+  if (value === null) return true;
+  if (['string', 'number', 'boolean'].includes(typeof value)) return true;
+  if (Array.isArray(value)) return value.every(isJson);
+  if (typeof value !== 'object') return false;
+
+  return Object.values(value).every(isJson);
+}
+
+export async function getAnalysisScoresForEntries(userId: string, dailyEntryIds: string[]) {
+  if (dailyEntryIds.length === 0) {
+    return { data: {}, error: null };
+  }
+
+  const analysis = await supabase
+    .from('analysis_results')
+    .select('daily_entry_id, signals, created_at')
+    .eq('user_id', userId)
+    .in('daily_entry_id', dailyEntryIds)
+    .order('created_at', { ascending: false });
+
+  if (analysis.error) {
+    return { data: {}, error: analysis.error };
+  }
+
+  const scoresByEntryId: Record<string, AnalysisSignals> = {};
+
+  for (const result of analysis.data ?? []) {
+    if (!scoresByEntryId[result.daily_entry_id]) {
+      scoresByEntryId[result.daily_entry_id] = result.signals;
+    }
+  }
+
+  return { data: scoresByEntryId, error: null };
 }
 
 export async function getLatestRecommendation(userId: string, dailyEntryId: string) {
@@ -144,15 +314,22 @@ export async function getLatestRecommendation(userId: string, dailyEntryId: stri
   };
 }
 
-function buildRecommendation(checkIn: CheckInResponses, hasPhoto: boolean): Omit<TodayRecommendation, 'entryId' | 'isGenerated'> {
-  const inflammation = scoreInflammation(checkIn);
-  const dryness = scoreDryness(checkIn);
-  const congestion = scoreCongestion(checkIn);
-  const fatigue = scoreFatigue(checkIn);
+function buildRecommendation(
+  checkIn: CheckInResponses,
+  hasPhoto: boolean,
+  photoAnalysis?: PhotoAnalysis,
+  environment?: EnvironmentSnapshot,
+  priorScore?: number
+): Omit<TodayRecommendation, 'entryId' | 'isGenerated'> {
+  const inflammation = scoreInflammation(checkIn, photoAnalysis);
+  const dryness = scoreDryness(checkIn, photoAnalysis);
+  const congestion = scoreCongestion(checkIn, photoAnalysis);
+  const fatigue = scoreFatigue(checkIn, photoAnalysis);
+  const skinHealth = calculateSkinHealthScore(checkIn, hasPhoto, photoAnalysis, environment, priorScore);
   const topSignal = getTopSignal({ inflammation, dryness, congestion, fatigue });
-  const contributors = buildContributors(checkIn, hasPhoto);
+  const contributors = buildContributors(checkIn, hasPhoto, skinHealth.drivers);
   const avoid = buildAvoidList(checkIn, topSignal);
-  const priority = buildPriority(topSignal);
+  const priority = buildPriority(topSignal, skinHealth.scoreBand);
 
   return {
     analysis: {
@@ -160,11 +337,18 @@ function buildRecommendation(checkIn: CheckInResponses, hasPhoto: boolean): Omit
       dryness,
       congestion,
       fatigue,
-      photoQuality: hasPhoto ? 72 : 35,
+      photoQuality: calculatePhotoQuality(hasPhoto, photoAnalysis),
+      photoAnalysis,
+      environment,
+      skinHealthScore: skinHealth.score,
+      scoreBand: skinHealth.scoreBand,
+      scoreDelta: skinHealth.scoreDelta,
+      drivers: skinHealth.drivers,
+      confidence: skinHealth.confidence,
     },
     skinStory: {
-      headline: buildHeadline(topSignal),
-      summary: buildSummary(topSignal, checkIn, hasPhoto),
+      headline: buildHeadline(topSignal, skinHealth.scoreBand),
+      summary: buildSummary(topSignal, checkIn, hasPhoto, skinHealth),
       contributors,
       priority,
     },
@@ -176,37 +360,256 @@ function buildRecommendation(checkIn: CheckInResponses, hasPhoto: boolean): Omit
   };
 }
 
-function scoreInflammation(checkIn: CheckInResponses) {
+async function getPriorSkinHealthScore(userId: string, currentEntryDate: string) {
+  const entries = await supabase
+    .from('daily_entries')
+    .select('id')
+    .eq('user_id', userId)
+    .lt('entry_date', currentEntryDate)
+    .order('entry_date', { ascending: false })
+    .limit(10);
+
+  if (entries.error || !entries.data?.length) {
+    return undefined;
+  }
+
+  const entryIds = entries.data.map((entry) => entry.id);
+  const scores = await getAnalysisScoresForEntries(userId, entryIds);
+
+  if (scores.error) {
+    return undefined;
+  }
+
+  for (const entryId of entryIds) {
+    const score = scores.data[entryId]?.skinHealthScore;
+
+    if (typeof score === 'number') {
+      return score;
+    }
+  }
+
+  return undefined;
+}
+
+function calculateSkinHealthScore(
+  checkIn: CheckInResponses,
+  hasPhoto: boolean,
+  photoAnalysis?: PhotoAnalysis,
+  environment?: EnvironmentSnapshot,
+  priorScore?: number
+) {
+  const drivers: ScoreDriver[] = [];
+  let score = 100;
+
+  applyDriver(drivers, 'Poor sleep', checkIn.sleepQuality === 'Poor' ? -10 : 0);
+  applyDriver(drivers, 'Okay sleep', checkIn.sleepQuality === 'Okay' ? -4 : 0);
+  applyDriver(drivers, 'Rested sleep', checkIn.sleepQuality === 'Rested' ? 3 : 0);
+  applyDriver(drivers, 'High stress', checkIn.stressLevel === 'High' ? -12 : 0);
+  applyDriver(drivers, 'Medium stress', checkIn.stressLevel === 'Medium' ? -6 : 0);
+  applyDriver(drivers, 'Low stress', checkIn.stressLevel === 'Low' ? 3 : 0);
+  applyDriver(drivers, 'Light alcohol', checkIn.alcoholConsumption === 'Light' ? -2 : 0);
+  applyDriver(drivers, 'Moderate alcohol', checkIn.alcoholConsumption === 'Moderate' ? -6 : 0);
+  applyDriver(drivers, 'High alcohol', checkIn.alcoholConsumption === 'High' ? -12 : 0);
+  applyDriver(drivers, 'No alcohol', checkIn.alcoholConsumption === 'None' ? 2 : 0);
+  applyDriver(drivers, 'Luteal phase', checkIn.cyclePhase === 'Luteal' ? -4 : 0);
+  applyDriver(drivers, 'Menstrual phase', checkIn.cyclePhase === 'Menstrual' ? -3 : 0);
+  applyDriver(drivers, 'Strong actives', checkIn.routineChange === 'Strong actives' ? -10 : 0);
+  applyDriver(drivers, 'New product', checkIn.routineChange === 'New product' ? -5 : 0);
+  applyDriver(drivers, 'Recent treatment', checkIn.routineChange === 'Treatment' ? -8 : 0);
+  applyDriver(drivers, 'Routine consistency', checkIn.routineChange === 'No change' ? 2 : 0);
+  applyDriver(drivers, 'No saved photo', !hasPhoto ? -8 : 0);
+  applyPhotoAnalysisDrivers(drivers, hasPhoto, photoAnalysis);
+  applyEnvironmentDrivers(drivers, environment);
+
+  for (const driver of drivers) {
+    score += driver.impact;
+  }
+
+  const finalScore = clamp(score, 1, 100);
+
+  return {
+    score: finalScore,
+    scoreBand: getScoreBand(finalScore),
+    scoreDelta: typeof priorScore === 'number' ? finalScore - priorScore : undefined,
+    drivers: drivers.sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact)),
+    confidence: calculateConfidence(checkIn, hasPhoto, photoAnalysis, environment),
+  };
+}
+
+function applyPhotoAnalysisDrivers(drivers: ScoreDriver[], hasPhoto: boolean, photoAnalysis?: PhotoAnalysis) {
+  if (!hasPhoto) {
+    return;
+  }
+
+  if (!photoAnalysis?.analyzedAt) {
+    applyDriver(drivers, 'Photo analysis unavailable', -3);
+    return;
+  }
+
+  applyDriver(drivers, 'Face not clearly detected', photoAnalysis.faceDetected === false ? -12 : 0);
+  applyDriver(drivers, 'Low photo lighting', isBelow(photoAnalysis.lighting, 55) ? -4 : 0);
+  applyDriver(drivers, 'Soft photo focus', isBelow(photoAnalysis.sharpness, 55) ? -4 : 0);
+  applyDriver(drivers, 'Off-center photo', isBelow(photoAnalysis.framing, 55) ? -3 : 0);
+  applyVisualDriver(drivers, 'Visible redness', photoAnalysis.redness, -5, -10);
+  applyVisualDriver(drivers, 'Visible dryness', photoAnalysis.dryness, -4, -8);
+  applyVisualDriver(drivers, 'Visible congestion', photoAnalysis.congestion, -4, -8);
+  applyVisualDriver(drivers, 'Visible fatigue', photoAnalysis.fatigue, -3, -6);
+  applyVisualDriver(drivers, 'Uneven tone signal', photoAnalysis.toneUnevenness, -3, -6);
+
+  if (isAtLeast(photoAnalysis.lighting, 75) && isAtLeast(photoAnalysis.sharpness, 75) && isAtLeast(photoAnalysis.framing, 75)) {
+    applyDriver(drivers, 'High-quality photo', 2);
+  }
+}
+
+function applyVisualDriver(drivers: ScoreDriver[], label: string, value: number | undefined, moderateImpact: number, highImpact: number) {
+  if (typeof value !== 'number') {
+    return;
+  }
+
+  if (value >= 70) {
+    applyDriver(drivers, label, highImpact);
+  } else if (value >= 45) {
+    applyDriver(drivers, label, moderateImpact);
+  }
+}
+
+function applyEnvironmentDrivers(drivers: ScoreDriver[], environment?: EnvironmentSnapshot) {
+  if (!environment) {
+    applyDriver(drivers, 'No environment data', -5);
+    return;
+  }
+
+  const uvIndex = environment.uvIndex;
+  const humidity = environment.humidity;
+  const usAqi = environment.usAqi;
+  const pm25 = environment.pm25;
+  const temperatureF = environment.temperatureF;
+
+  if (typeof uvIndex === 'number') {
+    if (uvIndex >= 8) {
+      applyDriver(drivers, 'Very high UV', -8);
+    } else if (uvIndex >= 6) {
+      applyDriver(drivers, 'High UV', -4);
+    } else if (uvIndex <= 2) {
+      applyDriver(drivers, 'Low UV exposure', 1);
+    }
+  }
+
+  if (typeof humidity === 'number') {
+    if (humidity < 30) {
+      applyDriver(drivers, 'Very low humidity', -7);
+    } else if (humidity < 40) {
+      applyDriver(drivers, 'Low humidity', -4);
+    } else if (humidity >= 40 && humidity <= 60) {
+      applyDriver(drivers, 'Balanced humidity', 2);
+    }
+  }
+
+  if (typeof usAqi === 'number') {
+    if (usAqi > 150) {
+      applyDriver(drivers, 'Elevated air quality risk', -10);
+    } else if (usAqi > 100) {
+      applyDriver(drivers, 'Poor air quality', -6);
+    } else if (usAqi > 50) {
+      applyDriver(drivers, 'Moderate air quality', -3);
+    }
+  }
+
+  if (typeof pm25 === 'number' && pm25 > 35) {
+    applyDriver(drivers, 'Elevated PM2.5', -4);
+  }
+
+  if (typeof temperatureF === 'number') {
+    if (temperatureF >= 90) {
+      applyDriver(drivers, 'High heat', -4);
+    } else if (temperatureF <= 35) {
+      applyDriver(drivers, 'Cold air exposure', -3);
+    }
+  }
+}
+
+function applyDriver(drivers: ScoreDriver[], label: string, impact: number) {
+  if (impact === 0) {
+    return;
+  }
+
+  drivers.push({
+    label,
+    impact,
+    direction: impact > 0 ? 'positive' : 'negative',
+  });
+}
+
+function getScoreBand(score: number): NonNullable<AnalysisSignals['scoreBand']> {
+  if (score >= 85) return 'stable';
+  if (score >= 70) return 'balanced';
+  if (score >= 55) return 'stressed';
+  if (score >= 40) return 'reactive';
+  return 'high_stress';
+}
+
+function calculateConfidence(
+  checkIn: CheckInResponses,
+  hasPhoto: boolean,
+  photoAnalysis?: PhotoAnalysis,
+  environment?: EnvironmentSnapshot
+) {
+  const requiredSignals = [
+    checkIn.sleepQuality,
+    checkIn.stressLevel,
+    checkIn.alcoholConsumption,
+    checkIn.cyclePhase,
+    checkIn.routineChange,
+  ];
+  const completedSignals = requiredSignals.filter(Boolean).length;
+  const missingSignals = requiredSignals.length - completedSignals;
+  const baseConfidence = hasPhoto ? 70 : 45;
+  const environmentBoost = environment ? 8 : -6;
+  const photoAnalysisBoost = photoAnalysis?.analyzedAt ? 10 : hasPhoto ? -3 : 0;
+
+  return clamp(baseConfidence + completedSignals * 3 - missingSignals * 5 + environmentBoost + photoAnalysisBoost, 0, 100);
+}
+
+function scoreInflammation(checkIn: CheckInResponses, photoAnalysis?: PhotoAnalysis) {
   let score = 8;
-  if (checkIn.skinFeel === 'Reactive') score += 14;
   if (checkIn.stressLevel === 'High') score += 10;
   if (checkIn.stressLevel === 'Medium') score += 6;
   if (checkIn.sleepQuality === 'Poor') score += 8;
+  if (checkIn.alcoholConsumption === 'Moderate') score += 6;
+  if (checkIn.alcoholConsumption === 'High') score += 10;
   if (checkIn.cyclePhase === 'Luteal') score += 5;
+  if (checkIn.cyclePhase === 'Menstrual') score += 4;
+  if (checkIn.routineChange === 'Strong actives' || checkIn.routineChange === 'Treatment') score += 10;
+  score += scaleVisualSignal(photoAnalysis?.redness, 0.35);
   return clamp(score);
 }
 
-function scoreDryness(checkIn: CheckInResponses) {
+function scoreDryness(checkIn: CheckInResponses, photoAnalysis?: PhotoAnalysis) {
   let score = 7;
-  if (checkIn.skinFeel === 'Dry') score += 18;
-  if (checkIn.activityLevel === 'Intense') score += 5;
   if (checkIn.sleepQuality === 'Poor') score += 4;
+  if (checkIn.alcoholConsumption === 'Moderate') score += 5;
+  if (checkIn.alcoholConsumption === 'High') score += 9;
+  if (checkIn.routineChange === 'Strong actives') score += 8;
+  score += scaleVisualSignal(photoAnalysis?.dryness, 0.35);
   return clamp(score);
 }
 
-function scoreCongestion(checkIn: CheckInResponses) {
+function scoreCongestion(checkIn: CheckInResponses, photoAnalysis?: PhotoAnalysis) {
   let score = 6;
-  if (checkIn.skinFeel === 'Congested') score += 18;
   if (checkIn.stressLevel === 'High') score += 6;
   if (checkIn.cyclePhase === 'Luteal') score += 6;
+  if (checkIn.cyclePhase === 'Menstrual') score += 4;
+  if (checkIn.routineChange === 'New product') score += 5;
+  score += scaleVisualSignal(photoAnalysis?.congestion, 0.35);
   return clamp(score);
 }
 
-function scoreFatigue(checkIn: CheckInResponses) {
+function scoreFatigue(checkIn: CheckInResponses, photoAnalysis?: PhotoAnalysis) {
   let score = 5;
   if (checkIn.sleepQuality === 'Poor') score += 18;
   if (checkIn.sleepQuality === 'Okay') score += 9;
   if (checkIn.stressLevel === 'High') score += 7;
+  score += scaleVisualSignal(photoAnalysis?.fatigue, 0.3);
   return clamp(score);
 }
 
@@ -214,33 +617,63 @@ function getTopSignal(scores: Record<string, number>) {
   return Object.entries(scores).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'inflammation';
 }
 
-function buildHeadline(topSignal: string) {
+function buildHeadline(topSignal: string, scoreBand: NonNullable<AnalysisSignals['scoreBand']>) {
+  if (scoreBand === 'stable') return 'Your skin health score looks stable today.';
+  if (scoreBand === 'balanced') return 'Your skin health score is generally balanced today.';
+  if (scoreBand === 'high_stress') return 'Your skin health score shows a high-stress day.';
   if (topSignal === 'dryness') return 'Your skin may need more barrier support today.';
   if (topSignal === 'congestion') return 'Your skin may be trending more congested today.';
   if (topSignal === 'fatigue') return 'Your skin may be showing recovery stress today.';
   return 'Your skin may be more reactive today.';
 }
 
-function buildSummary(topSignal: string, checkIn: CheckInResponses, hasPhoto: boolean) {
+function buildSummary(
+  topSignal: string,
+  checkIn: CheckInResponses,
+  hasPhoto: boolean,
+  skinHealth: ReturnType<typeof calculateSkinHealthScore>
+) {
   const photoCopy = hasPhoto ? 'paired with today’s photo' : 'without a saved photo yet';
-  return `Based on your check-in ${photoCopy}, the strongest prototype signal is ${topSignal}. Current analysis is rules-based and intentionally conservative.`;
+  const deltaCopy =
+    typeof skinHealth.scoreDelta === 'number'
+      ? ` This is ${formatDelta(skinHealth.scoreDelta)} from your last scored check-in.`
+      : ' This is your first scored check-in.';
+
+  return `Based on your check-in ${photoCopy}, your Skin Health Score is ${skinHealth.score}. The strongest prototype signal is ${topSignal}.${deltaCopy}`;
 }
 
-function buildPriority(topSignal: string) {
+function buildPriority(topSignal: string, scoreBand?: NonNullable<AnalysisSignals['scoreBand']>) {
+  if (scoreBand === 'stable') return 'Keep your routine consistent and preserve the baseline.';
+  if (scoreBand === 'balanced') return 'Maintain consistency and avoid adding unnecessary variables.';
+  if (scoreBand === 'high_stress') return 'Simplify aggressively and focus on recovery.';
   if (topSignal === 'dryness') return 'Rebuild hydration and reduce friction.';
   if (topSignal === 'congestion') return 'Keep pores clear without over-stripping.';
   if (topSignal === 'fatigue') return 'Prioritize recovery and reduce unnecessary actives.';
   return 'Calm inflammation and support the skin barrier.';
 }
 
-function buildContributors(checkIn: CheckInResponses, hasPhoto: boolean) {
+function buildContributors(checkIn: CheckInResponses, hasPhoto: boolean, drivers: ScoreDriver[]) {
   const contributors: Array<{ label: string; detail: string }> = [];
+  const driverContributors = drivers
+    .filter((driver) => driver.direction === 'negative')
+    .slice(0, 4)
+    .map((driver) => ({
+      label: driver.label,
+      detail: `${Math.abs(driver.impact)} point impact on today’s Skin Health Score.`,
+    }));
+
+  if (driverContributors.length > 0) {
+    return driverContributors;
+  }
 
   if (checkIn.sleepQuality === 'Poor') contributors.push({ label: 'Poor sleep', detail: 'Lower recovery may increase visible stress signals.' });
   if (checkIn.stressLevel === 'High' || checkIn.stressLevel === 'Medium') contributors.push({ label: `${checkIn.stressLevel} stress`, detail: 'Stress can amplify reactivity and uneven tone.' });
+  if (checkIn.alcoholConsumption === 'Moderate' || checkIn.alcoholConsumption === 'High') contributors.push({ label: `${checkIn.alcoholConsumption} alcohol`, detail: 'Alcohol may affect hydration, recovery, and visible redness.' });
   if (checkIn.cyclePhase === 'Luteal') contributors.push({ label: 'Luteal phase', detail: 'Barrier and blemish sensitivity may be elevated.' });
-  if (checkIn.activityLevel === 'Intense') contributors.push({ label: 'Intense activity', detail: 'Heat and sweat may add temporary irritation.' });
-  if (checkIn.skinFeel) contributors.push({ label: `${checkIn.skinFeel} skin feel`, detail: 'Your self-reported skin state is weighted in the plan.' });
+  if (checkIn.cyclePhase === 'Menstrual') contributors.push({ label: 'Menstrual phase', detail: 'Inflammation and sensitivity can shift during this phase.' });
+  if (checkIn.routineChange === 'Strong actives') contributors.push({ label: 'Strong actives', detail: 'Retinoids or exfoliants may increase short-term sensitivity.' });
+  if (checkIn.routineChange === 'New product') contributors.push({ label: 'New product', detail: 'New variables can make changes harder to interpret.' });
+  if (checkIn.routineChange === 'Treatment') contributors.push({ label: 'Recent treatment', detail: 'Professional or at-home treatments can temporarily affect redness.' });
   if (!hasPhoto) contributors.push({ label: 'No saved photo', detail: 'Add a photo to improve future comparison quality.' });
 
   return contributors.slice(0, 4);
@@ -269,6 +702,12 @@ function buildPlan(topSignal: string, checkIn: CheckInResponses) {
       detail: 'Your context signals suggest recovery should be part of the skincare plan.',
       actions: ['Prioritize sleep tonight', 'Avoid high-heat treatments', 'Keep evening routine short'],
     });
+  } else if (checkIn.alcoholConsumption === 'Moderate' || checkIn.alcoholConsumption === 'High') {
+    base.push({
+      title: '3. Rehydrate and protect',
+      detail: 'Alcohol can make hydration and barrier support more important today.',
+      actions: ['Add a hydrating layer', 'Use barrier moisturizer', 'Keep SPF consistent'],
+    });
   } else {
     base.push({
       title: '3. Maintain consistency',
@@ -283,13 +722,52 @@ function buildPlan(topSignal: string, checkIn: CheckInResponses) {
 function buildAvoidList(checkIn: CheckInResponses, topSignal: string) {
   const avoid = ['Strong exfoliation', 'High-heat treatments'];
 
-  if (topSignal === 'inflammation' || checkIn.skinFeel === 'Reactive') avoid.unshift('Retinoids');
+  if (topSignal === 'inflammation' || checkIn.routineChange === 'Strong actives') avoid.unshift('Retinoids');
   if (topSignal === 'dryness') avoid.unshift('Foaming cleansers');
   if (topSignal === 'congestion') avoid.unshift('Heavy facial oils');
+  if (checkIn.alcoholConsumption === 'Moderate' || checkIn.alcoholConsumption === 'High') avoid.push('Dehydrating masks');
 
   return Array.from(new Set(avoid)).slice(0, 4);
 }
 
-function clamp(value: number) {
-  return Math.max(0, Math.min(100, value));
+function clamp(value: number, min = 0, max = 100) {
+  return Math.max(min, Math.min(max, value));
+}
+
+function calculatePhotoQuality(hasPhoto: boolean, photoAnalysis?: PhotoAnalysis) {
+  if (!hasPhoto) {
+    return 35;
+  }
+
+  if (!photoAnalysis?.analyzedAt) {
+    return 72;
+  }
+
+  const qualityScores = [photoAnalysis.lighting, photoAnalysis.sharpness, photoAnalysis.framing].filter(
+    (value): value is number => typeof value === 'number'
+  );
+
+  if (qualityScores.length === 0) {
+    return 72;
+  }
+
+  return Math.round(qualityScores.reduce((total, value) => total + value, 0) / qualityScores.length);
+}
+
+function scaleVisualSignal(value: number | undefined, weight: number) {
+  return typeof value === 'number' ? Math.round(value * weight) : 0;
+}
+
+function isBelow(value: number | undefined, threshold: number) {
+  return typeof value === 'number' && value < threshold;
+}
+
+function isAtLeast(value: number | undefined, threshold: number) {
+  return typeof value === 'number' && value >= threshold;
+}
+
+function formatDelta(delta: number) {
+  if (delta > 0) return `up ${delta} points`;
+  if (delta < 0) return `down ${Math.abs(delta)} points`;
+  return 'unchanged';
 }
