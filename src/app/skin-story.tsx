@@ -1,5 +1,6 @@
-import { Link, type Href } from 'expo-router';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Link, type Href, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import {
   AppShell,
@@ -12,48 +13,141 @@ import {
   SubstrateText,
 } from '@/components/substrate-ui';
 import { Colors, Spacing } from '@/constants/theme';
-
-const contributors = [
-  { label: 'Poor sleep', detail: '7h 12m with reduced recovery' },
-  { label: 'High UV exposure', detail: 'Peak index was elevated today' },
-  { label: 'Luteal phase', detail: 'Barrier may be more reactive' },
-];
+import { useAuth } from '@/lib/auth-context';
+import { formatDisplayDate, getActiveEntryDate, getOrCreateDailyEntry } from '@/services/daily-entries';
+import { getOrCreateTodayRecommendation } from '@/services/recommendations';
+import type { AnalysisSignals, SkinStory } from '@/types/database';
 
 export default function SkinStoryScreen() {
+  const { user } = useAuth();
+  const [analysis, setAnalysis] = useState<AnalysisSignals>({});
+  const [skinStory, setSkinStory] = useState<SkinStory | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [entryDate, setEntryDate] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+
+      async function loadStory() {
+        if (!user) {
+          setIsLoading(false);
+          return;
+        }
+
+        setIsLoading(true);
+        setErrorMessage('');
+
+        const activeDate = await getActiveEntryDate(user.id);
+        const entry = await getOrCreateDailyEntry(user.id, activeDate);
+
+        if (!isMounted) return;
+
+        if (entry.error || !entry.data) {
+          setErrorMessage(entry.error?.message ?? "Couldn't load today's entry.");
+          setIsLoading(false);
+          return;
+        }
+
+        setEntryDate(activeDate);
+        const recommendation = await getOrCreateTodayRecommendation(user.id, entry.data.id);
+
+        if (!isMounted) return;
+
+        if (recommendation.error || !recommendation.data) {
+          setErrorMessage(recommendation.error?.message ?? "Couldn't generate today's story.");
+          setIsLoading(false);
+          return;
+        }
+
+        setAnalysis(recommendation.data.analysis);
+        setSkinStory(recommendation.data.skinStory);
+        setStatusMessage(
+          recommendation.data.isGenerated
+            ? 'Generated and saved this test day’s story.'
+            : 'Loaded this test day’s saved story.'
+        );
+        setIsLoading(false);
+      }
+
+      loadStory();
+
+      return () => {
+        isMounted = false;
+      };
+    }, [user])
+  );
+
+  const metric = getPrimaryMetric(analysis);
+  const contributors = skinStory?.contributors ?? [];
+  const avoid = ['Retinoids', 'Strong exfoliation', 'High-heat treatments'];
+
   return (
     <AppShell>
       <BackLink href={'/check-in' as Href} />
       <ScreenHeader
-        eyebrow="Today"
-        title="Your skin appears more inflamed today."
-        body="Visible redness and reactivity are trending above your recent baseline."
+        eyebrow={entryDate ? formatDisplayDate(entryDate) : 'Test day'}
+        title={skinStory?.headline ?? "Preparing today's skin story."}
+        body={skinStory?.summary ?? 'Substrate is reading your saved photo and check-in signals.'}
       />
 
+      {isLoading ? (
+        <View style={styles.loading}>
+          <ActivityIndicator color={Colors.light.accent} />
+          <SubstrateText variant="small" color={Colors.light.textMuted}>
+            Loading saved signals
+          </SubstrateText>
+        </View>
+      ) : null}
+
+      {errorMessage ? (
+        <Card style={styles.errorCard}>
+          <SubstrateText variant="section">Story unavailable</SubstrateText>
+          <SubstrateText variant="small" color={Colors.light.accentDeep}>
+            {errorMessage}
+          </SubstrateText>
+        </Card>
+      ) : null}
+
       <Card style={styles.heroCard}>
-        <MetricRing value="12%" label="more inflamed than baseline" />
+        <MetricRing value={`${metric.value}%`} label={metric.label} />
         <View style={styles.priority}>
           <SubstrateText variant="section">Today's priority</SubstrateText>
-          <SubstrateText variant="body">Calm inflammation and support the skin barrier.</SubstrateText>
+          <SubstrateText variant="body">{skinStory?.priority ?? 'Complete today’s check-in to personalize this.'}</SubstrateText>
         </View>
       </Card>
 
       <Card style={styles.card}>
         <SubstrateText variant="section">Potential contributors</SubstrateText>
         <View style={styles.list}>
-          {contributors.map((item) => (
+          {contributors.length > 0 ? contributors.map((item) => (
             <SignalRow key={item.label} label={item.label} detail={item.detail} />
-          ))}
+          )) : (
+            <SubstrateText variant="small" color={Colors.light.textMuted}>
+              Complete today’s check-in to identify likely contributors.
+            </SubstrateText>
+          )}
         </View>
       </Card>
 
       <Card style={styles.avoidCard}>
         <SubstrateText variant="section">What to avoid today</SubstrateText>
         <View style={styles.tags}>
-          <SubstrateText variant="tag">Retinoids</SubstrateText>
-          <SubstrateText variant="tag">Strong exfoliation</SubstrateText>
-          <SubstrateText variant="tag">High-heat treatments</SubstrateText>
+          {avoid.map((item) => (
+            <SubstrateText key={item} variant="tag">
+              {item}
+            </SubstrateText>
+          ))}
         </View>
       </Card>
+
+      <View style={styles.summary}>
+        <SubstrateText variant="small" color={Colors.light.textMuted}>
+          {statusMessage || 'Prototype analysis uses saved inputs and conservative rules.'}
+        </SubstrateText>
+      </View>
 
       <Link href={'/daily-plan' as Href} asChild>
         <Pressable style={styles.next}>
@@ -64,7 +158,24 @@ export default function SkinStoryScreen() {
   );
 }
 
+function getPrimaryMetric(analysis: AnalysisSignals) {
+  const entries = [
+    { label: 'reactivity signal', value: analysis.redness ?? 0 },
+    { label: 'dryness signal', value: analysis.dryness ?? 0 },
+    { label: 'congestion signal', value: analysis.congestion ?? 0 },
+    { label: 'recovery signal', value: analysis.fatigue ?? 0 },
+  ];
+
+  return entries.sort((a, b) => b.value - a.value)[0] ?? entries[0];
+}
+
 const styles = StyleSheet.create({
+  loading: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: Spacing.two,
+    paddingHorizontal: Spacing.one,
+  },
   heroCard: {
     alignItems: 'center',
     gap: Spacing.two,
@@ -80,6 +191,10 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     backgroundColor: Colors.light.warningSoft,
   },
+  errorCard: {
+    gap: Spacing.one,
+    backgroundColor: Colors.light.blush,
+  },
   list: {
     gap: Spacing.two,
   },
@@ -91,5 +206,8 @@ const styles = StyleSheet.create({
   next: {
     marginTop: 'auto',
     paddingTop: Spacing.two,
+  },
+  summary: {
+    paddingHorizontal: Spacing.one,
   },
 });
