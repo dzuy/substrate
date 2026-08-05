@@ -48,6 +48,7 @@ export default function EnvironmentScreen() {
 
         setIsLoading(true);
         setErrorMessage('');
+        setSnapshot(null);
 
         const activeDate = await getActiveEntryDate(user.id);
         const entry = await getOrCreateDailyEntry(user.id, activeDate);
@@ -63,26 +64,6 @@ export default function EnvironmentScreen() {
         }
 
         setEntryId(entry.data.id);
-
-        const existing = await getEnvironmentSnapshot(user.id, entry.data.id);
-
-        if (!isMounted) {
-          return;
-        }
-
-        if (existing.error) {
-          setErrorMessage(existing.error.message);
-          setIsLoading(false);
-          return;
-        }
-
-        const loadedSnapshot = toEnvironmentSnapshot(existing.data);
-        if (loadedSnapshot) {
-          setSnapshot(loadedSnapshot);
-          setStatusMessage('Loaded saved environment data for this test day.');
-          setIsLoading(false);
-          return;
-        }
 
         const profile = await getProfile(user.id);
 
@@ -118,6 +99,26 @@ export default function EnvironmentScreen() {
 
           setSnapshot(toEnvironmentSnapshot(saved.data) ?? null);
           setStatusMessage('Used your profile location for today’s environment.');
+          setIsLoading(false);
+          return;
+        }
+
+        const existing = await getEnvironmentSnapshot(user.id, entry.data.id);
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (existing.error) {
+          setErrorMessage(existing.error.message);
+          setIsLoading(false);
+          return;
+        }
+
+        const loadedSnapshot = toEnvironmentSnapshot(existing.data);
+        if (loadedSnapshot) {
+          setSnapshot(loadedSnapshot);
+          setStatusMessage('Loaded saved environment data for this test day.');
           setIsLoading(false);
           return;
         }
