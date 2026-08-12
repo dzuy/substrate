@@ -1,6 +1,6 @@
 import { type Href, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import {
   AppShell,
@@ -9,9 +9,10 @@ import {
   Pill,
   PrimaryButton,
   ScreenHeader,
+  StepProgress,
   SubstrateText,
 } from '@/components/substrate-ui';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Fonts, Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import {
   getActiveEntryDate,
@@ -24,7 +25,6 @@ const sleep = ['Poor', 'Okay', 'Rested'];
 const stress = ['Low', 'Medium', 'High'];
 const alcohol = ['None', 'Light', 'Moderate', 'High'];
 const cycle = ['Menstrual', 'Follicular', 'Ovulatory', 'Luteal', 'Not tracking'];
-const routine = ['No change', 'Strong actives', 'New product', 'Treatment'];
 
 export default function CheckInScreen() {
   const router = useRouter();
@@ -34,12 +34,10 @@ export default function CheckInScreen() {
   const [stressLevel, setStressLevel] = useState<NonNullable<CheckInResponses['stressLevel']>>('Medium');
   const [alcoholConsumption, setAlcoholConsumption] = useState<NonNullable<CheckInResponses['alcoholConsumption']>>('None');
   const [cyclePhase, setCyclePhase] = useState<NonNullable<CheckInResponses['cyclePhase']>>('Luteal');
-  const [routineChange, setRoutineChange] = useState<NonNullable<CheckInResponses['routineChange']>>('No change');
+  const [routineNote, setRoutineNote] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
-  const [saveMessage, setSaveMessage] = useState('');
-  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -72,8 +70,6 @@ export default function CheckInScreen() {
 
         setEntryId(data.id);
         hydrateCheckIn(data.check_in);
-        setLastSavedAt(hasCheckInResponses(data.check_in) ? data.updated_at : null);
-        setSaveMessage(hasCheckInResponses(data.check_in) ? 'Loaded saved responses for this test day.' : '');
         setIsLoading(false);
       }
 
@@ -98,8 +94,10 @@ export default function CheckInScreen() {
     if (checkIn.cyclePhase) {
       setCyclePhase(checkIn.cyclePhase);
     }
-    if (checkIn.routineChange) {
-      setRoutineChange(checkIn.routineChange);
+    if (checkIn.routineNote) {
+      setRoutineNote(checkIn.routineNote);
+    } else if (checkIn.routineChange && checkIn.routineChange !== 'No change') {
+      setRoutineNote(checkIn.routineChange);
     }
   }
 
@@ -111,14 +109,13 @@ export default function CheckInScreen() {
 
     setIsSaving(true);
     setSaveError('');
-    setSaveMessage('');
 
-    const { data, error } = await saveDailyCheckIn(entryId, {
+    const { error } = await saveDailyCheckIn(entryId, {
       sleepQuality,
       stressLevel,
       alcoholConsumption,
       cyclePhase,
-      routineChange,
+      routineNote: routineNote.trim() || undefined,
     });
 
     setIsSaving(false);
@@ -128,16 +125,14 @@ export default function CheckInScreen() {
       return;
     }
 
-    setLastSavedAt(data?.updated_at ?? new Date().toISOString());
-    setSaveMessage('Check-in saved to Supabase.');
     router.push('/environment');
   }
 
   return (
     <AppShell>
       <BackLink href={'/photo' as Href} />
+      <StepProgress currentStep={2} totalSteps={5} currentLabel="Check-in" nextLabel="Environment" />
       <ScreenHeader
-        eyebrow="Step 2"
         title="Daily check-in"
       />
 
@@ -195,30 +190,27 @@ export default function CheckInScreen() {
           ))}
         </Question>
 
-        <Question title="Anything different in your routine?">
-          {routine.map((item) => (
-            <Pill
-              key={item}
-              label={item}
-              selected={routineChange === item}
-              onPress={() => setRoutineChange(item as NonNullable<CheckInResponses['routineChange']>)}
-            />
-          ))}
+        <Question title="Anything different to note?">
+          <TextInput
+            autoCapitalize="sentences"
+            autoCorrect
+            onChangeText={setRoutineNote}
+            placeholder="Optional note"
+            placeholderTextColor={Colors.light.textMuted}
+            returnKeyType="done"
+            style={styles.input}
+            value={routineNote}
+          />
         </Question>
       </Card>
 
-      <View style={styles.summary}>
-        {saveError ? (
+      {saveError ? (
+        <View style={styles.summary}>
           <SubstrateText variant="small" color={Colors.light.accentDeep}>
             {saveError}
           </SubstrateText>
-        ) : (
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
-            {saveMessage || "Your responses save to this test day's private entry."}
-            {lastSavedAt ? ` Last saved ${formatTime(lastSavedAt)}.` : ''}
-          </SubstrateText>
-        )}
-      </View>
+        </View>
+      ) : null}
 
       <Pressable
         accessibilityRole="button"
@@ -240,20 +232,9 @@ function Question({ title, children }: { title: string; children: React.ReactNod
   );
 }
 
-function hasCheckInResponses(checkIn: CheckInResponses) {
-  return Object.keys(checkIn).length > 0;
-}
-
-function formatTime(value: string) {
-  return new Intl.DateTimeFormat(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  }).format(new Date(value));
-}
-
 const styles = StyleSheet.create({
   card: {
-    gap: 12,
+    gap: Spacing.three,
   },
   loading: {
     alignItems: 'center',
@@ -261,12 +242,26 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   question: {
-    gap: 6,
+    gap: Spacing.two,
   },
   pills: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: Spacing.two,
+  },
+  input: {
+    alignSelf: 'stretch',
+    width: '100%',
+    minHeight: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: '#FBF8F6',
+    color: Colors.light.text,
+    fontFamily: Fonts.sans,
+    fontSize: 15,
+    fontWeight: '500',
+    paddingHorizontal: Spacing.three,
   },
   summary: {
     paddingHorizontal: Spacing.one,

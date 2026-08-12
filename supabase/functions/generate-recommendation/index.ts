@@ -144,6 +144,7 @@ Deno.serve(async (request) => {
               text: JSON.stringify({
                 task: 'Generate JSON skin story and daily plan copy from saved Substrate prototype signals.',
                 dailyEntryId: body.dailyEntryId,
+                profileContext: body.profileContext,
                 checkIn: body.checkIn,
                 analysis: body.analysis,
                 fallback: body.fallback,
@@ -199,6 +200,10 @@ function buildInstructions() {
   return [
     'You generate concise JSON only for Substrate, a premium skincare and aesthetic-health prototype.',
     'Use the provided Skin Health Score, score band, score delta, drivers, check-in, and environment data.',
+    'Always consider profileContext when it is provided. It is part of the analysis context, not optional decoration.',
+    'Use profile context such as age range, skin type, sensitivity, goals, known triggers, and open-ended notes to personalize tone and recommendations.',
+    'When profileContext contains non-empty goals, triggers, sensitivity, skin type, or notes, reference at least one relevant profile detail across the contributors, priority, or daily plan.',
+    'Do not mention profile fields that are empty. Do not overstate profile context as a diagnosis.',
     'Do not change or invent the score. Do not claim medical diagnosis or clinical certainty.',
     'Do not identify diseases, prescribe medication, or recommend aggressive treatment.',
     'Use calm, personal, modern language for women interested in skincare and aesthetic health.',

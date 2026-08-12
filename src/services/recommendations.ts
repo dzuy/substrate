@@ -1,7 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { getEnvironmentSnapshot, toEnvironmentSnapshot } from '@/services/environment';
 import { analyzeDailyPhoto, toPhotoAnalysis } from '@/services/photos';
-import type { AnalysisSignals, CheckInResponses, DailyPlan, EnvironmentSnapshot, Json, PhotoAnalysis, SkinStory } from '@/types/database';
+import { getProfile, toProfileContext } from '@/services/profile';
+import type { AnalysisSignals, CheckInResponses, DailyPlan, EnvironmentSnapshot, Json, PhotoAnalysis, ProfileContext, SkinStory } from '@/types/database';
 
 type TodayRecommendation = {
   entryId: string;
@@ -70,6 +71,9 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
     return { data: null, error: environment.error };
   }
 
+  const profile = await getProfile(userId);
+  const profileContext = profile.error ? {} : toProfileContext(profile.data);
+
   const priorScore = await getPriorSkinHealthScore(userId, entry.data.entry_date);
   const generated = buildRecommendation(
     entry.data.check_in,
@@ -118,7 +122,7 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
     return { data: null, error: analysis.error };
   }
 
-  const recommendationContent = await generateRecommendationCopy(dailyEntryId, entry.data.check_in, generated);
+  const recommendationContent = await generateRecommendationCopy(dailyEntryId, entry.data.check_in, generated, profileContext);
   const recommendation = await supabase
     .from('recommendation_results')
     .insert({
@@ -161,9 +165,11 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
 async function generateRecommendationCopy(
   dailyEntryId: string,
   checkIn: CheckInResponses,
-  generated: Omit<TodayRecommendation, 'entryId' | 'isGenerated'>
+  generated: Omit<TodayRecommendation, 'entryId' | 'isGenerated'>,
+  profileContext: ProfileContext
 ): Promise<GeneratedRecommendation> {
-  const fallback = {
+  const fallback = personalizeFallbackRecommendation(
+    {
     headline: generated.skinStory.headline,
     summary: generated.skinStory.summary,
     contributors: generated.skinStory.contributors,
@@ -173,12 +179,15 @@ async function generateRecommendationCopy(
     provider: 'substrate-prototype',
     model: 'rules-v1',
     rawResponse: null,
-  };
+    },
+    profileContext
+  );
 
   try {
     const response = await supabase.functions.invoke('generate-recommendation', {
       body: {
         dailyEntryId,
+        profileContext,
         checkIn,
         analysis: generated.analysis,
         fallback: {
@@ -237,6 +246,96 @@ function normalizeAiRecommendation(data: unknown): GeneratedRecommendation | nul
     model: typeof value.model === 'string' ? value.model : 'unknown',
     rawResponse: isJson(value.rawResponse) ? value.rawResponse : null,
   };
+}
+
+function personalizeFallbackRecommendation(
+  recommendation: GeneratedRecommendation,
+  profileContext: ProfileContext
+): GeneratedRecommendation {
+  const profileContributor = buildProfileContributor(profileContext);
+  const profilePriority = buildProfilePriority(profileContext);
+
+  return {
+    ...recommendation,
+    contributors: profileContributor
+      ? [profileContributor, ...recommendation.contributors.filter((item) => item.label !== profileContributor.label)].slice(0, 4)
+      : recommendation.contributors,
+    dailyPlan: {
+      priorities: profilePriority
+        ? [profilePriority, ...recommendation.dailyPlan.priorities.filter((item) => item.title !== profilePriority.title)].slice(0, 3)
+        : recommendation.dailyPlan.priorities,
+      avoid: recommendation.dailyPlan.avoid,
+    },
+  };
+}
+
+function buildProfileContributor(profileContext: ProfileContext) {
+  if (profileContext.sensitivityLevel === 'High') {
+    return {
+      label: 'High sensitivity baseline',
+      detail: 'Your profile suggests a lower threshold for irritation, so conservative changes matter today.',
+    };
+  }
+
+  if (profileContext.skinType === 'Dry') {
+    return {
+      label: 'Dry skin baseline',
+      detail: 'Your baseline skin type makes hydration and barrier support more important.',
+    };
+  }
+
+  const trigger = profileContext.knownTriggers?.[0];
+  if (trigger) {
+    return {
+      label: `${trigger} trigger`,
+      detail: 'This saved profile trigger should be treated as a possible contributor when symptoms shift.',
+    };
+  }
+
+  const goal = profileContext.skinGoals?.[0];
+  if (goal) {
+    return {
+      label: `${goal} goal`,
+      detail: 'Your saved goal helps prioritize today’s plan toward what you are tracking over time.',
+    };
+  }
+
+  if (profileContext.skinContextNote?.trim()) {
+    return {
+      label: 'Profile note',
+      detail: 'Your saved note adds context for interpreting today’s skin signals.',
+    };
+  }
+
+  return null;
+}
+
+function buildProfilePriority(profileContext: ProfileContext) {
+  if (profileContext.sensitivityLevel === 'High' || profileContext.knownTriggers?.includes('Strong actives')) {
+    return {
+      title: 'Keep the routine low-risk',
+      detail: 'Your profile context points to sensitivity or active-related triggers.',
+      actions: ['Avoid adding new strong actives today', 'Keep cleanser and moisturizer familiar', 'Prioritize SPF and barrier support'],
+    };
+  }
+
+  if (profileContext.skinType === 'Dry' || profileContext.skinGoals?.includes('Hydration')) {
+    return {
+      title: 'Prioritize hydration and barrier support',
+      detail: 'Your profile baseline makes moisture balance a useful daily focus.',
+      actions: ['Use a gentle cleanser', 'Layer moisturizer while skin is slightly damp', 'Avoid unnecessary exfoliation today'],
+    };
+  }
+
+  if (profileContext.skinGoals?.includes('Breakouts')) {
+    return {
+      title: 'Reduce breakout variables',
+      detail: 'Your profile goal makes consistency more useful than adding new products.',
+      actions: ['Keep products familiar today', 'Avoid heavy occlusive layers if congested', 'Track any new product exposure'],
+    };
+  }
+
+  return null;
 }
 
 function isJson(value: unknown): value is Json {
@@ -413,10 +512,7 @@ function calculateSkinHealthScore(
   applyDriver(drivers, 'No alcohol', checkIn.alcoholConsumption === 'None' ? 2 : 0);
   applyDriver(drivers, 'Luteal phase', checkIn.cyclePhase === 'Luteal' ? -4 : 0);
   applyDriver(drivers, 'Menstrual phase', checkIn.cyclePhase === 'Menstrual' ? -3 : 0);
-  applyDriver(drivers, 'Strong actives', checkIn.routineChange === 'Strong actives' ? -10 : 0);
-  applyDriver(drivers, 'New product', checkIn.routineChange === 'New product' ? -5 : 0);
-  applyDriver(drivers, 'Recent treatment', checkIn.routineChange === 'Treatment' ? -8 : 0);
-  applyDriver(drivers, 'Routine consistency', checkIn.routineChange === 'No change' ? 2 : 0);
+  applyRoutineDrivers(drivers, checkIn);
   applyDriver(drivers, 'No saved photo', !hasPhoto ? -8 : 0);
   applyPhotoAnalysisDrivers(drivers, hasPhoto, photoAnalysis);
   applyEnvironmentDrivers(drivers, environment);
@@ -458,6 +554,29 @@ function applyPhotoAnalysisDrivers(drivers: ScoreDriver[], hasPhoto: boolean, ph
 
   if (isAtLeast(photoAnalysis.lighting, 75) && isAtLeast(photoAnalysis.sharpness, 75) && isAtLeast(photoAnalysis.framing, 75)) {
     applyDriver(drivers, 'High-quality photo', 2);
+  }
+}
+
+function applyRoutineDrivers(drivers: ScoreDriver[], checkIn: CheckInResponses) {
+  const note = getRoutineContext(checkIn);
+
+  if (!note) {
+    applyDriver(drivers, 'Routine consistency', 2);
+    return;
+  }
+
+  if (/(retinol|retinoid|tretinoin|exfoliat|aha|bha|peel|active)/i.test(note)) {
+    applyDriver(drivers, 'Strong actives', -10);
+    return;
+  }
+
+  if (/(laser|facial|microneedl|treatment|wax|procedure)/i.test(note)) {
+    applyDriver(drivers, 'Recent treatment', -8);
+    return;
+  }
+
+  if (/(new|first time|changed|switch)/i.test(note)) {
+    applyDriver(drivers, 'New product', -5);
   }
 }
 
@@ -579,7 +698,8 @@ function scoreInflammation(checkIn: CheckInResponses, photoAnalysis?: PhotoAnaly
   if (checkIn.alcoholConsumption === 'High') score += 10;
   if (checkIn.cyclePhase === 'Luteal') score += 5;
   if (checkIn.cyclePhase === 'Menstrual') score += 4;
-  if (checkIn.routineChange === 'Strong actives' || checkIn.routineChange === 'Treatment') score += 10;
+  const routineContext = getRoutineContext(checkIn);
+  if (/(retinol|retinoid|tretinoin|exfoliat|aha|bha|peel|active|laser|facial|microneedl|treatment|wax|procedure)/i.test(routineContext)) score += 10;
   score += scaleVisualSignal(photoAnalysis?.redness, 0.35);
   return clamp(score);
 }
@@ -589,7 +709,7 @@ function scoreDryness(checkIn: CheckInResponses, photoAnalysis?: PhotoAnalysis) 
   if (checkIn.sleepQuality === 'Poor') score += 4;
   if (checkIn.alcoholConsumption === 'Moderate') score += 5;
   if (checkIn.alcoholConsumption === 'High') score += 9;
-  if (checkIn.routineChange === 'Strong actives') score += 8;
+  if (/(retinol|retinoid|tretinoin|exfoliat|aha|bha|peel|active)/i.test(getRoutineContext(checkIn))) score += 8;
   score += scaleVisualSignal(photoAnalysis?.dryness, 0.35);
   return clamp(score);
 }
@@ -599,7 +719,7 @@ function scoreCongestion(checkIn: CheckInResponses, photoAnalysis?: PhotoAnalysi
   if (checkIn.stressLevel === 'High') score += 6;
   if (checkIn.cyclePhase === 'Luteal') score += 6;
   if (checkIn.cyclePhase === 'Menstrual') score += 4;
-  if (checkIn.routineChange === 'New product') score += 5;
+  if (/(new|first time|changed|switch)/i.test(getRoutineContext(checkIn))) score += 5;
   score += scaleVisualSignal(photoAnalysis?.congestion, 0.35);
   return clamp(score);
 }
@@ -671,9 +791,10 @@ function buildContributors(checkIn: CheckInResponses, hasPhoto: boolean, drivers
   if (checkIn.alcoholConsumption === 'Moderate' || checkIn.alcoholConsumption === 'High') contributors.push({ label: `${checkIn.alcoholConsumption} alcohol`, detail: 'Alcohol may affect hydration, recovery, and visible redness.' });
   if (checkIn.cyclePhase === 'Luteal') contributors.push({ label: 'Luteal phase', detail: 'Barrier and blemish sensitivity may be elevated.' });
   if (checkIn.cyclePhase === 'Menstrual') contributors.push({ label: 'Menstrual phase', detail: 'Inflammation and sensitivity can shift during this phase.' });
-  if (checkIn.routineChange === 'Strong actives') contributors.push({ label: 'Strong actives', detail: 'Retinoids or exfoliants may increase short-term sensitivity.' });
-  if (checkIn.routineChange === 'New product') contributors.push({ label: 'New product', detail: 'New variables can make changes harder to interpret.' });
-  if (checkIn.routineChange === 'Treatment') contributors.push({ label: 'Recent treatment', detail: 'Professional or at-home treatments can temporarily affect redness.' });
+  const routineContext = getRoutineContext(checkIn);
+  if (/(retinol|retinoid|tretinoin|exfoliat|aha|bha|peel|active)/i.test(routineContext)) contributors.push({ label: 'Strong actives', detail: 'Retinoids or exfoliants may increase short-term sensitivity.' });
+  if (/(new|first time|changed|switch)/i.test(routineContext)) contributors.push({ label: 'New product', detail: 'New variables can make changes harder to interpret.' });
+  if (/(laser|facial|microneedl|treatment|wax|procedure)/i.test(routineContext)) contributors.push({ label: 'Recent treatment', detail: 'Professional or at-home treatments can temporarily affect redness.' });
   if (!hasPhoto) contributors.push({ label: 'No saved photo', detail: 'Add a photo to improve future comparison quality.' });
 
   return contributors.slice(0, 4);
@@ -722,7 +843,7 @@ function buildPlan(topSignal: string, checkIn: CheckInResponses) {
 function buildAvoidList(checkIn: CheckInResponses, topSignal: string) {
   const avoid = ['Strong exfoliation', 'High-heat treatments'];
 
-  if (topSignal === 'inflammation' || checkIn.routineChange === 'Strong actives') avoid.unshift('Retinoids');
+  if (topSignal === 'inflammation' || /(retinol|retinoid|tretinoin|exfoliat|aha|bha|peel|active)/i.test(getRoutineContext(checkIn))) avoid.unshift('Retinoids');
   if (topSignal === 'dryness') avoid.unshift('Foaming cleansers');
   if (topSignal === 'congestion') avoid.unshift('Heavy facial oils');
   if (checkIn.alcoholConsumption === 'Moderate' || checkIn.alcoholConsumption === 'High') avoid.push('Dehydrating masks');
@@ -770,4 +891,8 @@ function formatDelta(delta: number) {
   if (delta > 0) return `up ${delta} points`;
   if (delta < 0) return `down ${Math.abs(delta)} points`;
   return 'unchanged';
+}
+
+function getRoutineContext(checkIn: CheckInResponses) {
+  return checkIn.routineNote?.trim() || checkIn.routineChange || '';
 }

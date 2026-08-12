@@ -48,6 +48,7 @@ function RootNavigator() {
         <Stack.Screen name="skin-story" />
         <Stack.Screen name="daily-plan" />
         <Stack.Screen name="progress" />
+        <Stack.Screen name="progress-history" />
         <Stack.Screen name="profile" />
       </Stack>
       <BottomNav />

@@ -1,6 +1,6 @@
 import { Link, usePathname, useRouter, type Href } from 'expo-router';
 import { Image } from 'expo-image';
-import { ChartNoAxesColumnIncreasing, CircleUserRound, Sparkles } from 'lucide-react-native';
+import { ChartNoAxesColumnIncreasing, ChevronLeft, CircleUserRound, Sparkles } from 'lucide-react-native';
 import {
   Pressable,
   ScrollView,
@@ -89,10 +89,8 @@ export function ScreenHeader({
 export function BackLink({ href }: { href: Href }) {
   return (
     <Link href={href} asChild>
-      <Pressable accessibilityRole="button" style={styles.backButton}>
-        <SubstrateText variant="small" color={Colors.light.accentDeep}>
-          Back
-        </SubstrateText>
+      <Pressable accessibilityLabel="Go back" accessibilityRole="button" style={styles.backButton}>
+        <ChevronLeft color={Colors.light.accentDeep} size={24} strokeWidth={2.2} />
       </Pressable>
     </Link>
   );
@@ -208,6 +206,41 @@ export function MetricRing({ value, label }: { value: string; label: string }) {
   );
 }
 
+export function StepProgress({
+  currentStep,
+  totalSteps,
+  currentLabel,
+  nextLabel,
+}: {
+  currentStep: number;
+  totalSteps: number;
+  currentLabel: string;
+  nextLabel?: string;
+}) {
+  const progress = Math.max(0, Math.min(1, currentStep / totalSteps));
+
+  return (
+    <View style={styles.stepProgress}>
+      <View style={styles.stepProgressHeader}>
+        <SubstrateText variant="small" color={Colors.light.accentDeep}>
+          Step {currentStep} of {totalSteps}
+        </SubstrateText>
+        <SubstrateText variant="small" color={Colors.light.textMuted}>
+          {currentLabel}
+        </SubstrateText>
+      </View>
+      <View style={styles.progressTrack}>
+        <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+      </View>
+      {nextLabel ? (
+        <SubstrateText variant="small" color={Colors.light.textMuted}>
+          Next: {nextLabel}
+        </SubstrateText>
+      ) : null}
+    </View>
+  );
+}
+
 export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
@@ -284,9 +317,12 @@ const styles = StyleSheet.create({
   },
   backButton: {
     alignSelf: 'flex-start',
-    minHeight: 30,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingRight: Spacing.three,
+    marginLeft: -6,
   },
   primaryButton: {
     minHeight: 44,
@@ -447,6 +483,26 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     alignItems: 'center',
+  },
+  stepProgress: {
+    gap: Spacing.one,
+  },
+  stepProgressHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  progressTrack: {
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: Colors.light.border,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+    backgroundColor: Colors.light.accent,
   },
   navWrap: {
     alignItems: 'center',

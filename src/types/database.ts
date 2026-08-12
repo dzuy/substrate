@@ -5,6 +5,8 @@ export type CheckInResponses = {
   stressLevel?: 'Low' | 'Medium' | 'High';
   alcoholConsumption?: 'None' | 'Light' | 'Moderate' | 'High';
   cyclePhase?: 'Follicular' | 'Ovulatory' | 'Luteal' | 'Menstrual' | 'Not tracking';
+  routineNote?: string;
+  // Legacy prototype field kept so earlier test entries remain readable.
   routineChange?: 'No change' | 'Strong actives' | 'New product' | 'Treatment';
   // Legacy prototype fields kept so earlier test entries remain readable.
   skinFeel?: 'Calm' | 'Dry' | 'Reactive' | 'Congested';
@@ -67,6 +69,16 @@ export type ProfileLocation = {
   longitude: number;
 };
 
+export type ProfileContext = {
+  displayName?: string;
+  ageRange?: string;
+  skinType?: string;
+  sensitivityLevel?: string;
+  skinGoals?: string[];
+  knownTriggers?: string[];
+  skinContextNote?: string;
+};
+
 export type SkinStory = {
   headline?: string;
   summary?: string;
@@ -90,6 +102,13 @@ export type Database = {
         Row: {
           id: string;
           email: string | null;
+          display_name: string | null;
+          age_range: string | null;
+          skin_type: string | null;
+          sensitivity_level: string | null;
+          skin_goals: string[];
+          known_triggers: string[];
+          skin_context_note: string | null;
           location_query: string | null;
           location_label: string | null;
           latitude: number | null;
@@ -100,6 +119,13 @@ export type Database = {
         Insert: {
           id: string;
           email?: string | null;
+          display_name?: string | null;
+          age_range?: string | null;
+          skin_type?: string | null;
+          sensitivity_level?: string | null;
+          skin_goals?: string[];
+          known_triggers?: string[];
+          skin_context_note?: string | null;
           location_query?: string | null;
           location_label?: string | null;
           latitude?: number | null;
@@ -109,6 +135,13 @@ export type Database = {
         };
         Update: {
           email?: string | null;
+          display_name?: string | null;
+          age_range?: string | null;
+          skin_type?: string | null;
+          sensitivity_level?: string | null;
+          skin_goals?: string[];
+          known_triggers?: string[];
+          skin_context_note?: string | null;
           location_query?: string | null;
           location_label?: string | null;
           latitude?: number | null;

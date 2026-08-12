@@ -10,6 +10,7 @@ import {
   Card,
   PrimaryButton,
   ScreenHeader,
+  StepProgress,
   SubstrateText,
 } from '@/components/substrate-ui';
 import { Colors, Spacing } from '@/constants/theme';
@@ -18,12 +19,7 @@ import { formatDisplayDate, getActiveEntryDate, getOrCreateDailyEntry } from '@/
 import { analyzeDailyPhoto, getLatestDailyPhoto, toPhotoAnalysis, uploadDailyPhoto } from '@/services/photos';
 import type { PhotoAnalysis } from '@/types/database';
 
-const checklist = [
-  'Face the camera directly',
-  'Use soft, even lighting',
-  'Remove glasses where appropriate',
-  'Keep your face centered',
-];
+const guidance = ['Face the camera directly.', 'Keep the angle consistent.', 'Avoid harsh shadows.'];
 
 export default function PhotoScreen() {
   const router = useRouter();
@@ -197,16 +193,21 @@ export default function PhotoScreen() {
     }
   }
 
+  const hasPhoto = Boolean(photoUri);
+  const isBusy = isLoading || isUploading || isAnalyzing;
+  const title = hasPhoto ? 'Photo saved' : 'Take your photo';
+  const body = entryDate ? formatDisplayDate(entryDate) : undefined;
+
   return (
     <AppShell>
       <BackLink href="/" />
+      <StepProgress currentStep={1} totalSteps={5} currentLabel="Photo" nextLabel="Check-in" />
       <ScreenHeader
-        eyebrow="Step 1"
-        title="Take your photo"
-        body={`Test day ${entryDate ? formatDisplayDate(entryDate) : ''}. Keep the image consistent with your recent baseline.`}
+        title={hasPhoto ? title : "Take Today's Photo"}
+        body={body}
       />
 
-      <View style={styles.photoFrame}>
+      <View style={[styles.photoFrame, hasPhoto && styles.photoFrameFilled]}>
         {photoUri ? (
           <Image source={{ uri: photoUri }} style={styles.photoPreview} contentFit="cover" />
         ) : (
@@ -216,21 +217,35 @@ export default function PhotoScreen() {
             contentFit="contain"
           />
         )}
-        {isLoading || isUploading || isAnalyzing ? (
+        {isBusy ? (
           <View style={styles.photoOverlay}>
             <ActivityIndicator color={Colors.light.accent} />
           </View>
         ) : null}
       </View>
 
+      {(errorMessage || statusMessage || isUploading || isAnalyzing || hasPhoto) ? (
+        <View style={styles.summary}>
+          {errorMessage ? (
+            <SubstrateText variant="small" color={Colors.light.accentDeep}>
+              {errorMessage}
+            </SubstrateText>
+          ) : (
+            <SubstrateText variant="small" color={Colors.light.textMuted}>
+              {getStatusCopy(statusMessage, isUploading, isAnalyzing, hasPhoto)}
+            </SubstrateText>
+          )}
+        </View>
+      ) : null}
+
       {photoAnalysis ? (
         <Card style={styles.card}>
           <SubstrateText variant="section">Photo quality</SubstrateText>
-          <View style={styles.list}>
-            <QualityRow label="Face" value={photoAnalysis.faceDetected ? 'Detected' : 'Retake suggested'} />
-            <QualityRow label="Lighting" value={formatScore(photoAnalysis.lighting)} />
-            <QualityRow label="Sharpness" value={formatScore(photoAnalysis.sharpness)} />
-            <QualityRow label="Framing" value={formatScore(photoAnalysis.framing)} />
+          <View style={styles.qualityGrid}>
+            <QualityMetric label="Face" value={photoAnalysis.faceDetected ? 'Detected' : 'Retake'} />
+            <QualityMetric label="Light" value={formatScore(photoAnalysis.lighting)} />
+            <QualityMetric label="Sharpness" value={formatScore(photoAnalysis.sharpness)} />
+            <QualityMetric label="Framing" value={formatScore(photoAnalysis.framing)} />
           </View>
           {photoAnalysis.summary ? (
             <SubstrateText variant="small" color={Colors.light.textMuted}>
@@ -240,78 +255,103 @@ export default function PhotoScreen() {
         </Card>
       ) : (
         <Card style={styles.card}>
-        <SubstrateText variant="section">For best results</SubstrateText>
-        <View style={styles.list}>
-          {checklist.map((item) => (
-            <View key={item} style={styles.row}>
-              <View style={styles.dot} />
-              <SubstrateText variant="small">{item}</SubstrateText>
-            </View>
-          ))}
-        </View>
-      </Card>
+          <SubstrateText variant="section">For best results</SubstrateText>
+          <SubstrateText variant="small" color={Colors.light.textMuted}>
+            Use soft, even lighting and keep your face centered.
+          </SubstrateText>
+          <View style={styles.guidanceList}>
+            {guidance.map((item) => (
+              <View key={item} style={styles.guidanceItem}>
+                <View style={styles.dot} />
+                <SubstrateText variant="small" color={Colors.light.textMuted}>
+                  {item}
+                </SubstrateText>
+              </View>
+            ))}
+          </View>
+        </Card>
       )}
 
-      <View style={styles.summary}>
-        {errorMessage ? (
-          <SubstrateText variant="small" color={Colors.light.accentDeep}>
-            {errorMessage}
-          </SubstrateText>
-        ) : (
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
-            {statusMessage || 'Capture or choose a clear image to save with this test day’s entry.'}
-          </SubstrateText>
-        )}
-      </View>
-
       <View style={styles.actions}>
-        <Pressable
-          accessibilityRole="button"
-          disabled={isLoading || isUploading || isAnalyzing}
-          onPress={capturePhoto}
-          style={[styles.captureRing, (isLoading || isUploading || isAnalyzing) && styles.disabled]}>
-          <View style={styles.captureButton} />
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          disabled={isLoading || isUploading || isAnalyzing}
-          onPress={choosePhoto}
-          style={styles.libraryButton}>
-          <SubstrateText variant="small" color={Colors.light.accent}>
-            Choose from Library
-          </SubstrateText>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          disabled={isLoading || isUploading || isAnalyzing}
-          onPress={() => router.push('/check-in' as Href)}
-          style={(isLoading || isUploading || isAnalyzing) && styles.disabled}>
-          <PrimaryButton label={photoUri ? 'Continue to Check-In' : 'Skip Photo for Now'} />
-        </Pressable>
+        {hasPhoto ? (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              disabled={isBusy}
+              onPress={() => router.push('/check-in' as Href)}
+              style={[styles.fullWidth, isBusy && styles.disabled]}>
+              <PrimaryButton label="Next" />
+            </Pressable>
+            <View style={styles.secondaryActions}>
+              <Pressable accessibilityRole="button" disabled={isBusy} onPress={capturePhoto} style={styles.textAction}>
+                <SubstrateText variant="small" color={Colors.light.accent}>
+                  Retake
+                </SubstrateText>
+              </Pressable>
+              <Pressable accessibilityRole="button" disabled={isBusy} onPress={choosePhoto} style={styles.textAction}>
+                <SubstrateText variant="small" color={Colors.light.accent}>
+                  Choose Different
+                </SubstrateText>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              disabled={isBusy}
+              onPress={capturePhoto}
+              style={[styles.fullWidth, isBusy && styles.disabled]}>
+              <PrimaryButton label={isUploading ? 'Uploading Photo' : 'Take Photo'} />
+            </Pressable>
+            <Pressable accessibilityRole="button" disabled={isBusy} onPress={choosePhoto} style={styles.secondaryButton}>
+              <SubstrateText variant="small" color={Colors.light.accentDeep}>
+                Choose from Library
+              </SubstrateText>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              disabled={isBusy}
+              onPress={() => router.push('/check-in' as Href)}
+              style={styles.skipButton}>
+              <SubstrateText variant="small" color={Colors.light.textMuted}>
+                Skip for now
+              </SubstrateText>
+            </Pressable>
+          </>
+        )}
       </View>
     </AppShell>
   );
 }
 
-function QualityRow({ label, value }: { label: string; value: string }) {
+function QualityMetric({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.row}>
-      <View style={styles.dot} />
-      <SubstrateText variant="small">
-        {label}: {value}
+    <View style={styles.qualityMetric}>
+      <SubstrateText variant="small" color={Colors.light.textMuted}>
+        {label}
       </SubstrateText>
+      <SubstrateText variant="small">{value}</SubstrateText>
     </View>
   );
 }
 
 function formatScore(value?: number) {
-  return typeof value === 'number' ? `${Math.round(value)}/100` : 'Not available';
+  return typeof value === 'number' ? String(Math.round(value)) : '--';
+}
+
+function getStatusCopy(statusMessage: string, isUploading: boolean, isAnalyzing: boolean, hasPhoto: boolean) {
+  if (isUploading) return 'Saving your image to this private test day.';
+  if (isAnalyzing) return 'Checking lighting, framing, and visible skin signals.';
+  if (statusMessage) return statusMessage;
+  if (hasPhoto) return 'Review the photo quality, then continue when ready.';
+  return '';
 }
 
 const styles = StyleSheet.create({
   photoFrame: {
-    minHeight: 206,
-    borderRadius: 20,
+    minHeight: 286,
+    borderRadius: 24,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
@@ -319,13 +359,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.light.border,
   },
+  photoFrameFilled: {
+    boxShadow: '0 16px 34px rgba(45, 23, 35, 0.08)',
+  },
   photoPreview: {
     width: '100%',
-    height: 230,
+    height: 318,
   },
   photoPlaceholder: {
     width: '100%',
-    height: 224,
+    height: 286,
   },
   photoOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -336,43 +379,67 @@ const styles = StyleSheet.create({
   card: {
     gap: Spacing.two,
   },
-  list: {
-    gap: Spacing.two,
+  guidanceList: {
+    gap: Spacing.one,
   },
-  row: {
+  guidanceItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.one,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: Colors.light.accent,
+  },
+  qualityGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  qualityMetric: {
+    flexBasis: '47%',
+    flexGrow: 1,
+    minHeight: 52,
+    borderRadius: 14,
+    backgroundColor: '#FBF8F6',
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    justifyContent: 'center',
+    gap: Spacing.half,
+    paddingHorizontal: Spacing.three,
   },
   actions: {
     marginTop: 'auto',
-    alignItems: 'center',
-    gap: Spacing.two,
+    gap: Spacing.one,
     paddingTop: Spacing.two,
   },
-  captureRing: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    borderWidth: 2,
-    borderColor: Colors.light.accentSoft,
+  fullWidth: {
+    width: '100%',
+  },
+  secondaryButton: {
+    minHeight: 42,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Colors.light.backgroundElement,
   },
-  captureButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: Colors.light.accent,
+  secondaryActions: {
+    minHeight: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.three,
   },
-  libraryButton: {
-    minHeight: 30,
+  textAction: {
+    minHeight: 34,
+    justifyContent: 'center',
+  },
+  skipButton: {
+    minHeight: 34,
     alignItems: 'center',
     justifyContent: 'center',
   },
