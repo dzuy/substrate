@@ -62,6 +62,7 @@ export default function WelcomeScreen() {
     <AppShell contentStyle={styles.content}>
       <View style={styles.hero}>
         <View style={styles.brandBlock}>
+          <SubstrateText variant="brand">SUBSTRATE</SubstrateText>
           <SubstrateText variant="body" color={Colors.light.textMuted} style={styles.center}>
             Every beautiful outcome begins beneath the surface
           </SubstrateText>
