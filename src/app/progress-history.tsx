@@ -84,7 +84,7 @@ export default function ProgressHistoryScreen() {
       <ScreenHeader
         eyebrow="Progress"
         title="Full history"
-        body="All saved simulated test days and Skin Health Scores."
+        body="All saved simulated test days and Skin Scores."
       />
 
       {isLoading ? (

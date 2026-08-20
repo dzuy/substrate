@@ -199,7 +199,7 @@ Deno.serve(async (request) => {
 function buildInstructions() {
   return [
     'You generate concise JSON only for Substrate, a premium skincare and aesthetic-health prototype.',
-    'Use the provided Skin Health Score, score band, score delta, drivers, check-in, and environment data.',
+    'Use the provided Skin Score, score band, score delta, drivers, check-in, and environment data.',
     'Always consider profileContext when it is provided. It is part of the analysis context, not optional decoration.',
     'Use profile context such as age range, skin type, sensitivity, goals, known triggers, and open-ended notes to personalize tone and recommendations.',
     'When profileContext contains non-empty goals, triggers, sensitivity, skin type, or notes, reference at least one relevant profile detail across the contributors, priority, or daily plan.',

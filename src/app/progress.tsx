@@ -123,7 +123,7 @@ export default function ProgressScreen() {
       <BackLink href="/" />
       <ScreenHeader
         eyebrow="Progress"
-        title={latestScore ? `Skin Health Score ${latestScore}` : 'Track your skin trend'}
+        title={latestScore ? `Skin Score ${latestScore}` : 'Track your skin trend'}
       />
 
       {isLoading ? (

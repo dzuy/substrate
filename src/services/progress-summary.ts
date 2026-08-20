@@ -42,5 +42,5 @@ function buildFallbackProgressSummary(entries: ProgressSummaryEntry[]) {
   const delta = latest.score - first.score;
   const direction = delta > 2 ? 'improving' : delta < -2 ? 'under more pressure' : 'fairly steady';
 
-  return `Your Skin Health Score is ${direction} across the saved check-ins. The latest score is ${latest.score}, so keep watching which daily inputs line up with stronger or weaker days.`;
+  return `Your Skin Score is ${direction} across the saved check-ins. The latest score is ${latest.score}, so keep watching which daily inputs line up with stronger or weaker days.`;
 }

@@ -1,10 +1,10 @@
-# Skin Health Score TRD
+# Skin Score TRD
 
 ## Purpose
 
 Substrate needs a single longitudinal score that helps users understand whether their skin state is improving, stable, or worsening over time.
 
-The Skin Health Score is a 1-100 composite metric where higher means the user's skin appears to be in a calmer, more resilient, lower-stress state.
+The Skin Score is a 1-100 composite metric where higher means the user's skin appears to be in a calmer, more resilient, lower-stress state.
 
 This score should become the primary progress metric across Skin Story, Daily Plan, and Progress.
 
@@ -53,10 +53,10 @@ The score should be designed to accept future signals without rewriting the UI m
 
 ## Score Definition
 
-The Skin Health Score is calculated as:
+The Skin Score is calculated as:
 
 ```txt
-Skin Health Score = clamp(100 - weighted penalties + recovery bonuses, 1, 100)
+Skin Score = clamp(100 - weighted penalties + recovery bonuses, 1, 100)
 ```
 
 Higher score means:
@@ -211,12 +211,12 @@ If no prior entry exists, `scoreDelta` should be omitted or `null` in UI-facing 
 
 ### Skin Story
 
-Skin Story should lead with the Skin Health Score.
+Skin Story should lead with the Skin Score.
 
 Primary display:
 
 ```txt
-Skin Health Score
+Skin Score
 78
 Generally balanced
 ```
@@ -259,7 +259,7 @@ Examples:
 
 ### Progress
 
-Progress should show the Skin Health Score for each completed entry.
+Progress should show the Skin Score for each completed entry.
 
 V1 Progress can list the score per entry without a chart.
 
@@ -343,7 +343,7 @@ Future biometric component may include:
 2. Add scoring helper in `src/services/recommendations.ts`.
 3. Generate `skinHealthScore`, `scoreBand`, `drivers`, `confidence`, and `scoreDelta`.
 4. Store generated values in `analysis_results.signals`.
-5. Update Skin Story to lead with Skin Health Score.
+5. Update Skin Story to lead with Skin Score.
 6. Update Progress to display score per entry.
 7. Add environment snapshot storage and Open-Meteo lookup.
 8. Feed environment drivers into the score and Skin Story.

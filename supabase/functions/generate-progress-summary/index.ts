@@ -73,7 +73,7 @@ Deno.serve(async (request) => {
             {
               type: 'input_text',
               text: JSON.stringify({
-                task: 'Summarize recent Substrate progress from Skin Health Scores.',
+                task: 'Summarize recent Substrate progress from Skin Scores.',
                 entries: body.entries,
               }),
             },

@@ -338,7 +338,7 @@ function SignalTile({ icon: Icon, label, tone, value }: SignalTileItem) {
 
 function getSkinHealthMetric(analysis: AnalysisSignals) {
   if (typeof analysis.skinHealthScore === 'number') {
-    return { label: 'skin health score', value: analysis.skinHealthScore };
+    return { label: 'skin score', value: analysis.skinHealthScore };
   }
 
   const entries = [
@@ -466,7 +466,7 @@ function getDriverIcon(label: string, impact: number, direction: 'positive' | 'n
 
 function describeDriver(label: string, impact: number, direction: 'positive' | 'negative') {
   if (direction === 'positive' || impact > 0) {
-    return 'This appears to support today’s skin health score.';
+    return 'This appears to support today’s skin score.';
   }
 
   if (/environment|uv|humidity|air|heat|cold/i.test(label)) {

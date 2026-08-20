@@ -738,9 +738,9 @@ function getTopSignal(scores: Record<string, number>) {
 }
 
 function buildHeadline(topSignal: string, scoreBand: NonNullable<AnalysisSignals['scoreBand']>) {
-  if (scoreBand === 'stable') return 'Your skin health score looks stable today.';
-  if (scoreBand === 'balanced') return 'Your skin health score is generally balanced today.';
-  if (scoreBand === 'high_stress') return 'Your skin health score shows a high-stress day.';
+  if (scoreBand === 'stable') return 'Your skin score looks stable today.';
+  if (scoreBand === 'balanced') return 'Your skin score is generally balanced today.';
+  if (scoreBand === 'high_stress') return 'Your skin score shows a high-stress day.';
   if (topSignal === 'dryness') return 'Your skin may need more barrier support today.';
   if (topSignal === 'congestion') return 'Your skin may be trending more congested today.';
   if (topSignal === 'fatigue') return 'Your skin may be showing recovery stress today.';
@@ -759,7 +759,7 @@ function buildSummary(
       ? ` This is ${formatDelta(skinHealth.scoreDelta)} from your last scored check-in.`
       : ' This is your first scored check-in.';
 
-  return `Based on your check-in ${photoCopy}, your Skin Health Score is ${skinHealth.score}. The strongest prototype signal is ${topSignal}.${deltaCopy}`;
+  return `Based on your check-in ${photoCopy}, your Skin Score is ${skinHealth.score}. The strongest prototype signal is ${topSignal}.${deltaCopy}`;
 }
 
 function buildPriority(topSignal: string, scoreBand?: NonNullable<AnalysisSignals['scoreBand']>) {
@@ -779,7 +779,7 @@ function buildContributors(checkIn: CheckInResponses, hasPhoto: boolean, drivers
     .slice(0, 4)
     .map((driver) => ({
       label: driver.label,
-      detail: `${Math.abs(driver.impact)} point impact on today’s Skin Health Score.`,
+      detail: `${Math.abs(driver.impact)} point impact on today’s Skin Score.`,
     }));
 
   if (driverContributors.length > 0) {
