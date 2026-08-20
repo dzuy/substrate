@@ -4,7 +4,6 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import {
   AppShell,
-  BrandMark,
   PrimaryButton,
   ScreenHeader,
   SubstrateText,
@@ -62,9 +61,7 @@ export default function WelcomeScreen() {
   return (
     <AppShell contentStyle={styles.content}>
       <View style={styles.hero}>
-        <BrandMark size={108} />
         <View style={styles.brandBlock}>
-          <SubstrateText variant="brand">SUBSTRATE</SubstrateText>
           <SubstrateText variant="body" color={Colors.light.textMuted} style={styles.center}>
             Every beautiful outcome begins beneath the surface
           </SubstrateText>
