@@ -1,5 +1,5 @@
 import { Link, type Href, useFocusEffect } from 'expo-router';
-import { CircleAlert, Sparkles } from 'lucide-react-native';
+import { CircleAlert } from 'lucide-react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, View } from 'react-native';
 
@@ -102,9 +102,6 @@ export default function SkinStoryScreen() {
       ) : null}
 
       <Card style={styles.storyCard}>
-        <View style={styles.iconBadge}>
-          <Sparkles color={Colors.light.accentDeep} size={22} strokeWidth={2.4} />
-        </View>
         <SubstrateText variant="subtitle">
           {skinStory?.headline ?? 'Your skin story is coming together'}
         </SubstrateText>
@@ -135,11 +132,14 @@ export default function SkinStoryScreen() {
                   <SubstrateText variant="small" color={Colors.light.text}>
                     {formatFrameworkDimension(item.dimension)}
                   </SubstrateText>
-                  <SubstrateText variant="tag" color={Colors.light.accentDeep}>
+                  <SubstrateText
+                    variant="tag"
+                    color={getFrameworkStatusColor(item.status)}
+                    style={[styles.frameworkStatusChip, getFrameworkStatusChipStyle(item.status)]}>
                     {item.status}
                   </SubstrateText>
                 </View>
-                <SubstrateText variant="small" color={Colors.light.textMuted}>
+                <SubstrateText variant="body" color={Colors.light.textMuted} style={styles.frameworkDetail}>
                   {item.detail}
                 </SubstrateText>
               </View>
@@ -209,13 +209,25 @@ function formatFrameworkDimension(dimension: SkinStory['frameworkRead'][number][
   return 'Pigmentation';
 }
 
+function getFrameworkStatusColor(status: string) {
+  if (status === 'Primary signal today') return '#7A214E';
+  if (status === 'Steady today') return '#2F6845';
+  return '#5A4A72';
+}
+
+function getFrameworkStatusChipStyle(status: string) {
+  if (status === 'Primary signal today') return styles.frameworkStatusPrimary;
+  if (status === 'Steady today') return styles.frameworkStatusSteady;
+  return styles.frameworkStatusBackground;
+}
+
 function StatePill({ label, state }: { label: string; state: SkinStoryState }) {
   return (
     <View style={styles.statePill}>
-      <SubstrateText variant="tag" color={Colors.light.textMuted}>
+      <SubstrateText variant="tag" color={Colors.light.textMuted} style={styles.statePillLabel}>
         {label}
       </SubstrateText>
-      <SubstrateText variant="small" color={Colors.light.accentDeep}>
+      <SubstrateText variant="small" color={Colors.light.accentDeep} style={styles.statePillValue}>
         {stateLabels[state]}
       </SubstrateText>
     </View>
@@ -311,14 +323,6 @@ const styles = StyleSheet.create({
   storyCard: {
     gap: Spacing.two,
   },
-  iconBadge: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: Colors.light.backgroundSelected,
-  },
   stateRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -326,14 +330,24 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.one,
   },
   statePill: {
-    minHeight: 40,
-    borderRadius: 20,
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    minHeight: 36,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: Colors.light.border,
     backgroundColor: '#FBF8F6',
     justifyContent: 'center',
-    gap: 2,
+    gap: 6,
     paddingHorizontal: Spacing.two,
+    paddingVertical: 7,
+  },
+  statePillLabel: {
+    flexShrink: 0,
+  },
+  statePillValue: {
+    flexShrink: 1,
   },
   card: {
     gap: Spacing.two,
@@ -347,17 +361,43 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   frameworkItem: {
-    gap: Spacing.one,
+    gap: 14,
     borderRadius: 14,
     backgroundColor: '#FBF8F6',
-    padding: Spacing.two,
+    paddingHorizontal: Spacing.three,
+    paddingVertical: 14,
   },
   frameworkTopRow: {
     alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    gap: Spacing.one,
+    columnGap: Spacing.three,
+    rowGap: Spacing.two,
+  },
+  frameworkDetail: {
+    fontWeight: '400',
+  },
+  frameworkStatusChip: {
+    borderWidth: 1,
+    overflow: 'hidden',
+    borderRadius: 12,
+    fontSize: 11,
+    lineHeight: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  frameworkStatusPrimary: {
+    backgroundColor: '#F5DCE7',
+    borderColor: '#EAB9CF',
+  },
+  frameworkStatusSteady: {
+    backgroundColor: '#E6F1E8',
+    borderColor: '#C5DEC9',
+  },
+  frameworkStatusBackground: {
+    backgroundColor: '#EAE3F1',
+    borderColor: '#D6C7E2',
   },
   list: {
     gap: Spacing.two,

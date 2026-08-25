@@ -234,7 +234,7 @@ export function StepProgress({
       </View>
       {nextLabel ? (
         <SubstrateText variant="small" color={Colors.light.textMuted}>
-          Next: {nextLabel}
+          {nextLabel}
         </SubstrateText>
       ) : null}
     </View>
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 15,
     lineHeight: 20,
-    fontWeight: '700',
+    fontWeight: '400',
   },
   card: {
     borderRadius: 16,
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
     color: Colors.light.textMuted,
     fontFamily: Fonts.sans,
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '400',
   },
   pillTextSelected: {
     color: '#FFFFFF',
@@ -553,38 +553,38 @@ const stylesText = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 20,
     lineHeight: 26,
-    fontWeight: '700',
+    fontWeight: '400',
     letterSpacing: 6,
   },
   title: {
     fontFamily: Fonts.sans,
     fontSize: 24,
     lineHeight: 29,
-    fontWeight: '700',
+    fontWeight: '400',
   },
   subtitle: {
     fontFamily: Fonts.sans,
     fontSize: 34,
     lineHeight: 37,
-    fontWeight: '800',
+    fontWeight: '400',
   },
   body: {
     fontFamily: Fonts.sans,
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   small: {
     fontFamily: Fonts.sans,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '600',
+    fontWeight: '400',
   },
   section: {
     fontFamily: Fonts.sans,
     fontSize: 15,
     lineHeight: 20,
-    fontWeight: '800',
+    fontWeight: '400',
   },
   tag: {
     overflow: 'hidden',
@@ -594,7 +594,7 @@ const stylesText = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 12,
     lineHeight: 16,
-    fontWeight: '700',
+    fontWeight: '400',
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
@@ -602,7 +602,7 @@ const stylesText = StyleSheet.create({
     fontFamily: Fonts.sans,
     fontSize: 13,
     lineHeight: 16,
-    fontWeight: '800',
+    fontWeight: '400',
     textAlign: 'center',
   },
 });

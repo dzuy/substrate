@@ -634,7 +634,7 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     fontFamily: Fonts.sans,
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '400',
     paddingHorizontal: Spacing.two,
   },
   saveLocationButton: {

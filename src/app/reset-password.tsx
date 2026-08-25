@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
     fontFamily: Fonts.sans,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '400',
     paddingHorizontal: Spacing.three,
   },
   feedbackError: {

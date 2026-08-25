@@ -97,6 +97,11 @@ export default function DailyPlanScreen() {
 
   const checklist = useMemo(() => ensurePlanChecklist(dailyPlan).checklist ?? [], [dailyPlan]);
   const checklistGroups = useMemo(() => groupChecklistByMoment(checklist), [checklist]);
+  const ingredientsToUse = useMemo(() => getUniqueIngredients(dailyPlan?.ingredientsToFavor), [dailyPlan]);
+  const ingredientsToAvoid = useMemo(
+    () => getUniqueIngredients([...(dailyPlan?.ingredientsToAvoid ?? []), ...(dailyPlan?.avoid ?? [])]),
+    [dailyPlan]
+  );
 
   async function toggleChecklistItem(itemId: string) {
     if (!dailyPlan || !entryId || !user) {
@@ -172,6 +177,10 @@ export default function DailyPlanScreen() {
         </Card>
       ) : null}
 
+      {ingredientsToUse.length || ingredientsToAvoid.length ? (
+        <IngredientGuide ingredientsToAvoid={ingredientsToAvoid} ingredientsToUse={ingredientsToUse} />
+      ) : null}
+
       {checklist.length ? (
         <Card style={styles.todoCard}>
           <View style={styles.todoHeader}>
@@ -227,6 +236,60 @@ export default function DailyPlanScreen() {
 
 type ChecklistItem = NonNullable<DailyPlan['checklist']>[number];
 type PlanItem = NonNullable<DailyPlan['items']>[number];
+
+function IngredientGuide({
+  ingredientsToAvoid,
+  ingredientsToUse,
+}: {
+  ingredientsToAvoid: string[];
+  ingredientsToUse: string[];
+}) {
+  return (
+    <Card style={styles.ingredientsCard}>
+      <SubstrateText variant="section">Ingredients today</SubstrateText>
+      <View style={styles.ingredientGroups}>
+        <IngredientGroup title="Use" items={ingredientsToUse} tone="use" />
+        <IngredientGroup title="Avoid" items={ingredientsToAvoid} tone="avoid" />
+      </View>
+    </Card>
+  );
+}
+
+function IngredientGroup({
+  items,
+  title,
+  tone,
+}: {
+  items: string[];
+  title: string;
+  tone: 'use' | 'avoid';
+}) {
+  return (
+    <View style={styles.ingredientGroup}>
+      <SubstrateText variant="small" color={Colors.light.text}>
+        {title}
+      </SubstrateText>
+      <View style={styles.ingredientChips}>
+        {items.length ? (
+          items.map((item) => (
+            <View key={`${tone}-${item}`} style={[styles.ingredientChip, tone === 'avoid' && styles.ingredientChipAvoid]}>
+              <SubstrateText
+                variant="small"
+                color={tone === 'avoid' ? '#7A3D20' : '#2F6845'}
+                style={styles.ingredientChipText}>
+                {item}
+              </SubstrateText>
+            </View>
+          ))
+        ) : (
+          <SubstrateText variant="small" color={Colors.light.textMuted} style={styles.ingredientEmptyText}>
+            None today
+          </SubstrateText>
+        )}
+      </View>
+    </View>
+  );
+}
 
 function ActionItem({
   checklistItem,
@@ -363,6 +426,10 @@ function buildIngredientChecklistItems(
   );
 }
 
+function getUniqueIngredients(ingredients: string[] | undefined) {
+  return Array.from(new Set(ingredients?.map((item) => item.trim()).filter(Boolean) ?? []));
+}
+
 function getCompletedCount(checklist: ChecklistItem[]) {
   return checklist.filter((item) => item.completed).length;
 }
@@ -425,6 +492,40 @@ const styles = StyleSheet.create({
   },
   planCard: {
     gap: Spacing.two,
+  },
+  ingredientsCard: {
+    gap: Spacing.three,
+  },
+  ingredientGroups: {
+    gap: Spacing.three,
+  },
+  ingredientGroup: {
+    gap: Spacing.two,
+  },
+  ingredientChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.two,
+  },
+  ingredientChip: {
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: '#C5DEC9',
+    backgroundColor: '#E6F1E8',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  ingredientChipAvoid: {
+    borderColor: '#E8C7B5',
+    backgroundColor: '#F7E8DF',
+  },
+  ingredientChipText: {
+    fontSize: 12,
+    fontWeight: '400',
+    lineHeight: 16,
+  },
+  ingredientEmptyText: {
+    fontWeight: '400',
   },
   todoCard: {
     gap: Spacing.three,
