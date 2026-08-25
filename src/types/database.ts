@@ -1,3 +1,7 @@
+import type { SkinStory, SkinStoryScores } from '@/skin-intelligence/skinStoryTypes';
+
+export type { SkinStory } from '@/skin-intelligence/skinStoryTypes';
+
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type CheckInResponses = {
@@ -6,6 +10,10 @@ export type CheckInResponses = {
   alcoholConsumption?: 'None' | 'Light' | 'Moderate' | 'High';
   cyclePhase?: 'Follicular' | 'Ovulatory' | 'Luteal' | 'Menstrual' | 'Not tracking';
   routineNote?: string;
+  movementPlan?: ('Yoga' | 'Pilates' | 'Indoors' | 'Outdoors')[];
+  movementPlanNote?: string;
+  skinFeelToday?: 'Dry' | 'Itchy' | 'Oily' | 'Normal';
+  yesterdayNote?: string;
   // Legacy prototype field kept so earlier test entries remain readable.
   routineChange?: 'No change' | 'Strong actives' | 'New product' | 'Treatment';
   // Legacy prototype fields kept so earlier test entries remain readable.
@@ -24,6 +32,7 @@ export type AnalysisSignals = {
   skinHealthScore?: number;
   scoreBand?: 'stable' | 'balanced' | 'stressed' | 'reactive' | 'high_stress';
   scoreDelta?: number;
+  skinStateScores?: SkinStoryScores;
   drivers?: Array<{
     label: string;
     impact: number;
@@ -53,6 +62,7 @@ export type PhotoAnalysis = {
 export type EnvironmentSnapshot = {
   temperatureF?: number;
   humidity?: number;
+  elevationM?: number;
   uvIndex?: number;
   usAqi?: number;
   pm25?: number;
@@ -71,19 +81,44 @@ export type ProfileLocation = {
 
 export type ProfileContext = {
   displayName?: string;
+  age?: string;
   ageRange?: string;
+  height?: string;
+  skinAncestry?: string;
   skinType?: string;
   sensitivityLevel?: string;
   skinGoals?: string[];
+  skinHistory?: string[];
+  medicalHistory?: string[];
+  regularCycles?: string;
+  averageCycleLength?: string;
+  lastPeriodStart?: string;
+  perimenopause?: string;
+  menopause?: string;
+  hrt?: string;
+  birthControl?: string;
+  testosterone?: string;
+  glp1Medications?: string;
+  reproductiveHormonalStatus?: string[];
+  smoking?: string;
+  alcohol?: string;
+  exerciseFrequency?: string;
+  sauna?: string;
+  swimming?: string;
+  sunExposure?: string;
+  spfUse?: string;
+  typicalDiet?: string[];
+  dailyProtein?: string;
+  dailyWater?: string;
+  dailyFruit?: string;
+  dailyVegetables?: string;
+  supplements?: string[];
+  supplementNote?: string;
+  proceduresHistory?: string[];
+  skincareProducts?: string;
+  skincareSearch?: string;
   knownTriggers?: string[];
   skinContextNote?: string;
-};
-
-export type SkinStory = {
-  headline?: string;
-  summary?: string;
-  contributors?: Array<{ label: string; detail: string }>;
-  priority?: string;
 };
 
 export type DailyPlan = {
@@ -91,6 +126,16 @@ export type DailyPlan = {
     title: string;
     detail: string;
     actions: string[];
+  }>;
+  ingredientsToFavor?: string[];
+  ingredientsToAvoid?: string[];
+  checklist?: Array<{
+    id: string;
+    title?: string;
+    detail?: string;
+    label: string;
+    sectionTitle: string;
+    completed: boolean;
   }>;
   avoid?: string[];
 };
@@ -109,6 +154,7 @@ export type Database = {
           skin_goals: string[];
           known_triggers: string[];
           skin_context_note: string | null;
+          profile_data: ProfileContext;
           location_query: string | null;
           location_label: string | null;
           latitude: number | null;
@@ -126,6 +172,7 @@ export type Database = {
           skin_goals?: string[];
           known_triggers?: string[];
           skin_context_note?: string | null;
+          profile_data?: ProfileContext;
           location_query?: string | null;
           location_label?: string | null;
           latitude?: number | null;
@@ -142,6 +189,7 @@ export type Database = {
           skin_goals?: string[];
           known_triggers?: string[];
           skin_context_note?: string | null;
+          profile_data?: ProfileContext;
           location_query?: string | null;
           location_label?: string | null;
           latitude?: number | null;
@@ -219,6 +267,7 @@ export type Database = {
           location_label: string | null;
           temperature_f: number | null;
           humidity: number | null;
+          elevation_m: number | null;
           uv_index: number | null;
           us_aqi: number | null;
           pm2_5: number | null;
@@ -239,6 +288,7 @@ export type Database = {
           location_label?: string | null;
           temperature_f?: number | null;
           humidity?: number | null;
+          elevation_m?: number | null;
           uv_index?: number | null;
           us_aqi?: number | null;
           pm2_5?: number | null;
@@ -256,6 +306,7 @@ export type Database = {
           location_label?: string | null;
           temperature_f?: number | null;
           humidity?: number | null;
+          elevation_m?: number | null;
           uv_index?: number | null;
           us_aqi?: number | null;
           pm2_5?: number | null;
@@ -322,7 +373,9 @@ export type Database = {
           raw_response?: Json | null;
           created_at?: string;
         };
-        Update: never;
+        Update: {
+          daily_plan?: DailyPlan;
+        };
         Relationships: [];
       };
     };

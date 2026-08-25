@@ -39,6 +39,17 @@ export async function listDailyEntries(userId: string, limit = 20) {
     .limit(limit);
 }
 
+export async function getPreviousDailyEntry(userId: string, currentEntryDate: string) {
+  return supabase
+    .from('daily_entries')
+    .select('*')
+    .eq('user_id', userId)
+    .lt('entry_date', currentEntryDate)
+    .order('entry_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+}
+
 export async function saveDailyCheckIn(entryId: string, checkIn: CheckInResponses) {
   return supabase
     .from('daily_entries')

@@ -10,6 +10,7 @@ type Coordinates = {
 };
 
 type OpenMeteoCurrentWeather = {
+  elevation?: number;
   current?: {
     temperature_2m?: number;
     relative_humidity_2m?: number;
@@ -17,6 +18,7 @@ type OpenMeteoCurrentWeather = {
 };
 
 type OpenMeteoAirQuality = {
+  elevation?: number;
   current?: {
     us_aqi?: number;
     pm2_5?: number;
@@ -35,6 +37,10 @@ type OpenMeteoGeocodeResult = {
     longitude: number;
   }>;
 };
+
+type OpenMeteoFetchResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; error: string };
 
 export async function geocodeLocation(query: string) {
   const trimmed = query.trim();
@@ -94,6 +100,7 @@ export async function captureEnvironmentSnapshot(userId: string, dailyEntryId: s
         location_label: coordinates.label ?? null,
         temperature_f: snapshot.temperatureF ?? null,
         humidity: snapshot.humidity ?? null,
+        elevation_m: snapshot.elevationM ?? null,
         uv_index: snapshot.uvIndex ?? null,
         us_aqi: snapshot.usAqi ?? null,
         pm2_5: snapshot.pm25 ?? null,
@@ -125,6 +132,7 @@ export function toEnvironmentSnapshot(row: EnvironmentSnapshotRow | null | undef
   return {
     temperatureF: toNumber(row.temperature_f),
     humidity: toNumber(row.humidity),
+    elevationM: toNumber(row.elevation_m),
     uvIndex: toNumber(row.uv_index),
     usAqi: toNumber(row.us_aqi),
     pm25: toNumber(row.pm2_5),
@@ -136,38 +144,81 @@ export function toEnvironmentSnapshot(row: EnvironmentSnapshotRow | null | undef
 }
 
 async function fetchOpenMeteoEnvironment(latitude: number, longitude: number) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return { data: null, error: new Error('Environment lookup needs a valid latitude and longitude.') };
+  }
+
   const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m&temperature_unit=fahrenheit&timezone=auto`;
   const airUrl = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${latitude}&longitude=${longitude}&current=us_aqi,pm2_5,pm10,ozone,uv_index&timezone=auto`;
 
-  let weatherResponse: Response;
-  let airResponse: Response;
+  const [weatherResult, airResult] = await Promise.all([
+    fetchOpenMeteoJson<OpenMeteoCurrentWeather>(weatherUrl, 'weather'),
+    fetchOpenMeteoJson<OpenMeteoAirQuality>(airUrl, 'air quality'),
+  ]);
 
-  try {
-    [weatherResponse, airResponse] = await Promise.all([fetch(weatherUrl), fetch(airUrl)]);
-  } catch {
-    return { data: null, error: new Error('Environment lookup failed. Check your connection and try again.') };
+  if (!weatherResult.ok && !airResult.ok) {
+    return {
+      data: null,
+      error: new Error(`Open-Meteo did not return environment data. ${weatherResult.error} ${airResult.error}`),
+    };
   }
 
-  if (!weatherResponse.ok || !airResponse.ok) {
-    return { data: null, error: new Error('Open-Meteo did not return environment data.') };
-  }
-
-  const weather = (await weatherResponse.json()) as OpenMeteoCurrentWeather;
-  const air = (await airResponse.json()) as OpenMeteoAirQuality;
+  const weather = weatherResult.ok ? weatherResult.data : undefined;
+  const air = airResult.ok ? airResult.data : undefined;
 
   return {
     data: {
-      temperatureF: weather.current?.temperature_2m,
-      humidity: weather.current?.relative_humidity_2m,
-      uvIndex: air.current?.uv_index,
-      usAqi: air.current?.us_aqi,
-      pm25: air.current?.pm2_5,
-      pm10: air.current?.pm10,
-      ozone: air.current?.ozone,
-      rawResponse: { weather, airQuality: air },
+      temperatureF: weather?.current?.temperature_2m,
+      humidity: weather?.current?.relative_humidity_2m,
+      elevationM: weather?.elevation ?? air?.elevation,
+      uvIndex: air?.current?.uv_index,
+      usAqi: air?.current?.us_aqi,
+      pm25: air?.current?.pm2_5,
+      pm10: air?.current?.pm10,
+      ozone: air?.current?.ozone,
+      rawResponse: {
+        weather: weatherResult.ok ? weatherResult.data : { error: weatherResult.error },
+        airQuality: airResult.ok ? airResult.data : { error: airResult.error },
+      },
     },
     error: null,
   };
+}
+
+async function fetchOpenMeteoJson<T>(url: string, label: string): Promise<OpenMeteoFetchResult<T>> {
+  let response: Response;
+
+  try {
+    response = await fetch(url);
+  } catch {
+    return { ok: false, error: `${label} request failed. Check your connection and try again.` };
+  }
+
+  let body: unknown;
+
+  try {
+    body = await response.json();
+  } catch {
+    body = null;
+  }
+
+  if (!response.ok) {
+    const reason = getOpenMeteoReason(body);
+    return {
+      ok: false,
+      error: `${label} returned ${response.status}${reason ? `: ${reason}` : ''}.`,
+    };
+  }
+
+  return { ok: true, data: body as T };
+}
+
+function getOpenMeteoReason(body: unknown) {
+  if (body && typeof body === 'object' && 'reason' in body && typeof body.reason === 'string') {
+    return body.reason;
+  }
+
+  return '';
 }
 
 function toNumber(value: unknown) {

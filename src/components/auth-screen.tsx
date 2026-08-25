@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import * as Linking from 'expo-linking';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -12,9 +13,9 @@ import {
 import { AppShell, BrandMark, Card, PrimaryButton, SubstrateText } from '@/components/substrate-ui';
 import { Colors, Fonts, Spacing } from '@/constants/theme';
 import { isSupabaseConfigured } from '@/lib/env';
-import { signInWithEmailPassword, signUpWithEmailPassword } from '@/services/auth';
+import { sendPasswordResetEmail, signInWithEmailPassword, signUpWithEmailPassword } from '@/services/auth';
 
-type AuthMode = 'sign-in' | 'sign-up';
+type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password';
 
 export function AuthScreen() {
   const [mode, setMode] = useState<AuthMode>('sign-in');
@@ -25,6 +26,7 @@ export function AuthScreen() {
   const [error, setError] = useState('');
 
   const isSignIn = mode === 'sign-in';
+  const isForgotPassword = mode === 'forgot-password';
 
   async function handleSubmit() {
     const trimmedEmail = email.trim();
@@ -33,6 +35,25 @@ export function AuthScreen() {
 
     if (!isSupabaseConfigured) {
       setError('Supabase is not configured for this deployment.');
+      return;
+    }
+
+    if (isForgotPassword) {
+      if (!trimmedEmail) {
+        setError('Enter your email address.');
+        return;
+      }
+
+      setIsSubmitting(true);
+      const { error: resetError } = await sendPasswordResetEmail(trimmedEmail, getPasswordResetUrl());
+      setIsSubmitting(false);
+
+      if (resetError) {
+        setError(resetError.message);
+        return;
+      }
+
+      setMessage('If that email is registered, a reset link is on its way.');
       return;
     }
 
@@ -70,6 +91,13 @@ export function AuthScreen() {
     setError('');
   }
 
+  function showForgotPassword() {
+    setMode('forgot-password');
+    setPassword('');
+    setMessage('');
+    setError('');
+  }
+
   return (
     <AppShell contentStyle={styles.content}>
       <KeyboardAvoidingView
@@ -87,9 +115,13 @@ export function AuthScreen() {
 
         <Card style={styles.card}>
           <View style={styles.header}>
-            <SubstrateText variant="title">{isSignIn ? 'Welcome back' : 'Create your account'}</SubstrateText>
+            <SubstrateText variant="title">
+              {isForgotPassword ? 'Reset your password' : isSignIn ? 'Welcome back' : 'Create your account'}
+            </SubstrateText>
             <SubstrateText variant="body" color={Colors.light.textMuted}>
-              {isSignIn
+              {isForgotPassword
+                ? "Enter your email and we'll send a secure link to set a new password."
+                : isSignIn
                 ? 'Sign in to continue tracking your skin signals.'
                 : 'Start a private profile for your daily photos, check-ins, and plans.'}
             </SubstrateText>
@@ -115,22 +147,24 @@ export function AuthScreen() {
               />
             </View>
 
-            <View style={styles.field}>
-              <SubstrateText variant="small" color={Colors.light.textMuted}>
-                Password
-              </SubstrateText>
-              <TextInput
-                autoCapitalize="none"
-                autoComplete={isSignIn ? 'current-password' : 'new-password'}
-                onChangeText={setPassword}
-                placeholder="At least 6 characters"
-                placeholderTextColor={Colors.light.textMuted}
-                secureTextEntry
-                style={styles.input}
-                textContentType={isSignIn ? 'password' : 'newPassword'}
-                value={password}
-              />
-            </View>
+            {!isForgotPassword ? (
+              <View style={styles.field}>
+                <SubstrateText variant="small" color={Colors.light.textMuted}>
+                  Password
+                </SubstrateText>
+                <TextInput
+                  autoCapitalize="none"
+                  autoComplete={isSignIn ? 'current-password' : 'new-password'}
+                  onChangeText={setPassword}
+                  placeholder="At least 6 characters"
+                  placeholderTextColor={Colors.light.textMuted}
+                  secureTextEntry
+                  style={styles.input}
+                  textContentType={isSignIn ? 'password' : 'newPassword'}
+                  value={password}
+                />
+              </View>
+            ) : null}
           </View>
 
           {error ? (
@@ -162,12 +196,24 @@ export function AuthScreen() {
             disabled={isSubmitting || !isSupabaseConfigured}
             onPress={handleSubmit}
             style={(isSubmitting || !isSupabaseConfigured) && styles.disabled}>
-            <PrimaryButton label={isSignIn ? 'Sign In' : 'Create Account'} />
+            <PrimaryButton label={isForgotPassword ? 'Send Reset Link' : isSignIn ? 'Sign In' : 'Create Account'} />
           </Pressable>
+
+          {isSignIn ? (
+            <Pressable accessibilityRole="button" onPress={showForgotPassword} style={styles.modeButton}>
+              <SubstrateText variant="small" color={Colors.light.accent}>
+                Forgot password?
+              </SubstrateText>
+            </Pressable>
+          ) : null}
 
           <Pressable accessibilityRole="button" onPress={toggleMode} style={styles.modeButton}>
             <SubstrateText variant="small" color={Colors.light.accent}>
-              {isSignIn ? 'Need an account? Create one' : 'Already have an account? Sign in'}
+              {isForgotPassword
+                ? 'Remember your password? Sign in'
+                : isSignIn
+                ? 'Need an account? Create one'
+                : 'Already have an account? Sign in'}
             </SubstrateText>
           </Pressable>
 
@@ -180,6 +226,14 @@ export function AuthScreen() {
       </KeyboardAvoidingView>
     </AppShell>
   );
+}
+
+function getPasswordResetUrl() {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return `${window.location.origin}/reset-password`;
+  }
+
+  return Linking.createURL('reset-password');
 }
 
 const styles = StyleSheet.create({

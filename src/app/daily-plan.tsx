@@ -1,6 +1,6 @@
 import { type Href, useFocusEffect, useRouter } from 'expo-router';
-import { AlertTriangle, CheckCircle2, ShieldCheck, Sparkles, Target } from 'lucide-react-native';
-import { type ComponentType, useCallback, useState } from 'react';
+import { CheckCircle2 } from 'lucide-react-native';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import {
@@ -20,15 +20,17 @@ import {
   getActiveEntryDate,
   getOrCreateDailyEntry,
 } from '@/services/daily-entries';
-import { getOrCreateTodayRecommendation } from '@/services/recommendations';
+import { getOrCreateTodayRecommendation, saveTodayRecommendationPlan } from '@/services/recommendations';
 import type { DailyPlan } from '@/types/database';
 
 export default function DailyPlanScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const [entryId, setEntryId] = useState<string | null>(null);
   const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdvancing, setIsAdvancing] = useState(false);
+  const [isSavingChecklist, setIsSavingChecklist] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [entryDate, setEntryDate] = useState<string | null>(null);
 
@@ -57,6 +59,7 @@ export default function DailyPlanScreen() {
         }
 
         setEntryDate(activeDate);
+        setEntryId(entry.data.id);
         const recommendation = await getOrCreateTodayRecommendation(user.id, entry.data.id);
 
         if (!isMounted) return;
@@ -67,7 +70,20 @@ export default function DailyPlanScreen() {
           return;
         }
 
-        setDailyPlan(recommendation.data.dailyPlan);
+        const planWithChecklist = ensurePlanChecklist(recommendation.data.dailyPlan);
+        const shouldSaveChecklist = shouldPersistChecklist(recommendation.data.dailyPlan, planWithChecklist);
+        setDailyPlan(planWithChecklist);
+
+        if (shouldSaveChecklist) {
+          const savedPlan = await saveTodayRecommendationPlan(user.id, entry.data.id, planWithChecklist);
+
+          if (!isMounted) return;
+
+          if (savedPlan.error) {
+            setErrorMessage(savedPlan.error.message);
+          }
+        }
+
         setIsLoading(false);
       }
 
@@ -79,9 +95,35 @@ export default function DailyPlanScreen() {
     }, [user])
   );
 
-  const plan = dailyPlan?.priorities ?? [];
-  const primaryPlan = plan[0];
-  const secondaryPlans = plan.slice(1);
+  const checklist = useMemo(() => ensurePlanChecklist(dailyPlan).checklist ?? [], [dailyPlan]);
+  const checklistById = useMemo(
+    () => new Map(checklist.map((item) => [item.id, item])),
+    [checklist]
+  );
+
+  async function toggleChecklistItem(itemId: string) {
+    if (!dailyPlan || !entryId || !user) {
+      return;
+    }
+
+    const currentPlan = ensurePlanChecklist(dailyPlan);
+    const nextPlan: DailyPlan = {
+      ...currentPlan,
+      checklist: currentPlan.checklist?.map((item) =>
+        item.id === itemId ? { ...item, completed: !item.completed } : item
+      ),
+    };
+
+    setDailyPlan(nextPlan);
+    setIsSavingChecklist(true);
+    const { error } = await saveTodayRecommendationPlan(user.id, entryId, nextPlan);
+    setIsSavingChecklist(false);
+
+    if (error) {
+      setDailyPlan(currentPlan);
+      setErrorMessage(error.message);
+    }
+  }
 
   async function finishRoutine() {
     if (!user) {
@@ -100,8 +142,8 @@ export default function DailyPlanScreen() {
       <StepProgress currentStep={5} totalSteps={5} currentLabel="Today’s Plan" />
       <ScreenHeader
         eyebrow="Daily plan"
-        title="A focused routine for this skin state."
-        body="Recommendations are prioritized by what is most likely to help today, not by product category."
+        title="Today’s checklist"
+        body="A simple saved list for today. Check items off as you complete them, and Substrate will keep the status for tomorrow’s check-in."
       />
 
       {entryDate ? (
@@ -130,138 +172,172 @@ export default function DailyPlanScreen() {
         </Card>
       ) : null}
 
-      {primaryPlan ? (
-        <Card style={styles.focusCard}>
-          <View style={styles.focusTopRow}>
-            <View style={styles.focusIcon}>
-              <Target color="#FFFFFF" size={20} strokeWidth={2.5} />
-            </View>
-            <View style={styles.focusCopy}>
-              <SubstrateText variant="small" color={Colors.light.accentDeep}>
-                Must focus today
-              </SubstrateText>
-              <SubstrateText variant="section">{primaryPlan.title}</SubstrateText>
-            </View>
+      {checklist.length ? (
+        <Card style={styles.todoCard}>
+          <View style={styles.todoHeader}>
+            <SubstrateText variant="section">To do today</SubstrateText>
+            <SubstrateText variant="small" color={Colors.light.textMuted}>
+              {getCompletedCount(checklist)} of {checklist.length} done
+            </SubstrateText>
           </View>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
-            {primaryPlan.detail}
-          </SubstrateText>
-          <View style={styles.actionStack}>
-            {primaryPlan.actions.slice(0, 4).map((item, index) => (
-              <ActionItem key={item} index={index + 1} label={item} />
+          <View style={styles.todoList}>
+            {checklist.map((item) => (
+              <ActionItem
+                key={item.id}
+                checklistItem={checklistById.get(item.id)}
+                fallbackLabel={item.label}
+                onToggle={toggleChecklistItem}
+              />
             ))}
           </View>
         </Card>
       ) : (
-          <Card style={styles.planCard}>
-            <SubstrateText variant="section">No plan yet</SubstrateText>
-            <SubstrateText variant="small" color={Colors.light.textMuted}>
-              Complete today’s photo and check-in to create your plan.
-            </SubstrateText>
-          </Card>
-      )}
-
-      {secondaryPlans.length ? (
-        <View style={styles.planList}>
-          <View style={styles.sectionHeader}>
-            <SubstrateText variant="section">Also support</SubstrateText>
-            <SubstrateText variant="small" color={Colors.light.textMuted}>
-              Smaller moves that help today’s priority
-            </SubstrateText>
-          </View>
-          {secondaryPlans.map((section, index) => (
-            <PlanCard key={section.title} plan={section} variant={index} />
-          ))}
-        </View>
-      ) : null}
-
-      {dailyPlan?.avoid?.length ? (
-        <Card style={styles.avoidCard}>
-          <View style={styles.avoidHeader}>
-            <View style={styles.avoidIcon}>
-              <AlertTriangle color="#B98222" size={18} strokeWidth={2.4} />
-            </View>
-            <SubstrateText variant="section">Avoid today</SubstrateText>
-          </View>
-          <View style={styles.tags}>
-            {dailyPlan.avoid.map((item) => (
-              <SubstrateText key={item} variant="tag">
-                {item}
-              </SubstrateText>
-            ))}
-          </View>
+        <Card style={styles.planCard}>
+          <SubstrateText variant="section">No plan yet</SubstrateText>
+          <SubstrateText variant="small" color={Colors.light.textMuted}>
+            Complete today’s photo and check-in to create your plan.
+          </SubstrateText>
         </Card>
-      ) : null}
+      )}
 
       <Pressable
         accessibilityRole="button"
-        disabled={isLoading || isAdvancing}
+        disabled={isLoading || isAdvancing || isSavingChecklist}
         onPress={finishRoutine}
-        style={[styles.next, (isLoading || isAdvancing) && styles.disabled]}>
+        style={[styles.next, (isLoading || isAdvancing || isSavingChecklist) && styles.disabled]}>
         <PrimaryButton label="Done" />
       </Pressable>
     </AppShell>
   );
 }
 
-type PlanPriority = NonNullable<DailyPlan['priorities']>[number];
+type ChecklistItem = NonNullable<DailyPlan['checklist']>[number];
 
-function PlanCard({ plan, variant }: { plan: PlanPriority; variant: number }) {
-  const tone = variant % 2 === 0 ? planTones.plum : planTones.green;
-  const Icon = variant % 2 === 0 ? Sparkles : ShieldCheck;
+function ActionItem({
+  checklistItem,
+  fallbackLabel,
+  onToggle,
+}: {
+  checklistItem?: ChecklistItem;
+  fallbackLabel: string;
+  onToggle: (itemId: string) => void;
+}) {
+  const isComplete = Boolean(checklistItem?.completed);
 
   return (
-    <Card style={styles.supportCard}>
-      <View style={styles.supportHeader}>
-        <View style={[styles.supportIcon, { backgroundColor: tone.soft }]}>
-          <Icon color={tone.color} size={18} strokeWidth={2.4} />
-        </View>
-        <View style={styles.supportCopy}>
-          <SubstrateText variant="section">{plan.title}</SubstrateText>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
-            {plan.detail}
-          </SubstrateText>
-        </View>
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: isComplete }}
+      disabled={!checklistItem}
+      onPress={() => checklistItem && onToggle(checklistItem.id)}
+      style={[styles.actionItem, isComplete && styles.actionItemComplete]}>
+      <View style={[styles.checkbox, isComplete && styles.checkboxComplete]}>
+        {isComplete ? <CheckCircle2 color="#FFFFFF" size={18} strokeWidth={2.6} /> : null}
       </View>
-      <View style={styles.compactActions}>
-        {plan.actions.slice(0, 3).map((item) => (
-          <BulletItem key={item} label={item} />
-        ))}
-      </View>
-    </Card>
-  );
-}
-
-function ActionItem({ index, label }: { index: number; label: string }) {
-  return (
-    <View style={[styles.actionItem, styles.actionItemPrimary]}>
-      <View style={[styles.actionIndex, styles.actionIndexPrimary]}>
-        <SubstrateText variant="small" color="#FFFFFF">
-          {index}
+      <View style={styles.actionCopy}>
+        <SubstrateText
+          variant="small"
+          color={isComplete ? Colors.light.textMuted : Colors.light.text}
+          style={isComplete && styles.completedText}>
+          {checklistItem?.title ?? checklistItem?.label ?? fallbackLabel}
         </SubstrateText>
+        {checklistItem?.detail ? (
+          <SubstrateText variant="small" color={Colors.light.textMuted}>
+            {checklistItem.detail}
+          </SubstrateText>
+        ) : null}
       </View>
-      <SubstrateText variant="small" color={Colors.light.text}>
-        {label}
-      </SubstrateText>
-    </View>
+    </Pressable>
   );
 }
 
-function BulletItem({ label }: { label: string }) {
+function ensurePlanChecklist(plan: DailyPlan | null): DailyPlan {
+  if (!plan) {
+    return {};
+  }
+
+  const existingChecklist = plan.checklist ?? [];
+  const existingCompletion = new Map(existingChecklist.map((item) => [item.id, item.completed]));
+  const existingById = new Map(existingChecklist.map((item) => [item.id, item]));
+  const priorityItems =
+    plan.priorities?.flatMap((section, sectionIndex) =>
+      section.actions.slice(0, 3).map((action, actionIndex) => {
+        const id = buildChecklistItemId(sectionIndex, actionIndex);
+        const existing = existingById.get(id);
+
+        return {
+          id,
+          title: existing?.title ?? action,
+          detail: existing?.detail ?? section.detail,
+          label: action,
+          sectionTitle: section.title,
+          completed: existingCompletion.get(id) ?? false,
+        };
+      })
+    ) ?? [];
+  const ingredientItems = [
+    ...buildIngredientChecklistItems('favor', 'Favor', plan.ingredientsToFavor, existingById, existingCompletion),
+    ...buildIngredientChecklistItems('avoid', 'Avoid', plan.ingredientsToAvoid ?? plan.avoid, existingById, existingCompletion),
+  ];
+  const checklist = [...priorityItems, ...ingredientItems];
+
+  return {
+    ...plan,
+    checklist,
+  };
+}
+
+function buildChecklistItemId(sectionIndex: number, actionIndex: number) {
+  return `priority-${sectionIndex}-action-${actionIndex}`;
+}
+
+function buildIngredientChecklistItems(
+  type: 'favor' | 'avoid',
+  verb: string,
+  ingredients: string[] | undefined,
+  existingById: Map<string, ChecklistItem>,
+  existingCompletion: Map<string, boolean>
+) {
   return (
-    <View style={styles.bulletItem}>
-      <View style={styles.bulletDot} />
-      <SubstrateText variant="small" color={Colors.light.text}>
-        {label}
-      </SubstrateText>
-    </View>
+    ingredients?.slice(0, 4).map((ingredient, index) => {
+      const id = `ingredient-${type}-${index}`;
+      const existing = existingById.get(id);
+
+      return {
+        id,
+        title: existing?.title ?? `${verb} ${ingredient}`,
+        detail:
+          existing?.detail ??
+          (type === 'favor'
+            ? 'Use this as a helpful ingredient direction for today if it is already in your routine.'
+            : 'Keep this lower priority today unless it is already prescribed or essential.'),
+        label: `${verb} ${ingredient}`,
+        sectionTitle: type === 'favor' ? 'Ingredients to favor' : 'Consider avoiding today',
+        completed: existingCompletion.get(id) ?? false,
+      };
+    }) ?? []
   );
 }
 
-const planTones = {
-  green: { color: '#3D7D55', soft: Colors.light.successSoft },
-  plum: { color: Colors.light.accent, soft: Colors.light.backgroundSelected },
-};
+function getCompletedCount(checklist: ChecklistItem[]) {
+  return checklist.filter((item) => item.completed).length;
+}
+
+function shouldPersistChecklist(originalPlan: DailyPlan, nextPlan: DailyPlan) {
+  const originalChecklist = originalPlan.checklist ?? [];
+  const nextChecklist = nextPlan.checklist ?? [];
+
+  if (originalChecklist.length !== nextChecklist.length) {
+    return true;
+  }
+
+  const originalById = new Map(originalChecklist.map((item) => [item.id, item]));
+
+  return nextChecklist.some((item) => {
+    const original = originalById.get(item.id);
+    return !original || original.title !== item.title || original.detail !== item.detail || original.label !== item.label;
+  });
+}
 
 const styles = StyleSheet.create({
   loading: {
@@ -270,120 +346,58 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
     paddingHorizontal: Spacing.one,
   },
-  planList: {
-    gap: Spacing.three,
-  },
   planCard: {
     gap: Spacing.two,
   },
-  focusCard: {
+  todoCard: {
     gap: Spacing.three,
     borderColor: Colors.light.accentSoft,
     backgroundColor: '#FFFDFB',
   },
-  focusTopRow: {
+  todoHeader: {
     alignItems: 'center',
     flexDirection: 'row',
+    justifyContent: 'space-between',
     gap: Spacing.two,
   },
-  focusIcon: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: Colors.light.accent,
-  },
-  focusCopy: {
-    flex: 1,
-    gap: Spacing.half,
-  },
-  actionStack: {
+  todoList: {
     gap: Spacing.two,
   },
   actionItem: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     flexDirection: 'row',
     gap: Spacing.two,
-    borderRadius: 16,
+    borderRadius: 12,
+    backgroundColor: Colors.light.backgroundSelected,
+    minHeight: 44,
     padding: Spacing.two,
   },
-  actionItemPrimary: {
-    backgroundColor: Colors.light.backgroundSelected,
+  actionItemComplete: {
+    backgroundColor: Colors.light.successSoft,
   },
-  actionIndex: {
+  checkbox: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.light.accent,
+    backgroundColor: '#FFFFFF',
   },
-  actionIndexPrimary: {
+  checkboxComplete: {
     backgroundColor: Colors.light.accent,
   },
-  sectionHeader: {
-    gap: Spacing.half,
+  completedText: {
+    textDecorationLine: 'line-through',
   },
-  supportCard: {
-    gap: Spacing.two,
-  },
-  supportHeader: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  supportIcon: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-  },
-  supportCopy: {
+  actionCopy: {
     flex: 1,
     gap: Spacing.half,
-  },
-  compactActions: {
-    gap: Spacing.two,
-    paddingLeft: Spacing.one,
-  },
-  bulletItem: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  bulletDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    marginTop: 8,
-    backgroundColor: Colors.light.accent,
-  },
-  avoidCard: {
-    gap: Spacing.two,
-    backgroundColor: Colors.light.warningSoft,
-  },
-  avoidHeader: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  avoidIcon: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#FFF9EF',
   },
   errorCard: {
     gap: Spacing.one,
     backgroundColor: Colors.light.blush,
-  },
-  tags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
   },
   summary: {
     paddingHorizontal: Spacing.one,

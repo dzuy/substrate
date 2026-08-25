@@ -17,14 +17,26 @@ import { useAuth } from '@/lib/auth-context';
 import {
   getActiveEntryDate,
   getOrCreateDailyEntry,
+  getPreviousDailyEntry,
   saveDailyCheckIn,
 } from '@/services/daily-entries';
-import type { CheckInResponses } from '@/types/database';
+import { getLatestRecommendation } from '@/services/recommendations';
+import type { CheckInResponses, DailyPlan } from '@/types/database';
 
 const sleep = ['Poor', 'Okay', 'Rested'];
 const stress = ['Low', 'Medium', 'High'];
-const alcohol = ['None', 'Light', 'Moderate', 'High'];
-const cycle = ['Menstrual', 'Follicular', 'Ovulatory', 'Luteal', 'Not tracking'];
+const cycle = [
+  { value: 'Menstrual', label: 'Menstrual (Days 1-5)' },
+  { value: 'Follicular', label: 'Follicular (Days 6-13)' },
+  { value: 'Ovulatory', label: 'Ovulatory (Days 14-15)' },
+  { value: 'Luteal', label: 'Luteal (Days 16-28)' },
+  { value: 'Not tracking', label: 'Not tracking' },
+] satisfies { value: NonNullable<CheckInResponses['cyclePhase']>; label: string }[];
+const movement = ['Yoga', 'Pilates', 'Indoors', 'Outdoors'] as const;
+const skinFeel = ['Dry', 'Itchy', 'Oily', 'Normal'] as const;
+
+type MovementPlan = NonNullable<CheckInResponses['movementPlan']>[number];
+type ChecklistItem = NonNullable<DailyPlan['checklist']>[number];
 
 export default function CheckInScreen() {
   const router = useRouter();
@@ -32,9 +44,12 @@ export default function CheckInScreen() {
   const [entryId, setEntryId] = useState<string | null>(null);
   const [sleepQuality, setSleepQuality] = useState<NonNullable<CheckInResponses['sleepQuality']>>('Poor');
   const [stressLevel, setStressLevel] = useState<NonNullable<CheckInResponses['stressLevel']>>('Medium');
-  const [alcoholConsumption, setAlcoholConsumption] = useState<NonNullable<CheckInResponses['alcoholConsumption']>>('None');
   const [cyclePhase, setCyclePhase] = useState<NonNullable<CheckInResponses['cyclePhase']>>('Luteal');
-  const [routineNote, setRoutineNote] = useState('');
+  const [movementPlan, setMovementPlan] = useState<MovementPlan[]>([]);
+  const [movementPlanNote, setMovementPlanNote] = useState('');
+  const [skinFeelToday, setSkinFeelToday] = useState<NonNullable<CheckInResponses['skinFeelToday']>>('Normal');
+  const [yesterdayNote, setYesterdayNote] = useState('');
+  const [yesterdayChecklist, setYesterdayChecklist] = useState<ChecklistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
@@ -51,6 +66,11 @@ export default function CheckInScreen() {
 
         const activeDate = await getActiveEntryDate(user.id);
         const { data, error } = await getOrCreateDailyEntry(user.id, activeDate);
+        const previousEntry = await getPreviousDailyEntry(user.id, activeDate);
+        const previousRecommendation =
+          previousEntry.data && !previousEntry.error
+            ? await getLatestRecommendation(user.id, previousEntry.data.id)
+            : { data: null, error: null };
 
         if (!isMounted) {
           return;
@@ -70,6 +90,7 @@ export default function CheckInScreen() {
 
         setEntryId(data.id);
         hydrateCheckIn(data.check_in);
+        setYesterdayChecklist(previousRecommendation.data?.dailyPlan.checklist ?? []);
         setIsLoading(false);
       }
 
@@ -88,17 +109,31 @@ export default function CheckInScreen() {
     if (checkIn.stressLevel) {
       setStressLevel(checkIn.stressLevel);
     }
-    if (checkIn.alcoholConsumption) {
-      setAlcoholConsumption(checkIn.alcoholConsumption);
-    }
     if (checkIn.cyclePhase) {
       setCyclePhase(checkIn.cyclePhase);
     }
-    if (checkIn.routineNote) {
-      setRoutineNote(checkIn.routineNote);
-    } else if (checkIn.routineChange && checkIn.routineChange !== 'No change') {
-      setRoutineNote(checkIn.routineChange);
+    if (checkIn.movementPlan) {
+      setMovementPlan(checkIn.movementPlan);
+    } else if (checkIn.activityLevel) {
+      setMovementPlan([checkIn.activityLevel === 'Light' ? 'Indoors' : 'Outdoors']);
     }
+    setMovementPlanNote(checkIn.movementPlanNote ?? '');
+    if (checkIn.skinFeelToday) {
+      setSkinFeelToday(checkIn.skinFeelToday);
+    } else if (checkIn.skinFeel === 'Dry') {
+      setSkinFeelToday('Dry');
+    } else if (checkIn.skinFeel === 'Congested') {
+      setSkinFeelToday('Oily');
+    } else if (checkIn.skinFeel === 'Calm') {
+      setSkinFeelToday('Normal');
+    }
+    setYesterdayNote(checkIn.yesterdayNote ?? '');
+  }
+
+  function toggleMovementPlan(item: MovementPlan) {
+    setMovementPlan((current) =>
+      current.includes(item) ? current.filter((selected) => selected !== item) : [...current, item]
+    );
   }
 
   async function handleSaveAndContinue() {
@@ -113,9 +148,11 @@ export default function CheckInScreen() {
     const { error } = await saveDailyCheckIn(entryId, {
       sleepQuality,
       stressLevel,
-      alcoholConsumption,
       cyclePhase,
-      routineNote: routineNote.trim() || undefined,
+      movementPlan,
+      movementPlanNote: movementPlanNote.trim(),
+      skinFeelToday,
+      yesterdayNote: yesterdayNote.trim(),
     });
 
     setIsSaving(false);
@@ -141,7 +178,7 @@ export default function CheckInScreen() {
           <View style={styles.loading}>
             <ActivityIndicator color={Colors.light.accent} />
             <SubstrateText variant="small" color={Colors.light.textMuted}>
-              Loading today's entry
+              {"Loading today's entry"}
             </SubstrateText>
           </View>
         ) : null}
@@ -168,38 +205,71 @@ export default function CheckInScreen() {
           ))}
         </Question>
 
-        <Question title="Did you drink alcohol?">
-          {alcohol.map((item) => (
-            <Pill
-              key={item}
-              label={item}
-              selected={alcoholConsumption === item}
-              onPress={() => setAlcoholConsumption(item as NonNullable<CheckInResponses['alcoholConsumption']>)}
-            />
-          ))}
-        </Question>
-
         <Question title="Where are you in your cycle?">
           {cycle.map((item) => (
             <Pill
-              key={item}
-              label={item}
-              selected={cyclePhase === item}
-              onPress={() => setCyclePhase(item as NonNullable<CheckInResponses['cyclePhase']>)}
+              key={item.value}
+              label={item.label}
+              selected={cyclePhase === item.value}
+              onPress={() => setCyclePhase(item.value)}
             />
           ))}
         </Question>
 
-        <Question title="Anything different to note?">
+        <Question title="Movement plan for today?">
+          {movement.map((item) => (
+            <Pill
+              key={item}
+              label={item}
+              selected={movementPlan.includes(item)}
+              onPress={() => toggleMovementPlan(item)}
+            />
+          ))}
           <TextInput
             autoCapitalize="sentences"
             autoCorrect
-            onChangeText={setRoutineNote}
-            placeholder="Optional note"
+            onChangeText={setMovementPlanNote}
+            placeholder="Add your own movement plan"
             placeholderTextColor={Colors.light.textMuted}
             returnKeyType="done"
             style={styles.input}
-            value={routineNote}
+            value={movementPlanNote}
+          />
+        </Question>
+
+        <Question title="How does your skin feel today?">
+          {skinFeel.map((item) => (
+            <Pill
+              key={item}
+              label={item}
+              selected={skinFeelToday === item}
+              onPress={() => setSkinFeelToday(item)}
+            />
+          ))}
+        </Question>
+
+        <Question title="Yesterday's Checklist">
+          <View style={styles.yesterdayChecklistBox}>
+            {yesterdayChecklist.length ? (
+              yesterdayChecklist.map((item) => <YesterdayChecklistItem key={item.id} item={item} />)
+            ) : (
+              <SubstrateText variant="small" color={Colors.light.textMuted}>
+                Yesterday’s saved plan will appear here once there is a completed plan from the prior day.
+              </SubstrateText>
+            )}
+          </View>
+        </Question>
+
+        <Question title="Did anything happen yesterday?">
+          <TextInput
+            autoCapitalize="sentences"
+            autoCorrect
+            multiline
+            onChangeText={setYesterdayNote}
+            placeholder="Optional note"
+            placeholderTextColor={Colors.light.textMuted}
+            style={[styles.input, styles.textArea]}
+            value={yesterdayNote}
           />
         </Question>
       </Card>
@@ -220,6 +290,27 @@ export default function CheckInScreen() {
         <PrimaryButton label={isSaving ? 'Saving Check-In' : 'Next'} />
       </Pressable>
     </AppShell>
+  );
+}
+
+function YesterdayChecklistItem({ item }: { item: ChecklistItem }) {
+  return (
+    <View style={styles.yesterdayChecklistItem}>
+      <View style={[styles.statusDot, item.completed && styles.statusDotComplete]} />
+      <View style={styles.yesterdayChecklistCopy}>
+        <SubstrateText variant="small" color={item.completed ? Colors.light.textMuted : Colors.light.text}>
+          {item.title ?? item.label}
+        </SubstrateText>
+        {item.detail ? (
+          <SubstrateText variant="small" color={Colors.light.textMuted}>
+            {item.detail}
+          </SubstrateText>
+        ) : null}
+      </View>
+      <SubstrateText variant="tag" color={item.completed ? '#3D7D55' : Colors.light.textMuted}>
+        {item.completed ? 'Done' : 'Not done'}
+      </SubstrateText>
+    </View>
   );
 }
 
@@ -262,6 +353,44 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     paddingHorizontal: Spacing.three,
+  },
+  textArea: {
+    minHeight: 84,
+    paddingTop: 12,
+    textAlignVertical: 'top',
+  },
+  yesterdayChecklistBox: {
+    alignSelf: 'stretch',
+    width: '100%',
+    minHeight: 96,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: '#FBF8F6',
+    gap: Spacing.two,
+    padding: Spacing.two,
+  },
+  yesterdayChecklistItem: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: Spacing.two,
+  },
+  yesterdayChecklistCopy: {
+    flex: 1,
+    gap: Spacing.half,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    backgroundColor: '#FFFFFF',
+    marginTop: 4,
+  },
+  statusDotComplete: {
+    borderColor: '#3D7D55',
+    backgroundColor: '#3D7D55',
   },
   summary: {
     paddingHorizontal: Spacing.one,

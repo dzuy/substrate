@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import { type Href, useFocusEffect, useRouter } from 'expo-router';
-import { CloudSun, Droplets, Sun, Thermometer, Wind } from 'lucide-react-native';
+import { CloudSun, Droplets, Mountain, Sun, Thermometer, Wind } from 'lucide-react-native';
 import { type ComponentType, useCallback, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
@@ -371,6 +371,14 @@ export default function EnvironmentScreen() {
               tone={getTemperatureTone(snapshot.temperatureF)}
               value={formatTemperature(snapshot.temperatureF)}
             />
+            <EnvironmentMetric
+              detail={describeAltitude(snapshot.elevationM)}
+              fill={normalizeAltitude(snapshot.elevationM)}
+              icon={Mountain}
+              label="Altitude"
+              tone={getAltitudeTone(snapshot.elevationM)}
+              value={formatAltitude(snapshot.elevationM)}
+            />
           </View>
         </Card>
       ) : null}
@@ -490,6 +498,10 @@ function formatTemperature(value?: number) {
   return typeof value === 'number' ? `${Math.round(value)}°F` : 'Not available';
 }
 
+function formatAltitude(value?: number) {
+  return typeof value === 'number' ? `${Math.round(value * 3.28084).toLocaleString()} ft` : 'Not available';
+}
+
 function formatAqiValue(value?: number) {
   return typeof value === 'number' ? `${Math.round(value)}` : 'Not available';
 }
@@ -528,6 +540,13 @@ function describeTemperature(value?: number) {
   return 'Hot conditions';
 }
 
+function describeAltitude(value?: number) {
+  if (typeof value !== 'number') return 'Waiting for altitude';
+  if (value < 500) return 'Low elevation';
+  if (value < 1500) return 'Moderate elevation';
+  return 'High elevation';
+}
+
 function getUvTone(value?: number): MetricTone {
   if (typeof value !== 'number') return tones.neutral;
   if (value < 3) return tones.green;
@@ -557,9 +576,21 @@ function getTemperatureTone(value?: number): MetricTone {
   return tones.berry;
 }
 
+function getAltitudeTone(value?: number): MetricTone {
+  if (typeof value !== 'number') return tones.neutral;
+  if (value < 500) return tones.green;
+  if (value < 1500) return tones.blue;
+  return tones.plum;
+}
+
 function normalize(value: number | undefined, max: number) {
   if (typeof value !== 'number') return 12;
   return Math.max(8, Math.min(100, (value / max) * 100));
+}
+
+function normalizeAltitude(value?: number) {
+  if (typeof value !== 'number') return 12;
+  return Math.max(8, Math.min(100, (value / 2500) * 100));
 }
 
 function normalizeTemperature(value?: number) {

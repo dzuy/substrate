@@ -1,4 +1,4 @@
-import { Stack } from 'expo-router';
+import { Stack, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
@@ -18,6 +18,7 @@ export default function RootLayout() {
 
 function RootNavigator() {
   const { isLoading, session } = useAuth();
+  const pathname = usePathname();
 
   if (isLoading) {
     return (
@@ -33,6 +34,8 @@ function RootNavigator() {
   if (!session) {
     return <AuthScreen />;
   }
+
+  const isResetPasswordRoute = pathname === '/reset-password';
 
   return (
     <View style={styles.appFrame}>
@@ -50,8 +53,9 @@ function RootNavigator() {
         <Stack.Screen name="progress" />
         <Stack.Screen name="progress-history" />
         <Stack.Screen name="profile" />
+        <Stack.Screen name="reset-password" />
       </Stack>
-      <BottomNav />
+      {!isResetPasswordRoute ? <BottomNav /> : null}
     </View>
   );
 }
