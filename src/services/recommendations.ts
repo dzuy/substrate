@@ -3,6 +3,7 @@ import { getEnvironmentSnapshot, toEnvironmentSnapshot } from '@/services/enviro
 import { analyzeDailyPhoto, toPhotoAnalysis } from '@/services/photos';
 import { getProfile, toProfileContext } from '@/services/profile';
 import { buildSkinStory, scoreSkinStates } from '@/skin-intelligence/skinStoryEngine';
+import { generateTodayPlan } from '@/skin-intelligence/todayPlanEngine';
 import type { AnalysisSignals, CheckInResponses, DailyPlan, EnvironmentSnapshot, Json, PhotoAnalysis, ProfileContext, SkinStory } from '@/types/database';
 
 type TodayRecommendation = {
@@ -10,7 +11,7 @@ type TodayRecommendation = {
   recommendationId?: string;
   analysis: AnalysisSignals;
   skinStory: SkinStory;
-  dailyPlan: DailyPlan & Required<Pick<DailyPlan, 'priorities' | 'avoid'>>;
+  dailyPlan: DailyPlan & Required<Pick<DailyPlan, 'items'>>;
   safetyNotes: string[];
   isGenerated: boolean;
 };
@@ -18,7 +19,7 @@ type TodayRecommendation = {
 type ScoreDriver = NonNullable<AnalysisSignals['drivers']>[number];
 
 type GeneratedRecommendation = SkinStory & {
-  dailyPlan: DailyPlan & Required<Pick<DailyPlan, 'priorities' | 'avoid'>>;
+  dailyPlan: DailyPlan & Required<Pick<DailyPlan, 'items'>>;
   safetyNotes: string[];
   provider: string;
   model: string;
@@ -32,7 +33,12 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
     return existing;
   }
 
-  if (existing.data && typeof existing.data.analysis.skinHealthScore === 'number' && isCurrentSkinStory(existing.data.skinStory)) {
+  if (
+    existing.data &&
+    typeof existing.data.analysis.skinHealthScore === 'number' &&
+    isCurrentSkinStory(existing.data.skinStory) &&
+    existing.data.dailyPlan.items?.length
+  ) {
     return {
       data: {
         ...existing.data,
@@ -85,6 +91,8 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
 
   const priorScore = await getPriorSkinHealthScore(userId, entry.data.entry_date);
   const generated = buildRecommendation(
+    dailyEntryId,
+    entry.data.entry_date,
     entry.data.check_in,
     Boolean(photo.data),
     photoAnalysis,
@@ -93,6 +101,15 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
   );
 
   if (existing.data) {
+    await supabase
+      .from('recommendation_results')
+      .update({
+        skin_story: generated.skinStory,
+        daily_plan: generated.dailyPlan,
+        safety_notes: generated.safetyNotes,
+      })
+      .eq('id', existing.data.recommendationId ?? '');
+
     return {
       data: {
         entryId: dailyEntryId,
@@ -220,7 +237,7 @@ async function generateRecommendationCopy(
 
     const normalized = normalizeAiRecommendation(response.data);
 
-    return normalized ? { ...normalized, ...generated.skinStory, dailyPlan: normalized.dailyPlan } : fallback;
+    return normalized ? { ...normalized, ...generated.skinStory, dailyPlan: generated.dailyPlan } : fallback;
   } catch (error) {
     console.warn('AI recommendation generation failed; using rules fallback.', error);
     return fallback;
@@ -243,7 +260,7 @@ function normalizeAiRecommendation(data: unknown): GeneratedRecommendation | nul
   const skinStory = value.skinStory;
   const dailyPlan = value.dailyPlan;
 
-  if (!skinStory?.headline || !skinStory.summary || !dailyPlan?.priorities?.length || !dailyPlan.avoid?.length) {
+  if (!skinStory?.headline || !skinStory.summary || (!dailyPlan?.items?.length && !dailyPlan?.priorities?.length)) {
     return null;
   }
 
@@ -260,10 +277,14 @@ function normalizeAiRecommendation(data: unknown): GeneratedRecommendation | nul
     contributors: skinStory.contributors?.length ? skinStory.contributors : [],
     priority: skinStory.priority ?? skinStory.priorities?.[0],
     dailyPlan: {
+      id: dailyPlan.id,
+      date: dailyPlan.date,
+      skinStoryId: dailyPlan.skinStoryId,
+      items: dailyPlan.items ?? [],
       priorities: dailyPlan.priorities,
       ingredientsToFavor: dailyPlan.ingredientsToFavor,
       ingredientsToAvoid: dailyPlan.ingredientsToAvoid,
-      avoid: dailyPlan.avoid,
+      avoid: dailyPlan.avoid ?? [],
     },
     safetyNotes: Array.isArray(value.safetyNotes) ? value.safetyNotes.filter((item): item is string => typeof item === 'string') : [],
     provider: typeof value.provider === 'string' ? value.provider : 'openai',
@@ -286,10 +307,10 @@ function personalizeFallbackRecommendation(
       ? [profileContributor, ...contributors.filter((item) => item.label !== profileContributor.label)].slice(0, 4)
       : contributors,
     dailyPlan: {
+      ...recommendation.dailyPlan,
       priorities: profilePriority
-        ? [profilePriority, ...recommendation.dailyPlan.priorities.filter((item) => item.title !== profilePriority.title)].slice(0, 3)
+        ? [profilePriority, ...(recommendation.dailyPlan.priorities ?? []).filter((item) => item.title !== profilePriority.title)].slice(0, 3)
         : recommendation.dailyPlan.priorities,
-      avoid: recommendation.dailyPlan.avoid,
     },
   };
 }
@@ -476,6 +497,8 @@ export async function saveTodayRecommendationPlan(userId: string, dailyEntryId: 
 }
 
 function buildRecommendation(
+  dailyEntryId: string,
+  entryDate: string,
   checkIn: CheckInResponses,
   hasPhoto: boolean,
   photoAnalysis?: PhotoAnalysis,
@@ -492,6 +515,12 @@ function buildRecommendation(
   const skinStateScores = scoreSkinStates(storyInputs).scores;
   const topSignal = getTopSignal({ inflammation, dryness, congestion, fatigue });
   const avoid = skinStory.ingredientsToAvoid.length > 0 ? skinStory.ingredientsToAvoid : buildAvoidList(checkIn, topSignal);
+  const todayPlan = generateTodayPlan({
+    id: dailyEntryId,
+    date: entryDate,
+    skinStory,
+    skinStoryId: dailyEntryId,
+  });
 
   return {
     analysis: {
@@ -511,7 +540,7 @@ function buildRecommendation(
     },
     skinStory,
     dailyPlan: {
-      priorities: buildPlanFromSkinStory(skinStory, checkIn),
+      ...todayPlan,
       ingredientsToFavor: skinStory.ingredientsToFavor,
       ingredientsToAvoid: skinStory.ingredientsToAvoid,
       avoid,
@@ -802,107 +831,6 @@ function scoreFatigue(checkIn: CheckInResponses, photoAnalysis?: PhotoAnalysis) 
 
 function getTopSignal(scores: Record<string, number>) {
   return Object.entries(scores).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'inflammation';
-}
-
-function buildPriority(topSignal: string, scoreBand?: NonNullable<AnalysisSignals['scoreBand']>) {
-  if (scoreBand === 'stable') return 'Keep your routine consistent and preserve the baseline.';
-  if (scoreBand === 'balanced') return 'Maintain consistency and avoid adding unnecessary variables.';
-  if (scoreBand === 'high_stress') return 'Simplify aggressively and focus on recovery.';
-  if (topSignal === 'dryness') return 'Rebuild hydration and reduce friction.';
-  if (topSignal === 'congestion') return 'Keep pores clear without over-stripping.';
-  if (topSignal === 'fatigue') return 'Prioritize recovery and reduce unnecessary actives.';
-  return 'Calm inflammation and support the skin barrier.';
-}
-
-function buildPlan(topSignal: string, checkIn: CheckInResponses) {
-  const base = [
-    {
-      title: topSignal === 'dryness' ? '1. Restore hydration' : '1. Calm the primary signal',
-      detail: buildPriority(topSignal),
-      actions:
-        topSignal === 'congestion'
-          ? ['Use a gentle cleanse', 'Avoid heavy occlusive layering', 'Keep treatment targeted']
-          : ['Use a low-friction cleanse', 'Apply a calming serum', 'Seal with barrier moisturizer'],
-    },
-    {
-      title: '2. Keep the routine simple',
-      detail: 'Limit variables so tomorrow’s check-in is easier to interpret.',
-      actions: ['Avoid adding new actives', 'Use familiar products', 'Track any irritation'],
-    },
-  ];
-
-  if (checkIn.sleepQuality === 'Poor' || checkIn.stressLevel === 'High') {
-    base.push({
-      title: '3. Support recovery',
-      detail: 'Your context signals suggest recovery should be part of the skincare plan.',
-      actions: ['Prioritize sleep tonight', 'Avoid high-heat treatments', 'Keep evening routine short'],
-    });
-  } else if (checkIn.alcoholConsumption === 'Moderate' || checkIn.alcoholConsumption === 'High') {
-    base.push({
-      title: '3. Rehydrate and protect',
-      detail: 'Alcohol can make hydration and barrier support more important today.',
-      actions: ['Add a hydrating layer', 'Use barrier moisturizer', 'Keep SPF consistent'],
-    });
-  } else {
-    base.push({
-      title: '3. Maintain consistency',
-      detail: 'Your check-in does not suggest a major escalation today.',
-      actions: ['Stay consistent with SPF', 'Hydrate through the day', 'Repeat the same photo setup tomorrow'],
-    });
-  }
-
-  return base;
-}
-
-function buildPlanFromSkinStory(skinStory: SkinStory, checkIn: CheckInResponses) {
-  const priorities = skinStory.priorities.slice(0, 3).map((priority, index) => ({
-    title: `${index + 1}. ${priority}`,
-    detail: buildPlanDetail(priority, skinStory),
-    actions: buildPlanActions(priority, skinStory),
-  }));
-
-  if (priorities.length >= 3) {
-    return priorities;
-  }
-
-  return [
-    ...priorities,
-    ...buildPlan(skinStory.primaryState === 'breakout' ? 'congestion' : skinStory.primaryState, checkIn).slice(0, 3 - priorities.length),
-  ];
-}
-
-function buildPlanDetail(priority: string, skinStory: SkinStory) {
-  if (/barrier|friction|active/i.test(priority)) {
-    return 'Today’s story suggests keeping the barrier steady and minimizing irritation variables.';
-  }
-  if (/hydration|water|moisturizer/i.test(priority)) {
-    return 'Today’s story suggests hydration support should do more of the work.';
-  }
-  if (/pores|treatment|clear/i.test(priority)) {
-    return 'Today’s story suggests keeping oil and breakout support focused rather than aggressive.';
-  }
-  if (/heat|uv|calming|irritation/i.test(priority)) {
-    return 'Today’s story suggests lowering reactivity and protecting from external stressors.';
-  }
-
-  return `This supports the ${skinStory.primaryState} pattern showing up today.`;
-}
-
-function buildPlanActions(priority: string, skinStory: SkinStory) {
-  if (/barrier|friction|active/i.test(priority)) {
-    return ['Use a gentle cleanse', 'Apply a barrier-support moisturizer', 'Skip unnecessary strong actives tonight'];
-  }
-  if (/hydration|water|moisturizer/i.test(priority)) {
-    return ['Layer a humectant serum', 'Seal with moisturizer', 'Keep water intake steady today'];
-  }
-  if (/pores|treatment|clear/i.test(priority)) {
-    return ['Keep cleansing consistent', 'Avoid heavy occlusive layers', 'Use breakout treatment only where needed'];
-  }
-  if (/heat|uv|calming|irritation/i.test(priority)) {
-    return ['Use calming ingredients', 'Avoid high heat today', 'Keep SPF consistent'];
-  }
-
-  return skinStory.ingredientsToFavor.slice(0, 3).map((ingredient) => `Favor ${ingredient}`);
 }
 
 function buildAvoidList(checkIn: CheckInResponses, topSignal: string) {

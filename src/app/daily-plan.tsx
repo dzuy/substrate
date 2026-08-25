@@ -96,10 +96,7 @@ export default function DailyPlanScreen() {
   );
 
   const checklist = useMemo(() => ensurePlanChecklist(dailyPlan).checklist ?? [], [dailyPlan]);
-  const checklistById = useMemo(
-    () => new Map(checklist.map((item) => [item.id, item])),
-    [checklist]
-  );
+  const checklistGroups = useMemo(() => groupChecklistByMoment(checklist), [checklist]);
 
   async function toggleChecklistItem(itemId: string) {
     if (!dailyPlan || !entryId || !user) {
@@ -109,6 +106,9 @@ export default function DailyPlanScreen() {
     const currentPlan = ensurePlanChecklist(dailyPlan);
     const nextPlan: DailyPlan = {
       ...currentPlan,
+      items: currentPlan.items?.map((item) =>
+        item.id === itemId ? { ...item, completed: !item.completed } : item
+      ),
       checklist: currentPlan.checklist?.map((item) =>
         item.id === itemId ? { ...item, completed: !item.completed } : item
       ),
@@ -180,14 +180,28 @@ export default function DailyPlanScreen() {
               {getCompletedCount(checklist)} of {checklist.length} done
             </SubstrateText>
           </View>
+          {dailyPlan?.context ? (
+            <SubstrateText variant="small" color={Colors.light.textMuted}>
+              {dailyPlan.context}
+            </SubstrateText>
+          ) : null}
           <View style={styles.todoList}>
-            {checklist.map((item) => (
-              <ActionItem
-                key={item.id}
-                checklistItem={checklistById.get(item.id)}
-                fallbackLabel={item.label}
-                onToggle={toggleChecklistItem}
-              />
+            {checklistGroups.map((group) => (
+              <View key={group.moment} style={styles.momentGroup}>
+                <SubstrateText variant="small" color={Colors.light.accentDeep}>
+                  {group.label}
+                </SubstrateText>
+                <View style={styles.momentItems}>
+                  {group.items.map((item) => (
+                    <ActionItem
+                      key={item.id}
+                      checklistItem={item}
+                      fallbackLabel={item.label}
+                      onToggle={toggleChecklistItem}
+                    />
+                  ))}
+                </View>
+              </View>
             ))}
           </View>
         </Card>
@@ -212,6 +226,7 @@ export default function DailyPlanScreen() {
 }
 
 type ChecklistItem = NonNullable<DailyPlan['checklist']>[number];
+type PlanItem = NonNullable<DailyPlan['items']>[number];
 
 function ActionItem({
   checklistItem,
@@ -259,7 +274,20 @@ function ensurePlanChecklist(plan: DailyPlan | null): DailyPlan {
   const existingChecklist = plan.checklist ?? [];
   const existingCompletion = new Map(existingChecklist.map((item) => [item.id, item.completed]));
   const existingById = new Map(existingChecklist.map((item) => [item.id, item]));
-  const priorityItems =
+  const itemChecklist: ChecklistItem[] | undefined = plan.items?.map((item) => {
+    const existing = existingById.get(item.id);
+
+    return {
+      id: item.id,
+      moment: item.moment,
+      title: existing?.title ?? item.label,
+      detail: existing?.detail ?? item.reason,
+      label: item.label,
+      sectionTitle: formatMomentLabel(item.moment),
+      completed: existingCompletion.get(item.id) ?? item.completed,
+    };
+  });
+  const priorityItems: ChecklistItem[] =
     plan.priorities?.flatMap((section, sectionIndex) =>
       section.actions.slice(0, 3).map((action, actionIndex) => {
         const id = buildChecklistItemId(sectionIndex, actionIndex);
@@ -267,6 +295,7 @@ function ensurePlanChecklist(plan: DailyPlan | null): DailyPlan {
 
         return {
           id,
+          moment: inferMoment(sectionIndex),
           title: existing?.title ?? action,
           detail: existing?.detail ?? section.detail,
           label: action,
@@ -275,14 +304,28 @@ function ensurePlanChecklist(plan: DailyPlan | null): DailyPlan {
         };
       })
     ) ?? [];
-  const ingredientItems = [
+  const ingredientItems: ChecklistItem[] = [
     ...buildIngredientChecklistItems('favor', 'Favor', plan.ingredientsToFavor, existingById, existingCompletion),
     ...buildIngredientChecklistItems('avoid', 'Avoid', plan.ingredientsToAvoid ?? plan.avoid, existingById, existingCompletion),
   ];
-  const checklist = [...priorityItems, ...ingredientItems];
+  const checklist: ChecklistItem[] = itemChecklist?.length ? itemChecklist : [...priorityItems, ...ingredientItems];
+  const completionById = new Map(checklist.map((item) => [item.id, item.completed]));
+  const items: PlanItem[] =
+    plan.items?.map((item) => ({
+      ...item,
+      completed: completionById.get(item.id) ?? item.completed,
+    })) ??
+    checklist.map((item) => ({
+      id: item.id,
+      moment: item.moment ?? inferMomentFromSection(item.sectionTitle),
+      label: item.label,
+      reason: item.detail,
+      completed: item.completed,
+    }));
 
   return {
     ...plan,
+    items,
     checklist,
   };
 }
@@ -297,7 +340,7 @@ function buildIngredientChecklistItems(
   ingredients: string[] | undefined,
   existingById: Map<string, ChecklistItem>,
   existingCompletion: Map<string, boolean>
-) {
+) : ChecklistItem[] {
   return (
     ingredients?.slice(0, 4).map((ingredient, index) => {
       const id = `ingredient-${type}-${index}`;
@@ -305,6 +348,7 @@ function buildIngredientChecklistItems(
 
       return {
         id,
+        moment: type === 'favor' ? 'morning' : 'evening',
         title: existing?.title ?? `${verb} ${ingredient}`,
         detail:
           existing?.detail ??
@@ -321,6 +365,39 @@ function buildIngredientChecklistItems(
 
 function getCompletedCount(checklist: ChecklistItem[]) {
   return checklist.filter((item) => item.completed).length;
+}
+
+function groupChecklistByMoment(checklist: ChecklistItem[]) {
+  const moments = [
+    { moment: 'morning' as const, label: 'Morning' },
+    { moment: 'day' as const, label: 'During the Day' },
+    { moment: 'evening' as const, label: 'Evening' },
+  ];
+
+  return moments
+    .map((moment) => ({
+      ...moment,
+      items: checklist.filter((item) => (item.moment ?? inferMomentFromSection(item.sectionTitle)) === moment.moment),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
+function formatMomentLabel(moment: NonNullable<ChecklistItem['moment']>) {
+  if (moment === 'morning') return 'Morning';
+  if (moment === 'day') return 'During the Day';
+  return 'Evening';
+}
+
+function inferMoment(sectionIndex: number): NonNullable<ChecklistItem['moment']> {
+  if (sectionIndex === 0) return 'morning';
+  if (sectionIndex === 1) return 'day';
+  return 'evening';
+}
+
+function inferMomentFromSection(sectionTitle: string): NonNullable<ChecklistItem['moment']> {
+  if (/morning|favor|1\./i.test(sectionTitle)) return 'morning';
+  if (/day|during|2\./i.test(sectionTitle)) return 'day';
+  return 'evening';
 }
 
 function shouldPersistChecklist(originalPlan: DailyPlan, nextPlan: DailyPlan) {
@@ -361,6 +438,12 @@ const styles = StyleSheet.create({
     gap: Spacing.two,
   },
   todoList: {
+    gap: Spacing.three,
+  },
+  momentGroup: {
+    gap: Spacing.one,
+  },
+  momentItems: {
     gap: Spacing.two,
   },
   actionItem: {

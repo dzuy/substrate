@@ -122,6 +122,17 @@ export type ProfileContext = {
 };
 
 export type DailyPlan = {
+  id?: string;
+  date?: string;
+  skinStoryId?: string;
+  context?: string;
+  items?: Array<{
+    id: string;
+    moment: 'morning' | 'day' | 'evening';
+    label: string;
+    reason?: string;
+    completed: boolean;
+  }>;
   priorities?: Array<{
     title: string;
     detail: string;
@@ -131,6 +142,7 @@ export type DailyPlan = {
   ingredientsToAvoid?: string[];
   checklist?: Array<{
     id: string;
+    moment?: 'morning' | 'day' | 'evening';
     title?: string;
     detail?: string;
     label: string;
@@ -374,7 +386,9 @@ export type Database = {
           created_at?: string;
         };
         Update: {
+          skin_story?: SkinStory;
           daily_plan?: DailyPlan;
+          safety_notes?: string[];
         };
         Relationships: [];
       };

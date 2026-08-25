@@ -1,5 +1,6 @@
 import { type Href, useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { CheckCircle2 } from 'lucide-react-native';
+import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import {
@@ -20,7 +21,7 @@ import {
   getPreviousDailyEntry,
   saveDailyCheckIn,
 } from '@/services/daily-entries';
-import { getLatestRecommendation } from '@/services/recommendations';
+import { getLatestRecommendation, saveTodayRecommendationPlan } from '@/services/recommendations';
 import type { CheckInResponses, DailyPlan } from '@/types/database';
 
 const sleep = ['Poor', 'Okay', 'Rested'];
@@ -37,6 +38,7 @@ const skinFeel = ['Dry', 'Itchy', 'Oily', 'Normal'] as const;
 
 type MovementPlan = NonNullable<CheckInResponses['movementPlan']>[number];
 type ChecklistItem = NonNullable<DailyPlan['checklist']>[number];
+type PlanItem = NonNullable<DailyPlan['items']>[number];
 
 export default function CheckInScreen() {
   const router = useRouter();
@@ -49,10 +51,14 @@ export default function CheckInScreen() {
   const [movementPlanNote, setMovementPlanNote] = useState('');
   const [skinFeelToday, setSkinFeelToday] = useState<NonNullable<CheckInResponses['skinFeelToday']>>('Normal');
   const [yesterdayNote, setYesterdayNote] = useState('');
+  const [yesterdayEntryId, setYesterdayEntryId] = useState<string | null>(null);
+  const [yesterdayPlan, setYesterdayPlan] = useState<DailyPlan | null>(null);
   const [yesterdayChecklist, setYesterdayChecklist] = useState<ChecklistItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingYesterdayChecklist, setIsSavingYesterdayChecklist] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const yesterdayChecklistGroups = useMemo(() => groupChecklistByMoment(yesterdayChecklist), [yesterdayChecklist]);
 
   useFocusEffect(
     useCallback(() => {
@@ -90,7 +96,9 @@ export default function CheckInScreen() {
 
         setEntryId(data.id);
         hydrateCheckIn(data.check_in);
-        setYesterdayChecklist(previousRecommendation.data?.dailyPlan.checklist ?? []);
+        setYesterdayEntryId(previousEntry.data?.id ?? null);
+        setYesterdayPlan(previousRecommendation.data?.dailyPlan ?? null);
+        setYesterdayChecklist(buildChecklistFromPlan(previousRecommendation.data?.dailyPlan));
         setIsLoading(false);
       }
 
@@ -134,6 +142,38 @@ export default function CheckInScreen() {
     setMovementPlan((current) =>
       current.includes(item) ? current.filter((selected) => selected !== item) : [...current, item]
     );
+  }
+
+  async function toggleYesterdayChecklistItem(itemId: string) {
+    if (!user || !yesterdayEntryId || !yesterdayPlan) {
+      return;
+    }
+
+    const currentChecklist = buildChecklistFromPlan(yesterdayPlan);
+    const nextChecklist = currentChecklist.map((item) =>
+      item.id === itemId ? { ...item, completed: !item.completed } : item
+    );
+    const completionById = new Map(nextChecklist.map((item) => [item.id, item.completed]));
+    const nextPlan: DailyPlan = {
+      ...yesterdayPlan,
+      items: yesterdayPlan.items?.map((item) => ({
+        ...item,
+        completed: completionById.get(item.id) ?? item.completed,
+      })),
+      checklist: nextChecklist,
+    };
+
+    setYesterdayPlan(nextPlan);
+    setYesterdayChecklist(nextChecklist);
+    setIsSavingYesterdayChecklist(true);
+    const { error } = await saveTodayRecommendationPlan(user.id, yesterdayEntryId, nextPlan);
+    setIsSavingYesterdayChecklist(false);
+
+    if (error) {
+      setYesterdayPlan(yesterdayPlan);
+      setYesterdayChecklist(currentChecklist);
+      setSaveError(error.message);
+    }
   }
 
   async function handleSaveAndContinue() {
@@ -248,10 +288,41 @@ export default function CheckInScreen() {
           ))}
         </Question>
 
-        <Question title="Yesterday's Checklist">
+        <Question title="How did yesterday go?">
           <View style={styles.yesterdayChecklistBox}>
             {yesterdayChecklist.length ? (
-              yesterdayChecklist.map((item) => <YesterdayChecklistItem key={item.id} item={item} />)
+              <>
+                <View style={styles.todoHeader}>
+                  <SubstrateText variant="section">Yesterday’s plan</SubstrateText>
+                  <SubstrateText variant="small" color={Colors.light.textMuted}>
+                    {getCompletedCount(yesterdayChecklist)} of {yesterdayChecklist.length} done
+                  </SubstrateText>
+                </View>
+                {yesterdayPlan?.context ? (
+                  <SubstrateText variant="small" color={Colors.light.textMuted}>
+                    {yesterdayPlan.context}
+                  </SubstrateText>
+                ) : null}
+                <View style={styles.todoList}>
+                  {yesterdayChecklistGroups.map((group) => (
+                    <View key={group.moment} style={styles.momentGroup}>
+                      <SubstrateText variant="small" color={Colors.light.accentDeep}>
+                        {group.label}
+                      </SubstrateText>
+                      <View style={styles.momentItems}>
+                        {group.items.map((item) => (
+                          <YesterdayChecklistItem
+                            key={item.id}
+                            disabled={isSavingYesterdayChecklist}
+                            item={item}
+                            onToggle={toggleYesterdayChecklistItem}
+                          />
+                        ))}
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </>
             ) : (
               <SubstrateText variant="small" color={Colors.light.textMuted}>
                 Yesterday’s saved plan will appear here once there is a completed plan from the prior day.
@@ -284,21 +355,39 @@ export default function CheckInScreen() {
 
       <Pressable
         accessibilityRole="button"
-        disabled={isLoading || isSaving}
+        disabled={isLoading || isSaving || isSavingYesterdayChecklist}
         onPress={handleSaveAndContinue}
-        style={[styles.next, (isLoading || isSaving) && styles.disabled]}>
+        style={[styles.next, (isLoading || isSaving || isSavingYesterdayChecklist) && styles.disabled]}>
         <PrimaryButton label={isSaving ? 'Saving Check-In' : 'Next'} />
       </Pressable>
     </AppShell>
   );
 }
 
-function YesterdayChecklistItem({ item }: { item: ChecklistItem }) {
+function YesterdayChecklistItem({
+  disabled,
+  item,
+  onToggle,
+}: {
+  disabled: boolean;
+  item: ChecklistItem;
+  onToggle: (itemId: string) => void;
+}) {
   return (
-    <View style={styles.yesterdayChecklistItem}>
-      <View style={[styles.statusDot, item.completed && styles.statusDotComplete]} />
-      <View style={styles.yesterdayChecklistCopy}>
-        <SubstrateText variant="small" color={item.completed ? Colors.light.textMuted : Colors.light.text}>
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: item.completed, disabled }}
+      disabled={disabled}
+      onPress={() => onToggle(item.id)}
+      style={[styles.actionItem, item.completed && styles.actionItemComplete]}>
+      <View style={[styles.checkbox, item.completed && styles.checkboxComplete]}>
+        {item.completed ? <CheckCircle2 color="#FFFFFF" size={18} strokeWidth={2.6} /> : null}
+      </View>
+      <View style={styles.actionCopy}>
+        <SubstrateText
+          variant="small"
+          color={item.completed ? Colors.light.textMuted : Colors.light.text}
+          style={item.completed && styles.completedText}>
           {item.title ?? item.label}
         </SubstrateText>
         {item.detail ? (
@@ -307,11 +396,66 @@ function YesterdayChecklistItem({ item }: { item: ChecklistItem }) {
           </SubstrateText>
         ) : null}
       </View>
-      <SubstrateText variant="tag" color={item.completed ? '#3D7D55' : Colors.light.textMuted}>
-        {item.completed ? 'Done' : 'Not done'}
-      </SubstrateText>
-    </View>
+    </Pressable>
   );
+}
+
+function buildChecklistFromPlan(plan: DailyPlan | null | undefined): ChecklistItem[] {
+  if (!plan) {
+    return [];
+  }
+
+  if (plan.checklist?.length) {
+    const completionById = new Map(plan.items?.map((item) => [item.id, item.completed]) ?? []);
+
+    return plan.checklist.map((item) => ({
+      ...item,
+      completed: completionById.get(item.id) ?? item.completed,
+    }));
+  }
+
+  return (
+    plan.items?.map((item) => ({
+      id: item.id,
+      moment: item.moment,
+      title: item.label,
+      detail: item.reason,
+      label: item.label,
+      sectionTitle: formatMomentLabel(item.moment),
+      completed: item.completed,
+    })) ?? []
+  );
+}
+
+function formatMomentLabel(moment: PlanItem['moment']) {
+  if (moment === 'morning') return 'Morning';
+  if (moment === 'day') return 'During the Day';
+  return 'Evening';
+}
+
+function getCompletedCount(checklist: ChecklistItem[]) {
+  return checklist.filter((item) => item.completed).length;
+}
+
+function groupChecklistByMoment(checklist: ChecklistItem[]) {
+  const moments = [
+    { moment: 'morning' as const, label: 'Morning' },
+    { moment: 'day' as const, label: 'During the Day' },
+    { moment: 'evening' as const, label: 'Evening' },
+  ];
+
+  return moments
+    .map((moment) => ({
+      ...moment,
+      items: checklist.filter((item) => (item.moment ?? inferMomentFromSection(item.sectionTitle)) === moment.moment),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
+function inferMomentFromSection(sectionTitle: string): NonNullable<ChecklistItem['moment']> {
+  if (/morning|favor|1\./i.test(sectionTitle)) return 'morning';
+  if (/day|during|2\./i.test(sectionTitle)) return 'day';
+  return 'evening';
 }
 
 function Question({ title, children }: { title: string; children: React.ReactNode }) {
@@ -363,34 +507,60 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     width: '100%',
     minHeight: 96,
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: Colors.light.border,
-    backgroundColor: '#FBF8F6',
-    gap: Spacing.two,
-    padding: Spacing.two,
+    borderColor: Colors.light.accentSoft,
+    backgroundColor: '#FFFDFB',
+    gap: Spacing.three,
+    padding: Spacing.three,
   },
-  yesterdayChecklistItem: {
+  todoHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: Spacing.two,
+  },
+  todoList: {
+    gap: Spacing.three,
+  },
+  momentGroup: {
+    gap: Spacing.one,
+  },
+  momentItems: {
+    gap: Spacing.two,
+  },
+  actionItem: {
     alignItems: 'flex-start',
     flexDirection: 'row',
     gap: Spacing.two,
+    borderRadius: 12,
+    backgroundColor: Colors.light.backgroundSelected,
+    minHeight: 44,
+    padding: Spacing.two,
   },
-  yesterdayChecklistCopy: {
-    flex: 1,
-    gap: Spacing.half,
+  actionItemComplete: {
+    backgroundColor: Colors.light.successSoft,
   },
-  statusDot: {
-    width: 12,
-    height: 12,
+  checkbox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 24,
+    height: 24,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: Colors.light.border,
+    borderColor: Colors.light.accent,
     backgroundColor: '#FFFFFF',
-    marginTop: 4,
   },
-  statusDotComplete: {
-    borderColor: '#3D7D55',
-    backgroundColor: '#3D7D55',
+  checkboxComplete: {
+    borderColor: Colors.light.accent,
+    backgroundColor: Colors.light.accent,
+  },
+  completedText: {
+    textDecorationLine: 'line-through',
+  },
+  actionCopy: {
+    flex: 1,
+    gap: Spacing.half,
   },
   summary: {
     paddingHorizontal: Spacing.one,
