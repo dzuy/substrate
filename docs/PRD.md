@@ -573,3 +573,16 @@ These should be resolved before backend implementation begins:
 - Add basic manual support/debugging workflow.
 - Run end-to-end testing with seeded and real tester accounts.
 
+## 19. Backlog
+
+### Ingredient Intelligence Layer
+
+Not needed immediately, but important for connecting Skin Wardrobe to Today’s Plan.
+
+Future work:
+
+- Expand the ingredient database beyond basic names and INCI aliases.
+- Track ingredient functions and impact across Barrier, Inflammation, Hydration, Collagen, and Pigmentation.
+- Track cautions such as irritation potential, pregnancy/breastfeeding notes, photosensitivity, acne risk, and do-not-combine guidance.
+- Use product ingredients to infer what each wardrobe product does.
+- Let Today’s Plan choose, skip, or rotate products based on the user’s active wardrobe, current check-in, skin goals, and environment.

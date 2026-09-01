@@ -33,11 +33,11 @@ export type AnalysisSignals = {
   scoreBand?: 'stable' | 'balanced' | 'stressed' | 'reactive' | 'high_stress';
   scoreDelta?: number;
   skinStateScores?: SkinStoryScores;
-  drivers?: Array<{
+  drivers?: {
     label: string;
     impact: number;
     direction: 'positive' | 'negative';
-  }>;
+  }[];
   confidence?: number;
 };
 
@@ -126,21 +126,21 @@ export type DailyPlan = {
   date?: string;
   skinStoryId?: string;
   context?: string;
-  items?: Array<{
+  items?: {
     id: string;
     moment: 'morning' | 'day' | 'evening';
     label: string;
     reason?: string;
     completed: boolean;
-  }>;
-  priorities?: Array<{
+  }[];
+  priorities?: {
     title: string;
     detail: string;
     actions: string[];
-  }>;
+  }[];
   ingredientsToFavor?: string[];
   ingredientsToAvoid?: string[];
-  checklist?: Array<{
+  checklist?: {
     id: string;
     moment?: 'morning' | 'day' | 'evening';
     title?: string;
@@ -148,9 +148,35 @@ export type DailyPlan = {
     label: string;
     sectionTitle: string;
     completed: boolean;
-  }>;
+  }[];
   avoid?: string[];
 };
+
+export type ProductCategory =
+  | 'cleanser'
+  | 'toner'
+  | 'essence'
+  | 'serum'
+  | 'moisturizer'
+  | 'oil'
+  | 'mask'
+  | 'spf'
+  | 'exfoliant'
+  | 'retinoid'
+  | 'treatment'
+  | 'device'
+  | 'other';
+
+export type ProductStatus = 'draft' | 'verified' | 'needs_review';
+
+export type WardrobeItemStatus = 'active' | 'finished' | 'paused';
+export type WardrobeRoutineTiming = 'am' | 'pm' | 'either';
+export type WardrobeFrequency = 'daily' | 'weekly' | 'as_needed';
+export type WardrobeRoutineRole = 'cleanser' | 'serum' | 'moisturizer' | 'spf' | 'treatment' | 'device' | 'other';
+
+export type ProductDetectionStatus = 'matched' | 'needs_confirmation' | 'unknown' | 'rejected' | 'confirmed';
+
+export type ProductSubmissionStatus = 'pending' | 'approved' | 'rejected' | 'merged';
 
 export type Database = {
   public: {
@@ -389,6 +415,263 @@ export type Database = {
           skin_story?: SkinStory;
           daily_plan?: DailyPlan;
           safety_notes?: string[];
+        };
+        Relationships: [];
+      };
+      brands: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string | null;
+          website_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug?: string | null;
+          website_url?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          slug?: string | null;
+          website_url?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ingredients: {
+        Row: {
+          id: string;
+          name: string;
+          inci_name: string | null;
+          aliases: string[];
+          category: string | null;
+          functions: string[];
+          description: string | null;
+          evidence_level: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          inci_name?: string | null;
+          aliases?: string[];
+          category?: string | null;
+          functions?: string[];
+          description?: string | null;
+          evidence_level?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          name?: string;
+          inci_name?: string | null;
+          aliases?: string[];
+          category?: string | null;
+          functions?: string[];
+          description?: string | null;
+          evidence_level?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      products: {
+        Row: {
+          id: string;
+          brand_id: string;
+          name: string;
+          slug: string | null;
+          category: ProductCategory;
+          description: string | null;
+          image_url: string | null;
+          barcode: string | null;
+          upc: string | null;
+          aliases: string[];
+          status: ProductStatus;
+          archived_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          brand_id: string;
+          name: string;
+          slug?: string | null;
+          category: ProductCategory;
+          description?: string | null;
+          image_url?: string | null;
+          barcode?: string | null;
+          upc?: string | null;
+          aliases?: string[];
+          status?: ProductStatus;
+          archived_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          brand_id?: string;
+          name?: string;
+          slug?: string | null;
+          category?: ProductCategory;
+          description?: string | null;
+          image_url?: string | null;
+          barcode?: string | null;
+          upc?: string | null;
+          aliases?: string[];
+          status?: ProductStatus;
+          archived_at?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      product_ingredients: {
+        Row: {
+          id: string;
+          product_id: string;
+          ingredient_id: string;
+          ingredient_order: number | null;
+          concentration: number | null;
+          concentration_unit: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          ingredient_id: string;
+          ingredient_order?: number | null;
+          concentration?: number | null;
+          concentration_unit?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          ingredient_id?: string;
+          ingredient_order?: number | null;
+          concentration?: number | null;
+          concentration_unit?: string | null;
+          notes?: string | null;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      user_wardrobe_items: {
+        Row: {
+          id: string;
+          user_id: string;
+          product_id: string;
+          status: WardrobeItemStatus;
+          notes: string | null;
+          routine_timing: WardrobeRoutineTiming;
+          frequency: WardrobeFrequency;
+          routine_role: WardrobeRoutineRole;
+          avoid_when_irritated: boolean;
+          added_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          product_id: string;
+          status?: WardrobeItemStatus;
+          notes?: string | null;
+          routine_timing?: WardrobeRoutineTiming;
+          frequency?: WardrobeFrequency;
+          routine_role?: WardrobeRoutineRole;
+          avoid_when_irritated?: boolean;
+          added_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          status?: WardrobeItemStatus;
+          notes?: string | null;
+          routine_timing?: WardrobeRoutineTiming;
+          frequency?: WardrobeFrequency;
+          routine_role?: WardrobeRoutineRole;
+          avoid_when_irritated?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      product_detections: {
+        Row: {
+          id: string;
+          user_id: string;
+          source_image_uri: string;
+          detected_brand: string | null;
+          detected_product_name: string | null;
+          matched_product_id: string | null;
+          confidence: number | null;
+          status: ProductDetectionStatus;
+          raw_response: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          source_image_uri: string;
+          detected_brand?: string | null;
+          detected_product_name?: string | null;
+          matched_product_id?: string | null;
+          confidence?: number | null;
+          status?: ProductDetectionStatus;
+          raw_response?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          detected_brand?: string | null;
+          detected_product_name?: string | null;
+          matched_product_id?: string | null;
+          confidence?: number | null;
+          status?: ProductDetectionStatus;
+          raw_response?: Json;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      product_submissions: {
+        Row: {
+          id: string;
+          user_id: string;
+          detection_id: string | null;
+          detected_brand: string | null;
+          detected_product_name: string | null;
+          source_image_uri: string | null;
+          status: ProductSubmissionStatus;
+          matched_product_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          detection_id?: string | null;
+          detected_brand?: string | null;
+          detected_product_name?: string | null;
+          source_image_uri?: string | null;
+          status?: ProductSubmissionStatus;
+          matched_product_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          detected_brand?: string | null;
+          detected_product_name?: string | null;
+          source_image_uri?: string | null;
+          status?: ProductSubmissionStatus;
+          matched_product_id?: string | null;
+          updated_at?: string;
         };
         Relationships: [];
       };

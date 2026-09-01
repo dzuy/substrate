@@ -50,9 +50,12 @@ function RootNavigator() {
         <Stack.Screen name="environment" />
         <Stack.Screen name="skin-story" />
         <Stack.Screen name="daily-plan" />
+        <Stack.Screen name="skin-wardrobe" />
+        <Stack.Screen name="skin-wardrobe/add-products" />
         <Stack.Screen name="progress" />
         <Stack.Screen name="progress-history" />
         <Stack.Screen name="profile" />
+        <Stack.Screen name="admin-products" />
         <Stack.Screen name="reset-password" />
       </Stack>
       {!isResetPasswordRoute ? <BottomNav /> : null}

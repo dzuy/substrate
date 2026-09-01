@@ -1,5 +1,7 @@
 # Backend Foundation
 
+For the current full-system overview, start with `docs/ARCHITECTURE.md`. This file keeps backend-specific setup notes.
+
 Substrate V1 uses Supabase as the planned backend foundation for authentication, Postgres persistence, and private photo storage.
 
 ## Local Environment

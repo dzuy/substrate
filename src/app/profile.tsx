@@ -1,4 +1,4 @@
-import { useFocusEffect } from 'expo-router';
+import { Link, type Href, useFocusEffect } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, TextInput, View } from 'react-native';
@@ -12,6 +12,7 @@ import {
   SubstrateText,
 } from '@/components/substrate-ui';
 import { Colors, Fonts, Spacing } from '@/constants/theme';
+import { isCatalogAdmin } from '@/lib/admin';
 import { useAuth } from '@/lib/auth-context';
 import { getProfile, saveProfileContext, saveProfileLocation, toProfileContext, toProfileLocation } from '@/services/profile';
 import type { ProfileContext, ProfileLocation } from '@/types/database';
@@ -29,6 +30,7 @@ type TextInputMode = 'decimal' | 'email' | 'numeric' | 'search' | 'tel' | 'text'
 
 export default function ProfileScreen() {
   const { signOut, user } = useAuth();
+  const canManageCatalog = isCatalogAdmin(user);
   const [profileContext, setProfileContext] = useState<ProfileContext>({});
   const [locationInput, setLocationInput] = useState('');
   const [location, setLocation] = useState<ProfileLocation | null>(null);
@@ -151,6 +153,15 @@ export default function ProfileScreen() {
       <Card style={styles.card}>
         <SubstrateText variant="section">Account</SubstrateText>
         <SignalRow label="Email" detail={user?.email ?? 'Signed in'} />
+        {canManageCatalog ? (
+          <Link href={'/admin-products' as Href} asChild>
+            <Pressable accessibilityRole="button" style={styles.secondaryButton}>
+              <SubstrateText variant="small" color={Colors.light.accentDeep}>
+                Admin Product Catalog
+              </SubstrateText>
+            </Pressable>
+          </Link>
+        ) : null}
       </Card>
 
       <ProfileSection title="Basic Information" loading={isLoadingProfile}>

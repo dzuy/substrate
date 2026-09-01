@@ -60,9 +60,9 @@ Deno.serve(async (request) => {
       model,
       instructions: [
         'You write concise progress summaries for Substrate, a skincare and aesthetic-health tracking prototype.',
-        'Use only the supplied scored entries. Do not invent missing data.',
+        'Use only the supplied progress entries. Do not invent missing data.',
         'Summarize the current trend in 1-2 calm, useful sentences.',
-        'Mention the latest score and whether the recent pattern is improving, steady, or under pressure.',
+        'Describe whether the recent pattern is improving, steady, or under pressure without mentioning scores.',
         'Do not make medical claims or diagnosis.',
         'Return JSON that exactly matches the schema.',
       ].join('\n'),
@@ -73,7 +73,7 @@ Deno.serve(async (request) => {
             {
               type: 'input_text',
               text: JSON.stringify({
-                task: 'Summarize recent Substrate progress from Skin Scores.',
+                task: 'Summarize recent Substrate progress from saved daily check-ins.',
                 entries: body.entries,
               }),
             },

@@ -1,56 +1,56 @@
-# Welcome to your Expo app 👋
+# Substrate
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Substrate is a mobile-first skincare intelligence app built with Expo, React Native, TypeScript, Supabase, and OpenAI-backed Edge Functions.
 
-## Get started
+## Technical Docs
 
-1. Install dependencies
+Start here when working on the app:
 
-   ```bash
-   npm install
-   ```
+- `docs/ARCHITECTURE.md`: current app architecture, data model, strategy, and agent guidance.
+- `docs/BACKEND.md`: backend setup notes.
+- `docs/PRD.md`: product requirements and backlog.
+- `docs/SKIN_SCORE_TRD.md`: skin score technical requirements.
 
-2. Start the app
+## Local Development
 
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Install dependencies:
 
 ```bash
-npm run reset-project
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Run locally:
 
-### Other setup steps
+```bash
+npx expo start --web
+```
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+Check the project:
 
-## Learn more
+```bash
+npx tsc --noEmit
+npm run lint
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## Environment
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Client-visible Supabase values:
 
-## Join the community
+```text
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
+```
 
-Join our community of developers creating universal apps.
+Server-side OpenAI values belong in Supabase Edge Function secrets, not in `EXPO_PUBLIC_*` variables.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Current Product Areas
+
+- Daily photo capture and check-in.
+- Today's Skin Story.
+- Today's Plan checklist.
+- Profile setup.
+- Environment snapshots.
+- Skin Wardrobe and Add Products flow.
+- Admin product catalog.
+
+Before changing Expo app code, read the exact versioned Expo docs referenced in `AGENTS.md`.

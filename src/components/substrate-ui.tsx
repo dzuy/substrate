@@ -1,6 +1,6 @@
 import { Link, usePathname, useRouter, type Href } from 'expo-router';
 import { Image } from 'expo-image';
-import { ChartNoAxesColumnIncreasing, ChevronLeft, CircleUserRound, Sparkles } from 'lucide-react-native';
+import { ChartNoAxesColumnIncreasing, ChevronLeft, CircleUserRound, ShoppingBag, Sparkles } from 'lucide-react-native';
 import {
   Pressable,
   ScrollView,
@@ -276,6 +276,7 @@ export function BottomNav() {
 
 const navItems = [
   { key: 'today', label: 'Today', href: '/' as Href, icon: Sparkles },
+  { key: 'wardrobe', label: 'Skin Closet', href: '/skin-wardrobe' as Href, icon: ShoppingBag },
   { key: 'progress', label: 'Progress', href: '/progress' as Href, icon: ChartNoAxesColumnIncreasing },
   { key: 'profile', label: 'Profile', href: '/profile' as Href, icon: CircleUserRound },
 ] as const;
@@ -283,6 +284,9 @@ const navItems = [
 function getActiveNavItem(pathname: string) {
   if (pathname === '/progress') {
     return 'progress';
+  }
+  if (pathname === '/skin-wardrobe') {
+    return 'wardrobe';
   }
   if (pathname === '/profile') {
     return 'profile';

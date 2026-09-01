@@ -12,15 +12,13 @@ import {
 import { Colors, Spacing } from '@/constants/theme';
 import { useAuth } from '@/lib/auth-context';
 import { formatDisplayDate, listDailyEntries } from '@/services/daily-entries';
-import { getAnalysisScoresForEntries } from '@/services/recommendations';
-import type { AnalysisSignals, Database } from '@/types/database';
+import type { Database } from '@/types/database';
 
 type DailyEntry = Database['public']['Tables']['daily_entries']['Row'];
 
 export default function ProgressHistoryScreen() {
   const { user } = useAuth();
   const [entries, setEntries] = useState<DailyEntry[]>([]);
-  const [scoresByEntryId, setScoresByEntryId] = useState<Record<string, AnalysisSignals>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -49,24 +47,7 @@ export default function ProgressHistoryScreen() {
           return;
         }
 
-        const loadedEntries = history.data ?? [];
-        const scores = await getAnalysisScoresForEntries(
-          user.id,
-          loadedEntries.map((entry) => entry.id)
-        );
-
-        if (!isMounted) {
-          return;
-        }
-
-        if (scores.error) {
-          setErrorMessage(scores.error.message);
-          setIsLoading(false);
-          return;
-        }
-
-        setEntries(loadedEntries);
-        setScoresByEntryId(scores.data ?? {});
+        setEntries(history.data ?? []);
         setIsLoading(false);
       }
 
@@ -84,7 +65,7 @@ export default function ProgressHistoryScreen() {
       <ScreenHeader
         eyebrow="Progress"
         title="Full history"
-        body="All saved simulated test days and Skin Scores."
+        body="All saved check-in days."
       />
 
       {isLoading ? (
@@ -107,7 +88,7 @@ export default function ProgressHistoryScreen() {
 
       <View style={styles.entryList}>
         {entries.length > 0 ? entries.map((entry) => (
-          <HistoryEntry key={entry.id} entry={entry} signals={scoresByEntryId[entry.id]} />
+          <HistoryEntry key={entry.id} entry={entry} />
         )) : (
           <Card style={styles.entryCard}>
             <SubstrateText variant="section">No history yet</SubstrateText>
@@ -121,7 +102,7 @@ export default function ProgressHistoryScreen() {
   );
 }
 
-function HistoryEntry({ entry, signals }: { entry: DailyEntry; signals?: AnalysisSignals }) {
+function HistoryEntry({ entry }: { entry: DailyEntry }) {
   return (
     <Card style={styles.entryCard}>
       <View style={styles.entryHeader}>
@@ -129,14 +110,6 @@ function HistoryEntry({ entry, signals }: { entry: DailyEntry; signals?: Analysi
           <SubstrateText variant="section">{formatDisplayDate(entry.entry_date)}</SubstrateText>
           <SubstrateText variant="small" color={Colors.light.textMuted}>
             {formatStatus(entry.status)}
-          </SubstrateText>
-        </View>
-        <View style={styles.scoreBadge}>
-          <SubstrateText variant="section" color={Colors.light.accent}>
-            {typeof signals?.skinHealthScore === 'number' ? signals.skinHealthScore : '--'}
-          </SubstrateText>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
-            {formatScoreBand(signals?.scoreBand)}
           </SubstrateText>
         </View>
       </View>
@@ -150,15 +123,6 @@ function formatStatus(status: DailyEntry['status']) {
   if (status === 'check_in_added') return 'Check-in saved';
   if (status === 'photo_added') return 'Photo saved';
   return 'Draft';
-}
-
-function formatScoreBand(scoreBand: AnalysisSignals['scoreBand']) {
-  if (scoreBand === 'stable') return 'Stable';
-  if (scoreBand === 'balanced') return 'Balanced';
-  if (scoreBand === 'stressed') return 'Stressed';
-  if (scoreBand === 'reactive') return 'Reactive';
-  if (scoreBand === 'high_stress') return 'High stress';
-  return 'Unscored';
 }
 
 const styles = StyleSheet.create({
@@ -187,12 +151,5 @@ const styles = StyleSheet.create({
   entryCopy: {
     flex: 1,
     gap: Spacing.half,
-  },
-  scoreBadge: {
-    minWidth: 76,
-    alignItems: 'center',
-    borderRadius: 16,
-    backgroundColor: Colors.light.backgroundSelected,
-    padding: Spacing.two,
   },
 });
