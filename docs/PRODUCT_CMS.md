@@ -29,7 +29,7 @@ Admin-only RLS protects the source/review/history tables. Members can read publi
 
 ## CMS workflow
 
-Search by name, brand, alias or SKP ID. Filter by availability, category, brand and verification status. Edit a product to maintain display information, ingredients, publication, and grouped source evidence. Use the product's review queue to track unresolved issues; closing a review requires a resolution note. Change history lists recent database changes.
+Search by name, brand, alias or SKP ID. Filter by availability, category, brand and verification status. Edit a product to maintain display information, ingredients, publication, and grouped source evidence. Use the product's review queue to track unresolved issues; resolution notes are optional. Change history lists recent database changes.
 
 `save_catalog_product` saves product fields, ingredient links and evidence in one transaction. Both product and source timestamps protect against concurrent edits. An ingredient validation failure rolls back the whole save. Existing ingredient concentrations and notes survive edits.
 
@@ -55,7 +55,7 @@ The local pre-import backup `data/catalog/live-backup-20260908.json` contains ca
 
 The web admin uses a full-width desktop layout with its own navigation, separate from the consumer app. Availability, Brand (searchable), Category, and Verification filters combine in the left rail. Products are searchable and sortable, with 25 rows per page. Filters are retained when opening and closing an editor.
 
-Clicking a product row or New product opens a right-side slide-out drawer, keeping the table and filters in place behind it. The drawer supports Escape, outside-click and close-button dismissal with unsaved-change protection, keyboard focus containment, and reduced-motion preferences. Product editing uses Overview, Formula & sources, Directions, Evidence, Rules, Ingredients, Reviews, and History tabs. Save controls remain visible, Cmd/Ctrl+S saves product changes, and Cmd/Ctrl+K focuses catalog search. Closing an edited product prompts before discarding changes. Source library entries remain private research records, and review decisions are managed in a dedicated queue.
+Clicking a product row or New product opens a right-side slide-out drawer, keeping the table and filters in place behind it. The drawer supports Escape, outside-click and close-button dismissal with unsaved-change protection, keyboard focus containment, and reduced-motion preferences. Product editing uses Overview, Formula & sources, Directions, Evidence, Rules, Ingredients, Reviews, and History tabs. Save controls remain visible, Cmd/Ctrl+S saves product changes, and Cmd/Ctrl+K focuses catalog search. Closing an edited product prompts before discarding changes. Source library is hidden from navigation; its research records remain preserved. Reviews link to affected product drawers, where the issue and resolution action remain visible while editing. Save product changes before resolving the review; no note is required.
 
 ## Ingredient backfill
 

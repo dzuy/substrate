@@ -28,7 +28,6 @@ export async function listCatalogReviews() {
 }
 
 export async function saveCatalogReview(review: CatalogReview, status: CatalogReview['status'], note: string) {
-  if (status === 'RESOLVED' && !note.trim()) return { data: null, error: { message: 'Describe the resolution before closing this item.' } };
   const result = await supabase.from('catalog_reviews')
     .update({ status, resolution_note: note.trim() }).eq('id', review.id)
     .eq('updated_at', review.updated_at).select('*').maybeSingle();
