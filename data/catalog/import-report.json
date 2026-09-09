@@ -1,0 +1,459 @@
+{
+  "source": {
+    "id": "141uRqQVl9ZQ0jQ_x1xYz7cdscSzbgeuDXGZCBHNavzM",
+    "title": "Substrate_Skincare_Product_Database_v10_0_PILOT_BATCH_1_CLOSED",
+    "url": "https://docs.google.com/spreadsheets/d/141uRqQVl9ZQ0jQ_x1xYz7cdscSzbgeuDXGZCBHNavzM/edit",
+    "modifiedAt": "2026-09-08T23:26:37.189Z",
+    "fetchedAt": "2026-09-08T23:42:01.974Z"
+  },
+  "canonicalRecords": 285,
+  "retailRecords": 192,
+  "nonRetailRecords": 93,
+  "reviewItems": 411,
+  "repairedReviewRows": [
+    365,
+    366,
+    367,
+    368,
+    369,
+    370,
+    371,
+    372,
+    373,
+    374,
+    379,
+    380,
+    381,
+    382,
+    383,
+    386,
+    387,
+    388,
+    389,
+    390,
+    391,
+    392,
+    395,
+    396,
+    399,
+    400,
+    401,
+    402,
+    403,
+    404,
+    405,
+    406,
+    407,
+    408,
+    409,
+    410,
+    411,
+    412,
+    413,
+    414
+  ],
+  "archiveLegacyProductIds": [
+    "00000000-0000-4000-8000-000000000303",
+    "5dc7b109-ea4f-4f99-a33a-134181c7009b",
+    "84825bfc-3c14-48c4-b6eb-3768a2a54803",
+    "8dc3ec64-2f18-4e61-bbe1-f69273f9f4b3",
+    "29f8cff8-163f-43ab-9130-06315e1a0a44",
+    "54fab881-31d9-4760-ad94-3e124c913b94"
+  ],
+  "duplicateReviewIds": [
+    {
+      "row": 375,
+      "sourceReviewId": "REV-0345"
+    },
+    {
+      "row": 376,
+      "sourceReviewId": "REV-0346"
+    },
+    {
+      "row": 377,
+      "sourceReviewId": "REV-0347"
+    },
+    {
+      "row": 378,
+      "sourceReviewId": "REV-0348"
+    },
+    {
+      "row": 384,
+      "sourceReviewId": "REV-0304"
+    },
+    {
+      "row": 385,
+      "sourceReviewId": "REV-0305"
+    },
+    {
+      "row": 393,
+      "sourceReviewId": "REV-0235"
+    },
+    {
+      "row": 394,
+      "sourceReviewId": "REV-0236"
+    },
+    {
+      "row": 397,
+      "sourceReviewId": "REV-0301"
+    },
+    {
+      "row": 398,
+      "sourceReviewId": "REV-0302"
+    }
+  ],
+  "masterLinks": 421,
+  "quarantinedMasterLinks": [
+    {
+      "row": 79,
+      "id": "PML-0078",
+      "sourceId": "SKP-0065"
+    },
+    {
+      "row": 112,
+      "id": "PML-0111",
+      "sourceId": "SKP-0091"
+    },
+    {
+      "row": 118,
+      "id": "PML-0117",
+      "sourceId": "SKP-0095"
+    },
+    {
+      "row": 131,
+      "id": "PML-0130",
+      "sourceId": "SKP-0101"
+    },
+    {
+      "row": 146,
+      "id": "PML-0145",
+      "sourceId": "SKP-0114"
+    },
+    {
+      "row": 171,
+      "id": "PML-0170",
+      "sourceId": "SKP-0114"
+    },
+    {
+      "row": 172,
+      "id": "PML-0171",
+      "sourceId": "SKP-0137"
+    },
+    {
+      "row": 191,
+      "id": "PML-0190",
+      "sourceId": "SKP-0147"
+    },
+    {
+      "row": 192,
+      "id": "PML-0191",
+      "sourceId": "SKP-0148"
+    },
+    {
+      "row": 193,
+      "id": "PML-0192",
+      "sourceId": "SKP-0149"
+    },
+    {
+      "row": 209,
+      "id": "PML-0208",
+      "sourceId": "SKP-0157"
+    },
+    {
+      "row": 240,
+      "id": "PML-0239",
+      "sourceId": "SKP-0185"
+    },
+    {
+      "row": 242,
+      "id": "PML-0241",
+      "sourceId": "SKP-0186"
+    },
+    {
+      "row": 247,
+      "id": "PML-0246",
+      "sourceId": "SKP-0190"
+    },
+    {
+      "row": 248,
+      "id": "PML-0247",
+      "sourceId": "SKP-0191"
+    },
+    {
+      "row": 250,
+      "id": "PML-0249",
+      "sourceId": "SKP-0192"
+    },
+    {
+      "row": 253,
+      "id": "PML-0252",
+      "sourceId": "SKP-0195"
+    },
+    {
+      "row": 254,
+      "id": "PML-0253",
+      "sourceId": "SKP-0196"
+    },
+    {
+      "row": 255,
+      "id": "PML-0254",
+      "sourceId": "SKP-0197"
+    },
+    {
+      "row": 258,
+      "id": "PML-0257",
+      "sourceId": "SKP-0198"
+    },
+    {
+      "row": 259,
+      "id": "PML-0258",
+      "sourceId": "SKP-0199"
+    },
+    {
+      "row": 261,
+      "id": "PML-0260",
+      "sourceId": "SKP-0201"
+    },
+    {
+      "row": 262,
+      "id": "PML-0261",
+      "sourceId": "SKP-0114"
+    },
+    {
+      "row": 266,
+      "id": "PML-0265",
+      "sourceId": "SKP-0202"
+    },
+    {
+      "row": 267,
+      "id": "PML-0266",
+      "sourceId": "SKP-0203"
+    },
+    {
+      "row": 268,
+      "id": "PML-0267",
+      "sourceId": "SKP-0204"
+    },
+    {
+      "row": 269,
+      "id": "PML-0268",
+      "sourceId": "SKP-0205"
+    },
+    {
+      "row": 276,
+      "id": "PML-0275",
+      "sourceId": "SKP-0212"
+    },
+    {
+      "row": 284,
+      "id": "PML-0283",
+      "sourceId": "SKP-0220"
+    },
+    {
+      "row": 292,
+      "id": "PML-0291",
+      "sourceId": "SKP-0227"
+    },
+    {
+      "row": 294,
+      "id": "PML-0293",
+      "sourceId": "SKP-0228"
+    },
+    {
+      "row": 295,
+      "id": "PML-0294",
+      "sourceId": "SKP-0229"
+    },
+    {
+      "row": 296,
+      "id": "PML-0295",
+      "sourceId": "SKP-0230"
+    },
+    {
+      "row": 297,
+      "id": "PML-0296",
+      "sourceId": "SKP-0231"
+    },
+    {
+      "row": 300,
+      "id": "PML-0299",
+      "sourceId": "SKP-0137"
+    },
+    {
+      "row": 301,
+      "id": "PML-0300",
+      "sourceId": "SKP-0114"
+    },
+    {
+      "row": 303,
+      "id": "PML-0302",
+      "sourceId": "SKP-0137"
+    },
+    {
+      "row": 306,
+      "id": "PML-0305",
+      "sourceId": "SKP-0236"
+    },
+    {
+      "row": 311,
+      "id": "PML-0310",
+      "sourceId": "SKP-0157"
+    },
+    {
+      "row": 318,
+      "id": "PML-0317",
+      "sourceId": "SKP-0238"
+    },
+    {
+      "row": 320,
+      "id": "PML-0319",
+      "sourceId": "SKP-0236"
+    },
+    {
+      "row": 332,
+      "id": "PML-0331",
+      "sourceId": "SKP-0241"
+    },
+    {
+      "row": 333,
+      "id": "PML-0332",
+      "sourceId": "SKP-0242"
+    },
+    {
+      "row": 334,
+      "id": "PML-0334",
+      "sourceId": "SKP-0244"
+    },
+    {
+      "row": 338,
+      "id": "PML-0338",
+      "sourceId": "SKP-0202"
+    },
+    {
+      "row": 339,
+      "id": "PML-0339",
+      "sourceId": "SKP-0203"
+    },
+    {
+      "row": 340,
+      "id": "PML-0340",
+      "sourceId": "SKP-0204"
+    },
+    {
+      "row": 341,
+      "id": "PML-0341",
+      "sourceId": "SKP-0205"
+    },
+    {
+      "row": 343,
+      "id": "PML-0343",
+      "sourceId": "SKP-0246"
+    },
+    {
+      "row": 346,
+      "id": "PML-0346",
+      "sourceId": "SKP-0249"
+    },
+    {
+      "row": 356,
+      "id": "PML-0356",
+      "sourceId": "SKP-0257"
+    },
+    {
+      "row": 371,
+      "id": "PML-0371",
+      "sourceId": "SKP-0267"
+    },
+    {
+      "row": 382,
+      "id": "PML-0382",
+      "sourceId": "SKP-0274"
+    },
+    {
+      "row": 383,
+      "id": "PML-0383",
+      "sourceId": "SKP-0275"
+    },
+    {
+      "row": 384,
+      "id": "PML-0384",
+      "sourceId": "SKP-0276"
+    },
+    {
+      "row": 385,
+      "id": "PML-0385",
+      "sourceId": "SKP-0277"
+    },
+    {
+      "row": 386,
+      "id": "PML-0386",
+      "sourceId": "SKP-0278"
+    },
+    {
+      "row": 387,
+      "id": "PML-0387",
+      "sourceId": "SKP-0279"
+    },
+    {
+      "row": 388,
+      "id": "PML-0388",
+      "sourceId": "SKP-0280"
+    },
+    {
+      "row": 389,
+      "id": "PML-0389",
+      "sourceId": "SKP-0281"
+    },
+    {
+      "row": 390,
+      "id": "PML-0390",
+      "sourceId": "SKP-0282"
+    },
+    {
+      "row": 391,
+      "id": "PML-0391",
+      "sourceId": "SKP-0283"
+    },
+    {
+      "row": 392,
+      "id": "PML-0392",
+      "sourceId": "SKP-0278"
+    },
+    {
+      "row": 393,
+      "id": "PML-0393",
+      "sourceId": "SKP-0284"
+    },
+    {
+      "row": 394,
+      "id": "PML-0394",
+      "sourceId": "SKP-0278"
+    },
+    {
+      "row": 395,
+      "id": "PML-0395",
+      "sourceId": "SKP-0285"
+    },
+    {
+      "row": 396,
+      "id": "PML-0396",
+      "sourceId": "SKP-0278"
+    },
+    {
+      "row": 409,
+      "id": "PML-0409",
+      "sourceId": "SKP-0298"
+    },
+    {
+      "row": 429,
+      "id": "PML-0429",
+      "sourceId": "SKP-0312"
+    },
+    {
+      "row": 433,
+      "id": "PML-0433",
+      "sourceId": "SKP-0314"
+    }
+  ],
+  "policy": "New retail products are unpublished and need review. Matching existing product IDs, visibility, descriptions and ingredients are preserved. Six legacy products absent from v10 are archived per user request. All source fields remain admin-only evidence. Non-retail records stay outside products. No ingredient parsing or clinical rule activation."
+}

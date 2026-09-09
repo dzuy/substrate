@@ -22,12 +22,13 @@ import {
   listIngredients,
   productCategories,
   productStatuses,
-  saveProductWithIngredients,
   type CatalogBrand,
   type CatalogIngredient,
   type CatalogProduct,
   type ProductIngredientInput,
 } from '@/services/catalog';
+import { CatalogEvidenceEditor, CatalogHistory, CatalogReviewPanel } from '@/components/catalog-evidence-editor';
+import { listCatalogRecords, listCatalogReviews, restoreProduct, saveCmsProduct, type CatalogRecord, type CatalogReview } from '@/services/catalog-cms';
 import type { ProductCategory, ProductStatus } from '@/types/database';
 
 type FormIngredient = {
@@ -35,6 +36,8 @@ type FormIngredient = {
   ingredientName: string;
   ingredientOrder: string;
   notes: string;
+  concentration?: number | null;
+  concentrationUnit?: string | null;
 };
 
 type ProductForm = {
@@ -50,6 +53,9 @@ type ProductForm = {
   aliasesText: string;
   status: ProductStatus;
   ingredients: FormIngredient[];
+  catalogVisible: boolean;
+  expectedUpdatedAt?: string;
+  record?: CatalogRecord | null;
 };
 
 const emptyForm: ProductForm = {
@@ -64,11 +70,21 @@ const emptyForm: ProductForm = {
   aliasesText: '',
   status: 'needs_review',
   ingredients: [],
+  catalogVisible: false,
 };
 
 export default function AdminProductsScreen() {
   const { user } = useAuth();
   const canManageCatalog = isCatalogAdmin(user);
+  const [records, setRecords] = useState<CatalogRecord[]>([]);
+  const [reviews, setReviews] = useState<CatalogReview[]>([]);
+  const [showEditor, setShowEditor] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
+  const [showResearch, setShowResearch] = useState(false);
+  const [availability, setAvailability] = useState('all');
+  const [pageSize, setPageSize] = useState(20);
+  const [brandSearch, setBrandSearch] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   const [brands, setBrands] = useState<CatalogBrand[]>([]);
   const [ingredients, setIngredients] = useState<CatalogIngredient[]>([]);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
@@ -97,38 +113,48 @@ export default function AdminProductsScreen() {
         setIsLoading(true);
         setErrorMessage('');
 
-        const [brandResult, ingredientResult, productResult] = await Promise.all([
+        const [brandResult, ingredientResult, productResult, recordResult, reviewResult] = await Promise.all([
           listBrands(),
           listIngredients(),
-          listCatalogProducts(),
+          listCatalogProducts({ includeArchived: true, includeUnpublished: true }),
+          listCatalogRecords(),
+          listCatalogReviews(),
         ]);
 
         if (!isMounted) {
           return;
         }
 
-        if (brandResult.error || ingredientResult.error || productResult.error) {
+        if (brandResult.error || ingredientResult.error || productResult.error || recordResult.error || reviewResult.error) {
           setErrorMessage(
             brandResult.error?.message ??
               ingredientResult.error?.message ??
               productResult.error?.message ??
+              recordResult.error?.message ??
+              reviewResult.error?.message ??
               'Catalog could not be loaded.'
           );
         } else {
           setBrands(brandResult.data ?? []);
           setIngredients(ingredientResult.data ?? []);
           setProducts(productResult.data ?? []);
+          setRecords(recordResult.data ?? []);
+          setReviews(reviewResult.data ?? []);
         }
 
         setIsLoading(false);
       }
 
-      loadCatalog();
+      loadCatalog().catch(() => {
+        if (isMounted) { setErrorMessage('Could not connect to the catalog. Reload to try again.'); setIsLoading(false); }
+      });
 
       return () => {
         isMounted = false;
       };
-    }, [canManageCatalog])
+    // Explicit refreshes rerun the same focus load after database mutations.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [canManageCatalog, reloadKey])
   );
 
   const filteredProducts = useMemo(
@@ -139,14 +165,16 @@ export default function AdminProductsScreen() {
           !query ||
           product.name.toLowerCase().includes(query) ||
           product.brand?.name.toLowerCase().includes(query) ||
+          records.find((r) => r.product_id === product.id)?.source_id.toLowerCase().includes(query) ||
           product.aliases.some((alias) => alias.toLowerCase().includes(query));
         const matchesBrand = brandFilter === 'all' || product.brand_id === brandFilter;
         const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
         const matchesStatus = statusFilter === 'all' || product.status === statusFilter;
 
-        return matchesSearch && matchesBrand && matchesCategory && matchesStatus;
+        const matchesAvailability = availability === 'archived' ? !!product.archived_at : !product.archived_at && (availability === 'all' || (availability === 'published' ? product.catalog_visible : !product.catalog_visible));
+        return matchesSearch && matchesBrand && matchesCategory && matchesStatus && matchesAvailability;
       }),
-    [brandFilter, categoryFilter, products, search, statusFilter]
+    [availability, brandFilter, categoryFilter, products, records, search, statusFilter]
   );
 
   const ingredientMatches = useMemo(() => {
@@ -164,11 +192,17 @@ export default function AdminProductsScreen() {
   }
 
   function editProduct(product: CatalogProduct) {
+    if (isSaving) return;
+    setShowEditor(true);
+    setBrandSearch(product.brand?.name ?? '');
     setMessage('');
     setErrorMessage('');
     setProductToArchive(null);
     setForm({
       id: product.id,
+      expectedUpdatedAt: product.updated_at,
+      catalogVisible: product.catalog_visible,
+      record: records.find((r) => r.product_id === product.id) ?? null,
       brandId: product.brand_id,
       newBrandName: '',
       name: product.name,
@@ -181,6 +215,8 @@ export default function AdminProductsScreen() {
       status: product.status,
       ingredients: product.ingredients.map((item) => ({
         ingredientId: item.ingredient_id,
+        concentration: item.concentration,
+        concentrationUnit: item.concentration_unit,
         ingredientName: item.ingredient?.name ?? 'Ingredient',
         ingredientOrder: item.ingredient_order?.toString() ?? '',
         notes: item.notes ?? '',
@@ -189,6 +225,9 @@ export default function AdminProductsScreen() {
   }
 
   function resetForm() {
+    if (isSaving) return;
+    setShowEditor(false);
+    setBrandSearch('');
     setForm(emptyForm);
     setIngredientSearch('');
     setProductToArchive(null);
@@ -250,6 +289,7 @@ export default function AdminProductsScreen() {
   }
 
   async function handleSaveProduct() {
+    if (isSaving) return;
     if (!form.name.trim()) {
       setErrorMessage('Add a product name.');
       return;
@@ -281,8 +321,12 @@ export default function AdminProductsScreen() {
       return;
     }
 
-    const saved = await saveProductWithIngredients({
+    try {
+    const saved = await saveCmsProduct({
       id: form.id,
+      catalogVisible: form.catalogVisible,
+      expectedUpdatedAt: form.expectedUpdatedAt,
+      record: form.record,
       brandId,
       name: form.name,
       category: form.category,
@@ -305,7 +349,12 @@ export default function AdminProductsScreen() {
 
     setProducts((current) => upsertById<CatalogProduct>(current, savedProduct));
     setMessage(`${savedProduct.name} saved.`);
-    resetForm();
+    setShowEditor(false);
+    setForm(emptyForm);
+    setReloadKey((value) => value + 1);
+    } catch {
+      setErrorMessage('Connection failed. Your edits are still here. Reload before retrying if the save may have completed.');
+    } finally { setIsSaving(false); }
   }
 
   async function confirmArchiveProduct() {
@@ -325,7 +374,7 @@ export default function AdminProductsScreen() {
       return;
     }
 
-    setProducts((current) => current.filter((product) => product.id !== productToArchive.id));
+    setProducts((current) => current.map((product) => product.id === archived.data?.id ? { ...product, ...archived.data } : product));
     setMessage(`${productToArchive.name} archived.`);
     setProductToArchive(null);
     if (form.id === productToArchive.id) {
@@ -338,8 +387,8 @@ export default function AdminProductsScreen() {
       <BackLink href={'/profile' as Href} />
       <ScreenHeader
         eyebrow="Admin"
-        title="Product catalog"
-        body="Maintain the canonical brands, products, and ingredients that user wardrobes will reference later."
+        title="Product CMS"
+        body="Manage products in the app database, review source evidence, and choose what appears in the catalog."
       />
 
       {!canManageCatalog ? (
@@ -384,16 +433,16 @@ export default function AdminProductsScreen() {
         </Card>
       ) : null}
 
-      {canManageCatalog ? (
+      {canManageCatalog && !showEditor ? (
       <Card style={styles.card}>
         <View style={styles.sectionHeader}>
           <View>
             <SubstrateText variant="section">Products</SubstrateText>
             <SubstrateText variant="small" color={Colors.light.textMuted}>
-              {filteredProducts.length} active catalog records
+              {filteredProducts.length} products · {records.length} source records
             </SubstrateText>
           </View>
-          <Pressable accessibilityRole="button" onPress={resetForm} style={styles.smallButton}>
+          <Pressable accessibilityRole="button" onPress={() => { resetForm(); setShowEditor(true); }} style={styles.smallButton}>
             <SubstrateText variant="small" color={Colors.light.accentDeep}>
               New
             </SubstrateText>
@@ -404,15 +453,19 @@ export default function AdminProductsScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           onChangeText={setSearch}
-          placeholder="Search product, brand, or alias"
+          placeholder="Search product, brand, alias, or SKP ID"
           placeholderTextColor={Colors.light.textMuted}
           style={styles.input}
           value={search}
         />
 
+        <FilterGroup label="Availability">
+          {['all', 'published', 'unpublished', 'archived'].map((value) => <FilterPill key={value} label={value === 'all' ? 'All active' : formatCatalogLabel(value)} selected={availability === value} onPress={() => setAvailability(value)} />)}
+        </FilterGroup>
+        <TextInput accessibilityLabel="Find brand" placeholder="Find a brand" style={styles.input} value={brandSearch} onChangeText={setBrandSearch} />
         <FilterGroup label="Brand">
           <FilterPill label="All" selected={brandFilter === 'all'} onPress={() => setBrandFilter('all')} />
-          {brands.map((brand) => (
+          {brands.filter((brand) => brand.id === form.brandId || brand.id === brandFilter || brand.name.toLowerCase().includes(brandSearch.toLowerCase())).slice(0, 12).map((brand) => (
             <FilterPill
               key={brand.id}
               label={brand.name}
@@ -447,19 +500,28 @@ export default function AdminProductsScreen() {
         </FilterGroup>
 
         <View style={styles.productList}>
-          {filteredProducts.map((product) => (
+          {filteredProducts.slice(0, pageSize).map((product) => (
             <ProductCard
               key={product.id}
               product={product}
-              onArchive={() => setProductToArchive(product)}
+              onArchive={async () => {
+                if (!product.archived_at) { setProductToArchive(product); return; }
+                const result = await restoreProduct(product.id);
+                if (result.error) setErrorMessage(result.error.message);
+                else { setMessage(`${product.name} restored as unpublished.`); setReloadKey((value) => value + 1); }
+              }}
               onEdit={() => editProduct(product)}
             />
           ))}
         </View>
+        {filteredProducts.length > pageSize ? <Pressable accessibilityRole="button" onPress={() => setPageSize(pageSize + 20)} style={styles.smallButton}><SubstrateText variant="small">Show 20 more</SubstrateText></Pressable> : null}
+        <Pressable accessibilityRole="button" onPress={() => setShowReviews(!showReviews)} style={styles.smallButton}><SubstrateText variant="small">{showReviews ? 'Hide' : 'Open'} review queue</SubstrateText></Pressable>
+        <Pressable accessibilityRole="button" onPress={() => setShowResearch(!showResearch)} style={styles.smallButton}><SubstrateText variant="small">{showResearch ? 'Hide' : 'View'} non-product source records</SubstrateText></Pressable>
+        <Pressable accessibilityRole="button" onPress={() => setReloadKey((value) => value + 1)} style={styles.smallButton}><SubstrateText variant="small">Reload database</SubstrateText></Pressable>
       </Card>
       ) : null}
 
-      {canManageCatalog ? (
+      {canManageCatalog && showEditor ? (
       <Card style={styles.card}>
         <View style={styles.sectionHeader}>
           <View>
@@ -468,7 +530,7 @@ export default function AdminProductsScreen() {
               Canonical product details are shared across users.
             </SubstrateText>
           </View>
-          {form.id ? (
+          {showEditor ? (
             <Pressable accessibilityRole="button" onPress={resetForm} style={styles.smallButton}>
               <SubstrateText variant="small" color={Colors.light.accentDeep}>
                 Cancel
@@ -478,8 +540,9 @@ export default function AdminProductsScreen() {
         </View>
 
         <Field label="Brand">
+          <TextInput accessibilityLabel="Find product brand" placeholder="Find a brand" style={styles.input} value={brandSearch} onChangeText={setBrandSearch} />
           <View style={styles.pillGroup}>
-            {brands.map((brand) => (
+            {brands.filter((brand) => brand.id === form.brandId || brand.id === brandFilter || brand.name.toLowerCase().includes(brandSearch.toLowerCase())).slice(0, 12).map((brand) => (
               <FilterPill
                 key={brand.id}
                 label={brand.name}
@@ -615,6 +678,15 @@ export default function AdminProductsScreen() {
           />
         </Field>
 
+        <Field label="Catalog availability">
+          <SubstrateText variant="small" color={Colors.light.textMuted}>Publishing makes this product selectable in the app. Verification status and private evidence remain separate.</SubstrateText>
+          <View style={styles.pillGroup}>
+            <FilterPill label="Unpublished" selected={!form.catalogVisible} onPress={() => updateForm({ catalogVisible: false })} />
+            <FilterPill label="Published" selected={form.catalogVisible} onPress={() => updateForm({ catalogVisible: true })} />
+          </View>
+        </Field>
+        {form.id ? <CatalogHistory key={form.id} productId={form.id} sourceId={form.record?.source_id} /> : null}
+        {form.record ? <CatalogEvidenceEditor record={form.record} onChange={(record) => updateForm({ record })} /> : null}
         <Field label="Ingredients">
           {form.ingredients.length ? (
             <View style={styles.ingredientList}>
@@ -697,6 +769,20 @@ export default function AdminProductsScreen() {
       </Card>
       ) : null}
 
+      {canManageCatalog && !showEditor && showResearch ? <Card style={styles.card}>
+        <SubstrateText variant="section">Non-product source records</SubstrateText>
+        <SubstrateText variant="small" color={Colors.light.textMuted}>These records are retained for research and resolution to specific products. They are not shopping items.</SubstrateText>
+        {records.filter((r) => !r.product_id && `${r.source_id} ${r.fields.product_name}`.toLowerCase().includes(search.toLowerCase())).slice(0, pageSize).map((r) => <View key={r.source_id} style={styles.productCard}>
+          <SubstrateText variant="small">{r.source_id} · {r.fields.product_name}</SubstrateText>
+          <SubstrateText variant="small" color={Colors.light.textMuted}>{r.entity_type} · {r.fields.review_status}</SubstrateText>
+        </View>)}
+        <Pressable accessibilityRole="button" onPress={() => setPageSize(pageSize + 20)} style={styles.smallButton}><SubstrateText variant="small">Show more source records</SubstrateText></Pressable>
+      </Card> : null}
+      {canManageCatalog && (showReviews || !!form.record) ? <CatalogReviewPanel
+        key={form.record?.source_id ?? search}
+        reviews={reviews.filter((r) => form.record ? `${r.fields.affected_ids}, ${r.fields.product_id}`.split(/[,;]\s*/).includes(form.record.source_id) : JSON.stringify(r.fields).toLowerCase().includes(search.toLowerCase()))}
+        onSaved={(review) => setReviews((current) => current.map((r) => r.id === review.id ? review : r))} /> : null}
+
       {canManageCatalog && productToArchive ? (
         <Card style={styles.confirmCard}>
           <SubstrateText variant="section">Archive {productToArchive.name}?</SubstrateText>
@@ -744,7 +830,7 @@ function ProductCard({
         <View style={styles.productTitle}>
           <SubstrateText variant="section">{product.name}</SubstrateText>
           <SubstrateText variant="small" color={Colors.light.textMuted}>
-            {[product.brand?.name, formatCatalogLabel(product.category), formatCatalogLabel(product.status)]
+            {[product.brand?.name, formatCatalogLabel(product.category), formatCatalogLabel(product.status), product.archived_at ? 'Archived' : product.catalog_visible ? 'Published' : 'Unpublished']
               .filter(Boolean)
               .join(' · ')}
           </SubstrateText>
@@ -757,7 +843,7 @@ function ProductCard({
           </Pressable>
           <Pressable accessibilityRole="button" onPress={onArchive} style={styles.smallButton}>
             <SubstrateText variant="small" color={Colors.light.accentDeep}>
-              Archive
+              {product.archived_at ? 'Restore' : 'Archive'}
             </SubstrateText>
           </Pressable>
         </View>
@@ -830,6 +916,8 @@ function toProductIngredientInput(ingredient: FormIngredient): ProductIngredient
     ingredientId: ingredient.ingredientId,
     ingredientOrder: Number.isFinite(parsedOrder) ? parsedOrder : null,
     notes: ingredient.notes,
+    concentration: ingredient.concentration,
+    concentrationUnit: ingredient.concentrationUnit,
   };
 }
 

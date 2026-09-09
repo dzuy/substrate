@@ -35,6 +35,9 @@ yarn-error.*
 .env
 .env*.local
 supabase/.temp/
+data/catalog/live-backup*.json
+# Reproducible from the versioned source snapshot and importer.
+data/catalog/import-v10.sql
 
 # typescript
 *.tsbuildinfo
@@ -44,3 +47,6 @@ example
 # generated native folders
 /ios
 /android
+data/catalog/ingredients-before.json
+data/catalog/ingredients-after.json
+data/catalog/ingredients-import.sql

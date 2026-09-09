@@ -1,0 +1,969 @@
+{
+  "products": [
+    {
+      "sourceId": "SKP-0002",
+      "parsed": 15,
+      "newLinks": 15
+    },
+    {
+      "sourceId": "SKP-0003",
+      "parsed": 12,
+      "newLinks": 12
+    },
+    {
+      "sourceId": "SKP-0004",
+      "parsed": 23,
+      "newLinks": 23
+    },
+    {
+      "sourceId": "SKP-0005",
+      "parsed": 17,
+      "newLinks": 17
+    },
+    {
+      "sourceId": "SKP-0006",
+      "parsed": 15,
+      "newLinks": 15
+    },
+    {
+      "sourceId": "SKP-0007",
+      "parsed": 33,
+      "newLinks": 33
+    },
+    {
+      "sourceId": "SKP-0008",
+      "parsed": 28,
+      "newLinks": 28
+    },
+    {
+      "sourceId": "SKP-0009",
+      "parsed": 15,
+      "newLinks": 15
+    },
+    {
+      "sourceId": "SKP-0010",
+      "parsed": 20,
+      "newLinks": 20
+    },
+    {
+      "sourceId": "SKP-0011",
+      "parsed": 24,
+      "newLinks": 24
+    },
+    {
+      "sourceId": "SKP-0012",
+      "parsed": 18,
+      "newLinks": 18
+    },
+    {
+      "sourceId": "SKP-0013",
+      "parsed": 27,
+      "newLinks": 27
+    },
+    {
+      "sourceId": "SKP-0014",
+      "parsed": 18,
+      "newLinks": 18
+    },
+    {
+      "sourceId": "SKP-0016",
+      "parsed": 25,
+      "newLinks": 25
+    },
+    {
+      "sourceId": "SKP-0018",
+      "parsed": 27,
+      "newLinks": 27
+    },
+    {
+      "sourceId": "SKP-0019",
+      "parsed": 9,
+      "newLinks": 9
+    },
+    {
+      "sourceId": "SKP-0020",
+      "parsed": 19,
+      "newLinks": 19
+    },
+    {
+      "sourceId": "SKP-0021",
+      "parsed": 9,
+      "newLinks": 9
+    },
+    {
+      "sourceId": "SKP-0022",
+      "parsed": 10,
+      "newLinks": 10
+    },
+    {
+      "sourceId": "SKP-0023",
+      "parsed": 24,
+      "newLinks": 24
+    },
+    {
+      "sourceId": "SKP-0024",
+      "parsed": 24,
+      "newLinks": 24
+    },
+    {
+      "sourceId": "SKP-0025",
+      "parsed": 19,
+      "newLinks": 19
+    },
+    {
+      "sourceId": "SKP-0026",
+      "parsed": 29,
+      "newLinks": 29
+    },
+    {
+      "sourceId": "SKP-0027",
+      "parsed": 43,
+      "newLinks": 43
+    },
+    {
+      "sourceId": "SKP-0028",
+      "parsed": 37,
+      "newLinks": 37
+    },
+    {
+      "sourceId": "SKP-0029",
+      "parsed": 37,
+      "newLinks": 37
+    },
+    {
+      "sourceId": "SKP-0030",
+      "parsed": 18,
+      "newLinks": 18
+    },
+    {
+      "sourceId": "SKP-0032",
+      "parsed": 31,
+      "newLinks": 31
+    },
+    {
+      "sourceId": "SKP-0034",
+      "parsed": 8,
+      "newLinks": 7
+    },
+    {
+      "sourceId": "SKP-0035",
+      "parsed": 30,
+      "newLinks": 30
+    },
+    {
+      "sourceId": "SKP-0036",
+      "parsed": 40,
+      "newLinks": 40
+    },
+    {
+      "sourceId": "SKP-0037",
+      "parsed": 23,
+      "newLinks": 23
+    },
+    {
+      "sourceId": "SKP-0038",
+      "parsed": 27,
+      "newLinks": 27
+    },
+    {
+      "sourceId": "SKP-0042",
+      "parsed": 44,
+      "newLinks": 44
+    },
+    {
+      "sourceId": "SKP-0043",
+      "parsed": 36,
+      "newLinks": 36
+    },
+    {
+      "sourceId": "SKP-0044",
+      "parsed": 43,
+      "newLinks": 43
+    },
+    {
+      "sourceId": "SKP-0045",
+      "parsed": 7,
+      "newLinks": 7
+    },
+    {
+      "sourceId": "SKP-0046",
+      "parsed": 11,
+      "newLinks": 11
+    },
+    {
+      "sourceId": "SKP-0048",
+      "parsed": 25,
+      "newLinks": 25
+    },
+    {
+      "sourceId": "SKP-0049",
+      "parsed": 18,
+      "newLinks": 18
+    },
+    {
+      "sourceId": "SKP-0050",
+      "parsed": 19,
+      "newLinks": 19
+    },
+    {
+      "sourceId": "SKP-0001",
+      "parsed": 24,
+      "newLinks": 24
+    },
+    {
+      "sourceId": "SKP-0052",
+      "parsed": 39,
+      "newLinks": 39
+    },
+    {
+      "sourceId": "SKP-0053",
+      "parsed": 26,
+      "newLinks": 26
+    },
+    {
+      "sourceId": "SKP-0054",
+      "parsed": 40,
+      "newLinks": 40
+    },
+    {
+      "sourceId": "SKP-0055",
+      "parsed": 31,
+      "newLinks": 31
+    },
+    {
+      "sourceId": "SKP-0056",
+      "parsed": 47,
+      "newLinks": 47
+    },
+    {
+      "sourceId": "SKP-0057",
+      "parsed": 43,
+      "newLinks": 43
+    },
+    {
+      "sourceId": "SKP-0058",
+      "parsed": 38,
+      "newLinks": 38
+    },
+    {
+      "sourceId": "SKP-0059",
+      "parsed": 49,
+      "newLinks": 49
+    },
+    {
+      "sourceId": "SKP-0061",
+      "parsed": 30,
+      "newLinks": 30
+    },
+    {
+      "sourceId": "SKP-0062",
+      "parsed": 26,
+      "newLinks": 26
+    },
+    {
+      "sourceId": "SKP-0063",
+      "parsed": 31,
+      "newLinks": 31
+    },
+    {
+      "sourceId": "SKP-0066",
+      "parsed": 39,
+      "newLinks": 39
+    },
+    {
+      "sourceId": "SKP-0068",
+      "parsed": 31,
+      "newLinks": 31
+    },
+    {
+      "sourceId": "SKP-0069",
+      "parsed": 18,
+      "newLinks": 18
+    },
+    {
+      "sourceId": "SKP-0070",
+      "parsed": 34,
+      "newLinks": 34
+    },
+    {
+      "sourceId": "SKP-0072",
+      "parsed": 30,
+      "newLinks": 30
+    },
+    {
+      "sourceId": "SKP-0073",
+      "parsed": 32,
+      "newLinks": 32
+    },
+    {
+      "sourceId": "SKP-0074",
+      "parsed": 29,
+      "newLinks": 29
+    },
+    {
+      "sourceId": "SKP-0075",
+      "parsed": 43,
+      "newLinks": 43
+    },
+    {
+      "sourceId": "SKP-0076",
+      "parsed": 40,
+      "newLinks": 40
+    },
+    {
+      "sourceId": "SKP-0082",
+      "parsed": 8,
+      "newLinks": 8
+    },
+    {
+      "sourceId": "SKP-0083",
+      "parsed": 10,
+      "newLinks": 10
+    },
+    {
+      "sourceId": "SKP-0084",
+      "parsed": 25,
+      "newLinks": 25
+    },
+    {
+      "sourceId": "SKP-0085",
+      "parsed": 11,
+      "newLinks": 11
+    },
+    {
+      "sourceId": "SKP-0088",
+      "parsed": 30,
+      "newLinks": 30
+    },
+    {
+      "sourceId": "SKP-0089",
+      "parsed": 19,
+      "newLinks": 19
+    },
+    {
+      "sourceId": "SKP-0090",
+      "parsed": 14,
+      "newLinks": 14
+    },
+    {
+      "sourceId": "SKP-0093",
+      "parsed": 50,
+      "newLinks": 50
+    },
+    {
+      "sourceId": "SKP-0104",
+      "parsed": 47,
+      "newLinks": 47
+    },
+    {
+      "sourceId": "SKP-0105",
+      "parsed": 22,
+      "newLinks": 22
+    },
+    {
+      "sourceId": "SKP-0108",
+      "parsed": 33,
+      "newLinks": 33
+    },
+    {
+      "sourceId": "SKP-0109",
+      "parsed": 52,
+      "newLinks": 52
+    },
+    {
+      "sourceId": "SKP-0110",
+      "parsed": 52,
+      "newLinks": 52
+    },
+    {
+      "sourceId": "SKP-0111",
+      "parsed": 42,
+      "newLinks": 42
+    },
+    {
+      "sourceId": "SKP-0120",
+      "parsed": 19,
+      "newLinks": 19
+    },
+    {
+      "sourceId": "SKP-0121",
+      "parsed": 38,
+      "newLinks": 38
+    },
+    {
+      "sourceId": "SKP-0122",
+      "parsed": 26,
+      "newLinks": 26
+    },
+    {
+      "sourceId": "SKP-0123",
+      "parsed": 32,
+      "newLinks": 32
+    },
+    {
+      "sourceId": "SKP-0128",
+      "parsed": 1,
+      "newLinks": 1
+    },
+    {
+      "sourceId": "SKP-0140",
+      "parsed": 7,
+      "newLinks": 7
+    },
+    {
+      "sourceId": "SKP-0141",
+      "parsed": 12,
+      "newLinks": 12
+    },
+    {
+      "sourceId": "SKP-0146",
+      "parsed": 21,
+      "newLinks": 21
+    },
+    {
+      "sourceId": "SKP-0156",
+      "parsed": 22,
+      "newLinks": 22
+    },
+    {
+      "sourceId": "SKP-0159",
+      "parsed": 24,
+      "newLinks": 24
+    },
+    {
+      "sourceId": "SKP-0160",
+      "parsed": 30,
+      "newLinks": 30
+    },
+    {
+      "sourceId": "SKP-0164",
+      "parsed": 20,
+      "newLinks": 20
+    },
+    {
+      "sourceId": "SKP-0166",
+      "parsed": 18,
+      "newLinks": 18
+    },
+    {
+      "sourceId": "SKP-0167",
+      "parsed": 18,
+      "newLinks": 18
+    },
+    {
+      "sourceId": "SKP-0168",
+      "parsed": 13,
+      "newLinks": 13
+    },
+    {
+      "sourceId": "SKP-0171",
+      "parsed": 8,
+      "newLinks": 8
+    },
+    {
+      "sourceId": "SKP-0173",
+      "parsed": 24,
+      "newLinks": 24
+    },
+    {
+      "sourceId": "SKP-0174",
+      "parsed": 11,
+      "newLinks": 11
+    },
+    {
+      "sourceId": "SKP-0175",
+      "parsed": 18,
+      "newLinks": 18
+    },
+    {
+      "sourceId": "SKP-0178",
+      "parsed": 38,
+      "newLinks": 38
+    },
+    {
+      "sourceId": "SKP-0179",
+      "parsed": 28,
+      "newLinks": 28
+    },
+    {
+      "sourceId": "SKP-0181",
+      "parsed": 11,
+      "newLinks": 11
+    },
+    {
+      "sourceId": "SKP-0183",
+      "parsed": 31,
+      "newLinks": 31
+    },
+    {
+      "sourceId": "SKP-0187",
+      "parsed": 21,
+      "newLinks": 21
+    },
+    {
+      "sourceId": "SKP-0188",
+      "parsed": 28,
+      "newLinks": 28
+    },
+    {
+      "sourceId": "SKP-0189",
+      "parsed": 7,
+      "newLinks": 7
+    },
+    {
+      "sourceId": "SKP-0206",
+      "parsed": 2,
+      "newLinks": 2
+    },
+    {
+      "sourceId": "SKP-0207",
+      "parsed": 9,
+      "newLinks": 8
+    },
+    {
+      "sourceId": "SKP-0208",
+      "parsed": 34,
+      "newLinks": 34
+    },
+    {
+      "sourceId": "SKP-0210",
+      "parsed": 3,
+      "newLinks": 3
+    },
+    {
+      "sourceId": "SKP-0211",
+      "parsed": 4,
+      "newLinks": 4
+    },
+    {
+      "sourceId": "SKP-0237",
+      "parsed": 44,
+      "newLinks": 44
+    },
+    {
+      "sourceId": "SKP-0262",
+      "parsed": 22,
+      "newLinks": 22
+    },
+    {
+      "sourceId": "SKP-0264",
+      "parsed": 23,
+      "newLinks": 23
+    },
+    {
+      "sourceId": "SKP-0265",
+      "parsed": 40,
+      "newLinks": 40
+    },
+    {
+      "sourceId": "SKP-0271",
+      "parsed": 23,
+      "newLinks": 23
+    },
+    {
+      "sourceId": "SKP-0295",
+      "parsed": 19,
+      "newLinks": 19
+    },
+    {
+      "sourceId": "SKP-0296",
+      "parsed": 20,
+      "newLinks": 20
+    },
+    {
+      "sourceId": "SKP-0297",
+      "parsed": 33,
+      "newLinks": 33
+    },
+    {
+      "sourceId": "SKP-0300",
+      "parsed": 15,
+      "newLinks": 15
+    },
+    {
+      "sourceId": "SKP-0303",
+      "parsed": 63,
+      "newLinks": 63
+    },
+    {
+      "sourceId": "SKP-0307",
+      "parsed": 17,
+      "newLinks": 17
+    },
+    {
+      "sourceId": "SKP-0308",
+      "parsed": 13,
+      "newLinks": 13
+    },
+    {
+      "sourceId": "SKP-0309",
+      "parsed": 1,
+      "newLinks": 1
+    },
+    {
+      "sourceId": "SKP-0313",
+      "parsed": 29,
+      "newLinks": 29
+    },
+    {
+      "sourceId": "SKP-0335",
+      "parsed": 53,
+      "newLinks": 53
+    },
+    {
+      "sourceId": "SKP-0341",
+      "parsed": 43,
+      "newLinks": 43
+    },
+    {
+      "sourceId": "SKP-0343",
+      "parsed": 9,
+      "newLinks": 9
+    }
+  ],
+  "skipped": [
+    {
+      "sourceId": "SKP-0015",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "Active: Benzoyl Peroxide 4%. Inactive: Water, Carbomer, Decyl Glucoside, Dimethicone, [Di-substituted] Sodium Sulfosuccinate (named inconsistently across sources as Diethylhexyl/Dioctyl/Diheptyl Sodium Sulfosuccinate — see verification note), Glycerin, Palmitic Acid, Polyacrylate Crosspolymer-6, PEG-40 Stearate, Propanediol, Silica, Sodium Chloride, Sodium Citrate, Sodium Hydroxide, Sodium Laurylglucosides Hydroxypropylsulfonate, Sorbitan Stearate, Sorbitol, Stearic Acid, T-Butyl Alcohol, Xanthan Gum"
+    },
+    {
+      "sourceId": "SKP-0031",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "Water, Hydrogenated Polyisobutene, Dimethicone, Glycerin, Butyrospermum Parkii (Shea) Butter, Panthenol, Zea Mays (Corn) Starch, Propanediol, Butylene Glycol, Cetyl PEG/PPG-10/1 Dimethicone, Trihydroxystearin, Centella Asiatica (Madecassoside), Aluminum Hydroxide, Alpha-Glucan Oligosaccharide (Tribioma prebiotic complex) [full 20+ ingredient INCI not completely captured from available snippets — see verification note]"
+    },
+    {
+      "sourceId": "SKP-0033",
+      "reason": "Narrative or ambiguous ingredient token",
+      "source": "Caprylic/Capric Triglyceride, Propanediol, Glycerin, Shea Butter, Pentylene Glycol, Limnanthes Alba (Meadowfoam) Seed Oil, Glyceryl Stearate SE, Stearyl Alcohol, Steareth-20, Tocopherols, Hyvia (Salvia Hispanica/Chia Seed Oil), DSD (Disodium S-Phytyl Diglycoloylcysteine), Spilanthes Acmella Flower Extract, Ceramide NP, Isocetyl Alcohol, Cetyl Alcohol, Phytosterols, Ferulic Acid, Oenothera Biennis (Evening Primrose) Seed Extract, Butylene Glycol, Carbomer, Sodium Phytate (formerly listed as Pentasodium Pentetate on older sources), Potassium Hydroxide"
+    },
+    {
+      "sourceId": "SKP-0039",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "Water, Glycerin, Propanediol, Niacinamide, Isopropyl Palmitate, Polyacrylate-13, Butylene Glycol, Palmitoyl Hexapeptide-12, Palmitoyl Tripeptide-1, Palmitoyl Tripeptide-5, Palmitoyl Dipeptide-5 Diaminobutyroyl Hydroxythreonine, Palmitoyl Dipeptide-5 Diaminohydroxybutyrate, Acetyl Hexapeptide-38, Ascorbyl Palmitate, Swertia Chirata Extract, Hydrolyzed Pea Protein, Ornithine, Ceramide NP, Ergothioneine, Dunaliella Salina Extract, Phytosterols, Phospholipids, Glycolipids, Tremella Fuciformis Sporocarp Extract, Olea Europaea (Olive) Fruit Oil, Butyrospermum Parkii (Shea) Butter, Betaine, Squalane, Lecithin, Caprylyl Methicone, Disodium EDTA, Polysorbate 20, Tocopherol, Caprylyl Glycol, Caprylhydroxamic Acid, Polyisobutene, Ethylhexylglycerin, Phenoxyethanol [PLUS Octapeptide-45 and Magnolol per 2025 reformulation — not yet reflected in the ingredient list above]"
+    },
+    {
+      "sourceId": "SKP-0040",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — full INCI (78 ingredients per skinsort) not obtained in this search pass. Confirmed headline actives with brand-stated concentrations: 3% Eterwell Youth (senolytic botanical complex), 0.1% Fisetin, 3% Biosynthetic Placenta Growth Factor Complex (peptide-based). Also independently noted: squalane, ceramide NP, hyaluronic acid, glycerin (~13% per one source), vitamin E present in formula per multiple retailer/brand descriptions, though exact position/concentration in the full INCI list was not confirmed."
+    },
+    {
+      "sourceId": "SKP-0041",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "Water, Carthamus Tinctorius (Safflower) Seed Oil, Dicaprylyl Carbonate, Glycerin, Bis-Diglyceryl Polyacyladipate-2, Glyceryl Oleate Citrate, Cetearyl Alcohol, Kaempferia Parviflora Rhizome Extract, Cucumis Sativus (Cucumber) Fruit Extract, Carbomer, Tocopheryl Acetate [remaining ~14 of 25 total ingredients per incidecoder/skinsort count not fully captured in this pass — recommend follow-up for complete list]"
+    },
+    {
+      "sourceId": "SKP-0071",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "ACTIVE: Avobenzone 2.3%, Homosalate 10.0%, Octisalate 5.0%, Octocrylene 5.0%. INACTIVE (partial — see note): Water, Diisopropyl Sebacate, Talc, Triethylhexanoin, Dimethicone, PEG/PPG-9/2 Dimethyl Ether, Alcohol Denat., Lauryl PEG-9 Polydimethylsiloxyethyl Dimethicone, Glycerin, Dextrin Palmitate, Sucrose Tetrastearate Triacetate, Isododecane, PPG-3 Dipivalate, Trimethylsiloxysilicate, Silica, Disteardimonium Hectorite, [remainder not retrieved this pass]"
+    },
+    {
+      "sourceId": "SKP-0081",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "LEGACY FORMULA (US): Aqua/Water/Eau, Ethoxydiglycol, Ascorbic Acid, Glycerin, Propylene Glycol, Laureth-23, Phenoxyethanol, Tocopherol, Triethanolamine, Ferulic Acid, Panthenol, Sodium Hyaluronate"
+    },
+    {
+      "sourceId": "SKP-0086",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — actives and key ingredients only: 15% L-Ascorbic Acid, 0.5% Ferulic Acid, 1% Vitamin E (tocopherol), formulated at pH 2.5. Additional named ingredients: Dimethyl Isosorbide (high in the list, penetration enhancer), Pumpkin Ferment Extract, Pomegranate Extract, Green Tea Extract, Grape Juice Extract, Indian Gooseberry (Amla) Extract, Sodium Hyaluronate Crosspolymer. FULL INCI NOT RETRIEVED THIS PASS."
+    },
+    {
+      "sourceId": "SKP-0092",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT APPLICABLE — extraction artifact"
+    },
+    {
+      "sourceId": "SKP-0094",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "Aqua/Water, Butylene Glycol, Propanediol, Ethylhexyl Olivate, Cetearyl Alcohol, Chlorogenic Acids, Niacinamide, Lauryl Lactate, Dimethyl Isosorbide, Pyrroloquinoline Quinone Allyl Ester, Hydrolyzed Sodium Hyaluronate, Glycyrrhiza Glabra (Licorice) Root Extract, Tetrahexyldecyl Ascorbate, Ergothioneine, Benzylidene Dimethoxydimethylindanone, Arabidopsis Thaliana Extract, Carnosine, Camellia Sinensis Leaf Extract, Vitis Vinifera (Grape) Seed Extract, Theobroma Cacao (Cocoa) Seed Extract, Curcuma Longa (Turmeric) Root Extract, Olea Europaea (Olive) Fruit Extract, Euterpe Oleracea Fruit Extract, Trifluoroacetyl Tripeptide-2, Buddleja Officinalis Flower Extract, Coffea Arabica (Coffee) Leaf Cell Extract, Crocus Sativus Leaf Cell Culture Extract, Superoxide Dismutase, Ubiquinone, Plankton Extract, Micrococcus Lysate, Arginine, Zingiber Officinale (Ginger) Root Extract, Ceramide NP, Ceramide AP, Ceramide EOP, Linoleic Acid, Linolenic Acid, Sea Whip Extract, Bisabolol, Tocopherol, Tocopheryl Acetate, Cholesterol, Phytosphingosine, Jojoba Esters, Sodium PCA, Pentylene Glycol, Methyl Gluceth-20, Glycerin, Helianthus Annuus (Sunflower) Seed Wax, Acacia Decurrens Flower Wax, Lecithin, Sodium Lauroyl Lactylate, Dicetyl Phosphate, Propanediol Dicaprylate [LIST TRUNCATES HERE IN ALL SOURCES — tail not retrieved]"
+    },
+    {
+      "sourceId": "SKP-0096",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — full INCI not retrieved this pass. Third-party count: 26 ingredients."
+    },
+    {
+      "sourceId": "SKP-0097",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — 7% Tetrahexyldecyl Ascorbate in a squalane-based anhydrous vehicle. FULL INCI NOT RETRIEVED THIS PASS."
+    },
+    {
+      "sourceId": "SKP-0102",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — same Crystal Retinal base formula as SKP-0104 and SKP-0332 at 0.03% retinaldehyde. Exact printed list for this strength NOT pulled this pass."
+    },
+    {
+      "sourceId": "SKP-0103",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — same Crystal Retinal base formula as SKP-0104 and SKP-0332 at 0.06% retinaldehyde. Exact printed list for this strength NOT pulled this pass."
+    },
+    {
+      "sourceId": "SKP-0106",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — full INCI not retrieved this pass. Active confirmed at 0.5% pure retinol."
+    },
+    {
+      "sourceId": "SKP-0107",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — full INCI not retrieved this pass. Active confirmed at 1.0% pure retinol."
+    },
+    {
+      "sourceId": "SKP-0117",
+      "reason": "Narrative or ambiguous ingredient token",
+      "source": "US/CURRENT FORMULA: Aqua/Water, Butylene Glycol, Niacinamide, Hydroxyethylpiperazine Ethane Sulfonic Acid (HEPES), Glycerin, Tranexamic Acid, Propylene Glycol, Hydroxyethyl Urea, Kojic Acid, Caprylyl Glycol, Allantoin, Chlorphenesin, Xanthan Gum, Disodium EDTA"
+    },
+    {
+      "sourceId": "SKP-0118",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — full INCI not retrieved this pass."
+    },
+    {
+      "sourceId": "SKP-0119",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — key actives only: Hexapeptide-11, Hexapeptide-12, Lactoferrin and Tranexamic Acid (all liposome-encapsulated), plus Niacinamide, Squalane and Glycerin high in the list. FULL INCI NOT RETRIEVED THIS PASS."
+    },
+    {
+      "sourceId": "SKP-0124",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — actives and list opening only: Tranexamic Acid 5%, encapsulated Kojic Acid, Alpha-Arbutin, Acetyl Glucosamine. List opens Water, Glycerin, Niacinamide, Tranexamic Acid, Butylene Glycol, Diethoxyethyl Succinate, 1,2-Hexanediol, Arbutin, Sodium Hyaluronate. FULL INCI NOT RETRIEVED THIS PASS."
+    },
+    {
+      "sourceId": "SKP-0125",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — full INCI not published by any source located. Third-party count: 24 ingredients."
+    },
+    {
+      "sourceId": "SKP-0129",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — full INCI not retrieved this pass. Active: 10% azelaic acid."
+    },
+    {
+      "sourceId": "SKP-0130",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — full INCI not retrieved this pass."
+    },
+    {
+      "sourceId": "SKP-0135",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT APPLICABLE AS A SINGLE LIST — three separate products with three separate formulas. Key actives: Intensive — cysteamine 7% plus Cysteamine Isobionic-Amide Complex; Neutralize — AHA–amino acid complex with L-arginine and lactobionic acid; Boost — Isobionic-Amide Complex. Individual INCIs not retrieved this pass."
+    },
+    {
+      "sourceId": "SKP-0138",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NEEDS_MANUFACTURER_VERIFICATION"
+    },
+    {
+      "sourceId": "SKP-0139",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NEEDS_MANUFACTURER_VERIFICATION"
+    },
+    {
+      "sourceId": "SKP-0142",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NEEDS_MANUFACTURER_VERIFICATION"
+    },
+    {
+      "sourceId": "SKP-0143",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NEEDS_MANUFACTURER_VERIFICATION"
+    },
+    {
+      "sourceId": "SKP-0144",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NEEDS_MANUFACTURER_VERIFICATION"
+    },
+    {
+      "sourceId": "SKP-0145",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NEEDS_MANUFACTURER_VERIFICATION"
+    },
+    {
+      "sourceId": "SKP-0150",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NEEDS_MANUFACTURER_VERIFICATION"
+    },
+    {
+      "sourceId": "SKP-0151",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NEEDS_MANUFACTURER_VERIFICATION"
+    },
+    {
+      "sourceId": "SKP-0152",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NEEDS_MANUFACTURER_VERIFICATION"
+    },
+    {
+      "sourceId": "SKP-0154",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — Aqua (Water), Glycerin, Lactococcus Ferment Lysate, Copper Tripeptide-1, Acetyl Hexapeptide-8, Pentapeptide-18, Palmitoyl Tripeptide-1, Palmitoyl Tetrapeptide-7, Palmitoyl Tripeptide-38, Dipeptide Diaminobutyroyl Benzylamide Diacetate, Acetylarginyltryptophyl Diphenylglycine, Sodium Hyaluronate Crosspolymer, Sodium Hyaluronate, Allantoin, Glycine [LIST TRUNCATES HERE IN ALL SOURCES]"
+    },
+    {
+      "sourceId": "SKP-0158",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — a biocellulose sheet carrying a serum; third-party databases record only \"Water\", which is plainly incomplete for a sheet product. Full INCI not retrieved this pass."
+    },
+    {
+      "sourceId": "SKP-0161",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — actives and key ingredients only: glycolic, tartaric, lactic and citric acids (the brand's AHA blend) plus salicylic acid (BHA), with raspberry fruit extract, cactus extract and horse chestnut. FULL INCI NOT RETRIEVED THIS PASS."
+    },
+    {
+      "sourceId": "SKP-0162",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — full INCI not retrieved this pass. Third-party count: 15 ingredients."
+    },
+    {
+      "sourceId": "SKP-0163",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — full INCI not retrieved this pass. Third-party count: 42 ingredients."
+    },
+    {
+      "sourceId": "SKP-0165",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — full INCI not retrieved this pass. Third-party count: 32 ingredients."
+    },
+    {
+      "sourceId": "SKP-0169",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — key actives confirmed: L-Mandelic Acid 8%, L-Lactic Acid, Sodium Hyaluronate, Niacinamide. Full INCI not retrieved this pass; the 11% version is recorded at 18 ingredients."
+    },
+    {
+      "sourceId": "SKP-0172",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NEEDS_MANUFACTURER_VERIFICATION"
+    },
+    {
+      "sourceId": "SKP-0180",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — full INCI not retrieved this pass."
+    },
+    {
+      "sourceId": "SKP-0182",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — full INCI not retrieved this pass."
+    },
+    {
+      "sourceId": "SKP-0223",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT APPLICABLE — hydrocolloid dressing; no formulated INCI"
+    },
+    {
+      "sourceId": "SKP-0224",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT APPLICABLE — hydrocolloid dressing; no formulated INCI"
+    },
+    {
+      "sourceId": "SKP-0225",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT APPLICABLE — hydrocolloid dressing; no formulated INCI"
+    },
+    {
+      "sourceId": "SKP-0234",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — opening confirmed: Avène Thermal Spring Water (Avene Aqua), Caprylic/Capric Triglyceride, Glycerin, Squalane, Butyrospermum Parkii (Shea) Butter, Carthamus Tinctorius (Safflower) Seed Oil, Pentaerythrityl Tetracaprylate/Tetracaprate, Cetearyl Alcohol, Behenyl Alcohol [LIST TRUNCATES IN ALL SOURCES]. Stated actives: 0.1% retinaldehyde, Pre-Tocopheryl, Relastide pro-elastin peptide, niacinamide, hyaluronic acid."
+    },
+    {
+      "sourceId": "SKP-0261",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — opening confirmed: Aqua/Water/Eau, Dimethicone, Glycerin, Alcohol Denat., Hydroxypropyl Tetrahydropyrantriol (Proxylane), Propylene Glycol, Polyglyceryl-4 Caprate, Dipotassium Glycyrrhizate, Lactobacillus/Soybean Ferment Extract [LIST TRUNCATES IN ALL SOURCES]. Stated actives: 1.3% hyaluronic acid (three forms), 12% Proxylane, 2% Lactobacillus/Soybean Ferment Extract."
+    },
+    {
+      "sourceId": "SKP-0263",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — 11 ingredients confirmed by count; full INCI not retrieved this pass."
+    },
+    {
+      "sourceId": "SKP-0272",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — no ingredient list located this pass."
+    },
+    {
+      "sourceId": "SKP-0292",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NEEDS_MANUFACTURER_VERIFICATION"
+    },
+    {
+      "sourceId": "SKP-0293",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NEEDS_MANUFACTURER_VERIFICATION"
+    },
+    {
+      "sourceId": "SKP-0294",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — opening confirmed: Aqua/Water/Eau, Propylene Glycol, Hydrogenated Lecithin, Caprylic/Capric Triglyceride, Cholesterol, Linoleamidopropyl PG-Dimonium Chloride Phosphate, Niacinamide, Propanediol, Jasminum Sambac (Jasmine) Flower [extract] [LIST TRUNCATES]. Third-party analysis additionally identifies COPPER TRIPEPTIDE-1, adenosine, phenyl trimethicone, tripeptide-1, hexapeptide-11 and hexapeptide-9."
+    },
+    {
+      "sourceId": "SKP-0299",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NEEDS_MANUFACTURER_VERIFICATION"
+    },
+    {
+      "sourceId": "SKP-0302",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "Water/Aqua/Eau, Glycerin, Caprylic/Capric Triglyceride, C13-15 Alkane, Squalane, C12-16 Alcohols, Cetearyl Alcohol, Dimethicone, Niacinamide, Palmitoyl Hexapeptide-12, Palmitoyl Tripeptide-1, Acetyl Tetrapeptide-2, Phosphatidylserine, Oleuropein, Ceramide NP, Linum Usitatissimum (Linseed) Seed Extract, Plantago Lanceolata Leaf Extract, Peucedanum Graveolens (Dill) Extract, Butyrospermum Parkii (Shea) Butter Extract, Tremella Fuciformis Sporocarp Extract, Hydroxymethoxyphenyl Decanone, Betaine, Ascorbyl Palmitate, Olea Europaea [LIST TRUNCATES HERE IN ALL SOURCES]"
+    },
+    {
+      "sourceId": "SKP-0304",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PRIOR FORMULA: Aqua/Water/Eau, Acetyl Glucosamine, Cyclopentasiloxane, Triethyl Citrate, Cetearyl Alcohol, C12-15 Alkyl Benzoate, Butyrospermum Parkii (Shea) Butter, Glyceryl Stearate, Cyclohexasiloxane, Glycerin, Isocetyl Stearoyl Stearate, Dimethicone, Ethoxydiglycol, PEG-100 Stearate, Polymethylsilsesquioxane, Nylon-12, Isostearic Acid, Tocopheryl Acetate, Palmitoyl Glycine, Malus Domestica Fruit Cell Culture Extract, Hydrogenated Palm Kernel Glycerides, Hydrogenated Palm Glycerides, Dimethiconol, Isopropyl Myristate, Caprylyl Glycol, Lecithin, PEG-40 Stearate, Ceteareth-20, Carbomer, Xanthan Gum, Pentaerythrityl Tetra-Di-t-Butyl Hydroxyhydrocinnamate, Sodium Bisulfite, Disodium EDTA, Ammonium Hydroxide, Chlorphenesin, Phenoxyethanol, Ethylene Brassylate, Methyldihydrojasmonate, Isobutyl Methyl Tetrahydropyranol, Methyl Decenol, Caramel, Yellow 5 (CI 19140)"
+    },
+    {
+      "sourceId": "SKP-0330",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — record newly created, INCI not yet sourced"
+    },
+    {
+      "sourceId": "SKP-0331",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — record newly created, INCI not yet sourced"
+    },
+    {
+      "sourceId": "SKP-0332",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "Aqua (Water), Caprylic/Capric Triglyceride, Cyclodextrin, Glycerin, Isododecane, Eclipta Prostrata Extract, Cetearyl Olivate, Sodium Acrylate/Sodium Acryloyldimethyl Taurate Copolymer, Cetearyl Alcohol, PPG-12/SMDI Copolymer, Sorbitan Olivate, Tocopheryl Acetate, Squalane, Rubus Chamaemorus (Cloudberry) Seed Oil, Melia Azadirachta Leaf Extract, Sodium Hyaluronate, Hydroxyethyl Acrylate/Sodium Acryloyldimethyl Taurate Copolymer, Phenoxyethanol, Pentylene Glycol, Retinal, Hydroxypropyl Methylcellulose, Daucus Carota Sativa (Carrot) Seed Oil, Titanium Dioxide, Sodium Polyaspartate, Climbazole, Moringa Oleifera Seed Oil, Alumina, Lonicera Japonica (Honeysuckle) Flower Extract, Isostearic Acid, Lecithin, Polyglyceryl-3 Polyricinoleate, Polyhydroxystearic Acid, Stearic Acid, Ethylhexylglycerin, Lonicera Caprifolium (Honeysuckle) Flower Extract, Tetrahexyldecyl Ascorbate, Disodium EDTA, 3-O-Ethyl Ascorbic Acid, Hydroxyacetophenone, Polysorbate 60, Sorbitan Isostearate, Dipteryx Odorata (Tonka) Bean Extract [list continues; tail truncates in all sources, expected to mirror CR10]"
+    },
+    {
+      "sourceId": "SKP-0333",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — record newly created, INCI not yet sourced"
+    },
+    {
+      "sourceId": "SKP-0336",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — record newly created, INCI not yet sourced"
+    },
+    {
+      "sourceId": "SKP-0337",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — record newly created, INCI not yet sourced"
+    },
+    {
+      "sourceId": "SKP-0338",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — record newly created, INCI not yet sourced"
+    },
+    {
+      "sourceId": "SKP-0339",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — record newly created, INCI not yet sourced"
+    },
+    {
+      "sourceId": "SKP-0340",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — record newly created, INCI not yet sourced"
+    },
+    {
+      "sourceId": "SKP-0342",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "NOT VERIFIED — record newly created, INCI not yet sourced"
+    },
+    {
+      "sourceId": "SKP-0344",
+      "reason": "Missing, partial, historical, or annotated formula requires review",
+      "source": "PARTIAL — from a BIOEFFECT set listing: Water, Propylene Glycol, Glycerin, Sorbitol, Carbomer, Sodium Hyaluronate, Phenoxyethanol, Sodium Chloride, Hordeum Vulgare Seed Extract, EGF (Barley sh-Oligopeptide-1). Confirm against a standalone product listing."
+    }
+  ],
+  "newIngredients": 913,
+  "newLinks": 3135,
+  "preservedLinks": 1
+}

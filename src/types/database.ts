@@ -1,3 +1,4 @@
+import type { CatalogRecord, CatalogReview } from '@/services/catalog-cms';
 import type { SkinStory, SkinStoryScores } from '@/skin-intelligence/skinStoryTypes';
 
 export type { SkinStory } from '@/skin-intelligence/skinStoryTypes';
@@ -181,6 +182,24 @@ export type ProductSubmissionStatus = 'pending' | 'approved' | 'rejected' | 'mer
 export type Database = {
   public: {
     Tables: {
+      catalog_records: {
+        Row: CatalogRecord;
+        Insert: never;
+        Update: { fields?: Record<string, string> };
+        Relationships: [];
+      };
+      catalog_reviews: {
+        Row: CatalogReview;
+        Insert: never;
+        Update: { status?: CatalogReview['status']; resolution_note?: string };
+        Relationships: [];
+      };
+      catalog_changes: {
+        Row: { id: number; table_name: string; record_id: string; actor_id: string | null; before_value: Json; after_value: Json; created_at: string };
+        Insert: never;
+        Update: never;
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
@@ -493,6 +512,7 @@ export type Database = {
           upc: string | null;
           aliases: string[];
           status: ProductStatus;
+          catalog_visible: boolean;
           archived_at: string | null;
           created_at: string;
           updated_at: string;
@@ -509,6 +529,7 @@ export type Database = {
           upc?: string | null;
           aliases?: string[];
           status?: ProductStatus;
+          catalog_visible?: boolean;
           archived_at?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -524,10 +545,11 @@ export type Database = {
           upc?: string | null;
           aliases?: string[];
           status?: ProductStatus;
+          catalog_visible?: boolean;
           archived_at?: string | null;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [{ foreignKeyName: 'products_brand_id_fkey'; columns: ['brand_id']; isOneToOne: false; referencedRelation: 'brands'; referencedColumns: ['id'] }];
       };
       product_ingredients: {
         Row: {
@@ -560,7 +582,7 @@ export type Database = {
           notes?: string | null;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [{ foreignKeyName: 'product_ingredients_product_id_fkey'; columns: ['product_id']; isOneToOne: false; referencedRelation: 'products'; referencedColumns: ['id'] }, { foreignKeyName: 'product_ingredients_ingredient_id_fkey'; columns: ['ingredient_id']; isOneToOne: false; referencedRelation: 'ingredients'; referencedColumns: ['id'] }];
       };
       user_wardrobe_items: {
         Row: {
@@ -600,7 +622,7 @@ export type Database = {
           avoid_when_irritated?: boolean;
           updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [{ foreignKeyName: 'user_wardrobe_items_product_id_fkey'; columns: ['product_id']; isOneToOne: false; referencedRelation: 'products'; referencedColumns: ['id'] }];
       };
       product_detections: {
         Row: {
@@ -677,7 +699,12 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      save_catalog_product: {
+        Args: { product_data: Json; ingredient_data: Json; evidence_data: Json; expected_updated_at: string | null; expected_evidence_updated_at: string | null };
+        Returns: string;
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

@@ -36,6 +36,7 @@ function RootNavigator() {
   }
 
   const isResetPasswordRoute = pathname === '/reset-password';
+  const isAdminRoute = pathname === '/admin-products' || pathname.startsWith('/admin/');
 
   return (
     <View style={styles.appFrame}>
@@ -58,7 +59,7 @@ function RootNavigator() {
         <Stack.Screen name="admin-products" />
         <Stack.Screen name="reset-password" />
       </Stack>
-      {!isResetPasswordRoute ? <BottomNav /> : null}
+      {!isResetPasswordRoute && !isAdminRoute ? <BottomNav /> : null}
     </View>
   );
 }

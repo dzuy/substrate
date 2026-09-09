@@ -1,6 +1,6 @@
 # Substrate Technical Architecture
 
-Last updated: August 29, 2026
+Last updated: September 8, 2026
 
 This document is for future agents and engineers working on Substrate. It explains the current architecture, the product strategy behind it, and the main extension points.
 
@@ -42,6 +42,8 @@ Routes are registered in `src/app/_layout.tsx`.
 - `/progress-history`: prior entries.
 - `/profile`: one-time profile and settings.
 - `/admin-products`: admin-only canonical catalog management.
+
+The product CMS now manages the live Supabase catalog, private source evidence, review resolutions, publication and archives. See `docs/PRODUCT_CMS.md` for the v10 import, table boundaries and verification workflow. Sheet edits do not synchronize automatically with the app database.
 - `/reset-password`: password reset route.
 
 `BottomNav` currently exposes Today, Wardrobe, Progress, and Profile.

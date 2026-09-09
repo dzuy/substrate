@@ -111,7 +111,7 @@ export async function listIngredients() {
   return supabase.from('ingredients').select('*').order('name', { ascending: true });
 }
 
-export async function listCatalogProducts({ includeArchived = false } = {}) {
+export async function listCatalogProducts({ includeArchived = false, includeUnpublished = false } = {}) {
   let query = supabase
     .from('products')
     .select(
@@ -129,6 +129,8 @@ export async function listCatalogProducts({ includeArchived = false } = {}) {
   if (!includeArchived) {
     query = query.is('archived_at', null);
   }
+
+  if (!includeUnpublished) query = query.eq('catalog_visible', true);
 
   const response = await query;
 

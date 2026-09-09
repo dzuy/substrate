@@ -8,6 +8,7 @@ Start here when working on the app:
 
 - `docs/ARCHITECTURE.md`: current app architecture, data model, strategy, and agent guidance.
 - `docs/BACKEND.md`: backend setup notes.
+- `docs/PRODUCT_CMS.md`: live product CMS, v10 source import and catalog workflow.
 - `docs/PRD.md`: product requirements and backlog.
 - `docs/SKIN_SCORE_TRD.md`: skin score technical requirements.
 
