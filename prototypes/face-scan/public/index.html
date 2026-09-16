@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <title>Face Scan Lab · Substrate</title>
+  <link rel="stylesheet" href="/face-scan-prototype/style.css">
+  <script type="module" src="/face-scan-prototype/app.js"></script>
+</head>
+<body>
+  <header><a class="brand" href="/face-scan-prototype">substrate<span> / lab</span></a><span class="badge">INTERNAL PROTOTYPE</span><a href="#saved" hidden>Saved experiments <span id="saved-count">0</span></a></header>
+  <main>
+    <form id="access" hidden><label>Prototype access password <input id="password" type="password" autocomplete="current-password"></label><button>Unlock lab</button></form>
+    <div class="experiment-toolbar"><button id="new-experiment" class="primary">＋ New experiment</button></div>
+    <div class="workspace">
+      <section class="capture panel"><div class="section-title"><span class="eyebrow">01 / SOURCE IMAGE</span><span id="image-meta" class="muted">No photo selected</span></div>
+        <div class="capture-layout"><div class="photo-stage" id="photo-stage"><div id="photo-empty"><span class="face-icon">＋</span><p>Add a photo</p></div><img id="preview" alt="Prepared source photo" hidden><video id="camera" autoplay playsinline muted hidden></video></div>
+        <div class="capture-controls"><div class="capture-buttons"><button id="upload" class="primary">Upload photo</button><button id="take-photo">Use camera</button><button id="shutter" hidden>Capture</button><button id="close-camera" hidden>Close camera</button></div>
+        <input id="file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+        
+        <div class="model-options"><label>OpenAI model<select id="model-select"><option value="gpt-5.6-sol">GPT-5.6 Sol</option><option value="gpt-6-astra">GPT-6 Astra · highest capability</option><option value="gpt-5.6-terra">GPT-5.6 Terra · balanced</option><option value="gpt-5.6-luna">GPT-5.6 Luna · lowest cost</option></select></label></div>
+        <div class="setup" id="setup" aria-live="polite" hidden></div></div>
+        <button id="run" class="primary run" disabled>Run comparison <span>↗</span></button>
+        </div>
+      </section>
+      <section class="results-area"><div class="section-title"><span class="eyebrow">02 / ANALYSIS COMPARISON</span><span id="run-status" class="muted" aria-live="polite">Ready when you are</span></div>
+        <label id="youcam-toggle" class="youcam-toggle"><input type="checkbox" id="include-youcam"> Run YouCam Analysis</label><div class="engine-grid" id="engines"></div>
+        <div class="signals-evidence"><section class="panel evidence"><div class="section-title"><h2>OpenAI evidence</h2></div><p id="openai-map-caption" class="map-caption">Original photo</p><p id="concern-explanation" class="concern-explanation" aria-live="polite"></p><div class="score-legend"><span>0 · absent</span><span>25 · mild</span><span>50 · moderate</span><span>75 · marked</span><span>100 · extreme</span></div><div class="evidence-view"><div id="openai-overlay-list" class="overlay-list" role="group" aria-label="OpenAI concerns"></div><div class="evidence-photo"><div id="openai-empty" class="empty-evidence">Add a photo to begin.</div><svg id="openai-map" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="OpenAI regional highlights" hidden></svg></div></div><div id="regional-scores" class="regional-scores"></div></section>
+        <section class="panel evidence"><div class="section-title"><h2>YouCam evidence</h2></div><p id="youcam-explanation" class="concern-explanation" aria-live="polite"></p><div class="evidence-view"><div id="overlay-list" class="overlay-list" role="group" aria-label="YouCam overlays"></div><div class="evidence-photo"><div id="overlay-empty" class="empty-evidence">YouCam’s concern overlays will appear here after analysis.</div><img id="overlay-image" alt="YouCam concern overlay" hidden></div></div><p class="small muted" id="cleanup">Provider deletion status will appear after a YouCam task completes.</p><button id="retry-cleanup" hidden>Retry YouCam deletion</button><button id="resume-youcam" hidden>Resume YouCam result retrieval</button></section></div><section class="panel signals"><div class="section-title"><h2>Concern signals</h2><span class="badge">EXPLORATORY SCORES</span></div><p class="small muted">0 = least visible concern · 100 = most visible concern. YouCam health scores (1–100) are inverted and rescaled; OpenAI uses fixed visibility anchors. This aligns direction and range, not clinical meaning or accuracy.</p><div class="table-wrap"><table><thead><tr><th>Concern</th><th>Detailed OpenAI</th><th>YouCam HD</th></tr></thead><tbody id="scores"></tbody></table></div><p class="small muted">OpenAI anchors: 0 absent · 25 mild · 50 moderate · 75 marked · 100 extreme. Only whole-face YouCam scores are compared. True cross-provider calibration requires a shared reference dataset.</p></section>
+      </section>
+    </div>
+    <section class="panel analysis-notes"><h2>Detailed OpenAI analysis</h2><div id="detailed-analysis"></div></section>
+    <section class="panel notebook" hidden><div><p class="eyebrow">03 / EXPERIMENT NOTES</p><h2>Keep what you learn.</h2><p class="small muted">Saving stores the photo, overlays, responses, and notes in this browser only. Nothing is added to your Substrate profile.</p></div><div><label>Experiment name<input id="experiment-name" maxlength="120" placeholder="e.g. Morning light · comparison"></label><label>Observations<textarea id="notes" rows="3" maxlength="6000" placeholder="Lighting, visible concerns, surprising differences…"></textarea></label><div class="actions"><button id="save" class="primary" disabled>Save experiment</button><button id="export" disabled>Export JSON</button></div></div></section>
+    <section id="saved" hidden><div class="section-title"><div><p class="eyebrow">YOUR LOCAL NOTEBOOK</p><h2>Saved experiments</h2></div><span class="muted small">Stored on this device · Includes photos</span></div><div id="saved-list" class="saved-list"></div></section>
+    <footer>Substrate / Face Scan Lab <span>Image observations only. Ingredient and product decisions need additional context.</span></footer>
+  </main><div id="notice" role="status" aria-live="polite" hidden></div>
+</body></html>

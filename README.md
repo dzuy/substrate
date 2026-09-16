@@ -44,6 +44,10 @@ EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 
 Server-side OpenAI values belong in Supabase Edge Function secrets, not in `EXPO_PUBLIC_*` variables.
 
+## Internal Face Scan Lab
+
+Run `npm run prototype:face-scan` and open `http://localhost:4317/face-scan-prototype` for the isolated YouCam/OpenAI comparison prototype. It uses server-only keys in the root `.env` and keeps experiment-saving controls hidden during the current prototyping phase. See [prototype documentation](prototypes/face-scan/README.md).
+
 ## Current Product Areas
 
 - Daily photo capture and check-in.

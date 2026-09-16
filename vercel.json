@@ -4,7 +4,24 @@
   "devCommand": "npm run web",
   "cleanUrls": true,
   "framework": null,
+  "functions": {
+    "api/face-scan-prototype.mjs": {
+      "maxDuration": 180
+    }
+  },
   "rewrites": [
+    {
+      "source": "/api/face-scan-prototype",
+      "destination": "/api/face-scan-prototype"
+    },
+    {
+      "source": "/face-scan-prototype",
+      "destination": "/face-scan-prototype/index.html"
+    },
+    {
+      "source": "/face-scan-prototype/:path*",
+      "destination": "/face-scan-prototype/:path*"
+    },
     {
       "source": "/:path*",
       "destination": "/"

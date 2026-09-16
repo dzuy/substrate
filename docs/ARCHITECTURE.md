@@ -17,6 +17,10 @@ Substrate is a mobile-first skincare intelligence app. The product is organized 
 
 The app should avoid becoming a generic beauty-commerce app. Product and ingredient data exist to make recommendations more personal and useful, not to push shopping.
 
+## Isolated Face Scan Lab
+
+`prototypes/face-scan` is a separate browser UI and Node server for comparing high-detail OpenAI analysis (Sol, Astra, Terra, or Luna) with optional YouCam HD analysis. It has no Expo routes or Supabase data writes. Local launch: `npm run prototype:face-scan`. The web build copies its public assets to `/face-scan-prototype`; a separate Vercel Node function keeps credentials server-side and requires a hosted access password. This prototype intentionally uses its own Node backend instead of the main app's Edge Function pattern. See `prototypes/face-scan/README.md` for privacy, browser-local storage, cleanup limitations, and deployment setup. Saving controls are currently hidden.
+
 ## Application Stack
 
 - Frontend: Expo Router, React Native, TypeScript.
