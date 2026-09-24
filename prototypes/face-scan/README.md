@@ -10,7 +10,7 @@ Node 22 and the repository's installed TypeScript compiler are required.
 npm run prototype:face-scan
 ```
 
-This compiles the portable engine, then serves http://localhost:4317/face-scan-prototype on loopback. The root `.env` supplies `OPENAI_API_KEY`, optional `OPENAI_VISION_MODEL`, `FACE_SCAN_PROTOTYPE_PASSWORD` (required when hosted; ignored on localhost), and optional `FACE_SCAN_SIGNING_SECRET`. These are server-only variables. Never prefix secrets with `EXPO_PUBLIC_`. YouCam is removed; external credentials have not been changed.
+This compiles the portable engine, then serves http://localhost:4317/face-scan-prototype on loopback. The root `.env` supplies `OPENAI_API_KEY`, optional `OPENAI_VISION_MODEL`, and optional `FACE_SCAN_SIGNING_SECRET`. These are server-only variables. Never prefix secrets with `EXPO_PUBLIC_`. YouCam is removed; external credentials have not been changed.
 
 One Analyze action makes one paid OpenAI vision call. Answer edits reuse the signed result. Synthetic scenarios make no OpenAI calls and display an explicit synthetic image. To return to a real scan, upload a photo or start a new experiment.
 
@@ -41,7 +41,7 @@ The original file generated `workbook-e01b98a69808a24a`: 24 preserved sheets, 16
 - `packages/ingredient-engine/src`: pure TypeScript contracts, pathway evaluator, explicit interpretation policy, and product/evidence integrity functions. No UI, Node filesystem, Expo or Supabase dependencies. Its generated `dist/` is built automatically before local start, tests and web export.
 - `knowledge/active.json`: imported source data, separate from the interpretation policy. `knowledge/versions/` retains source snapshots and import reports. The full raw worksheets are retained alongside normalized tables.
 - `ingredients.mjs`: thin adapter that loads the active dataset, validates questions and supplies the explicit prototype age assumption of 40–50.
-- `handler.mjs`: authenticated/same-origin API for scans, signed-result resolution, config/coverage and labeled synthetic scenarios. Hosted mode fails closed without a password.
+- `handler.mjs`: same-origin API for scans, signed-result resolution, config/coverage and labeled synthetic scenarios. Local and hosted access require no password. The legacy FACE_SCAN_PROTOTYPE_PASSWORD setting is ignored. Public scans use the server’s configured API account.
 - `public/questions.mjs`: clickable questions, conditional follow-ups, defaults, valid shuffling and named scenarios. Selected concerns are not clinician diagnoses.
 - `public/app.js`: photo/overlay display, ingredient chips, eligibility details, decision inspector, questionnaire, spinner and explicit local session saving.
 

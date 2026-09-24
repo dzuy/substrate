@@ -293,3 +293,6 @@ All top-level panels now use the same 20px semibold heading and header spacing: 
 
 ## 2026-09-24 — Local password-free access
 The loopback prototype no longer requires a password, even if FACE_SCAN_PROTOTYPE_PASSWORD is configured. Hosted authentication, origin checks and signed analysis validation remain unchanged.
+
+## 2026-09-24 — Hosted password removal authorized
+The user explicitly approved password-free production access and its paid API exposure. Removed the hosted password gate, browser password form and password request header. Legacy password environment settings are ignored. Origin checks and signed analysis validation remain. This supersedes the local-only change above.

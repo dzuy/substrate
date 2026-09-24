@@ -11,7 +11,6 @@
 <body>
   <header><a class="brand" href="/face-scan-prototype">substrate<span> / lab</span></a><span class="badge">INTERNAL PROTOTYPE</span></header>
   <main>
-    <form id="access" hidden><label>Prototype access password <input id="password" type="password" autocomplete="current-password"></label><button>Unlock lab</button></form>
     <div class="experiment-toolbar"><button id="new-experiment" class="primary">＋ New experiment</button></div><details class="panel test-tools"><summary class="panel-summary"><h2>Prototype Test Tools</h2></summary><p class="small muted">Synthetic scenarios exercise the engine without analyzing a real photo or calling OpenAI. Upload a photo to return to a real scan.</p><div class="test-controls"><select id="test-scenario" aria-label="Synthetic scenario"><option value="">Choose a synthetic scenario…</option></select><button id="load-scenario">Load scenario</button><button id="reevaluate" disabled>Re-evaluate ingredients</button></div><p id="knowledge-version" class="small muted"></p><details><summary>Workbook coverage</summary><pre id="knowledge-coverage"></pre></details></details>
     <div class="workspace">
       <section class="capture panel"><div class="section-title"><h2>Source Photo</h2><span id="image-meta" class="muted">No photo selected</span></div>

@@ -37,17 +37,17 @@ test('provider error payloads do not expose echoed keys or images', async () => 
   await assert.rejects(providers.openai(image), error => !error.message.includes(env.OPENAI_API_KEY) && error.message.includes('401'));
 });
 
-test('hosted API fails closed, enforces password and origin, and exposes only key presence', async () => {
+test('hosted API allows password-free access with or without legacy configuration and enforces origin', async () => {
   for (const configured of [false, true]) {
     const server = http.createServer(createHandler({ env: { ...env, ...(configured ? { FACE_SCAN_PROTOTYPE_PASSWORD: 'private' } : {}) } }));
     server.listen(0, '127.0.0.1'); await once(server, 'listening');
     const url = `http://127.0.0.1:${server.address().port}`;
     const post = headers => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify({ action: 'config' }) });
     try {
-      assert.equal((await post({})).status, configured ? 401 : 503);
-      if (configured) {
-        assert.equal((await post({ 'X-Prototype-Password': 'private', Origin: 'https://evil.test' })).status, 403);
-        const response = await post({ 'X-Prototype-Password': 'private' });
+      assert.equal((await post({})).status, 200);
+      {
+        assert.equal((await post({ Origin: 'https://evil.test' })).status, 403);
+        const response = await post({});
         assert.equal(response.status, 200);
         const text = await response.text(); assert.ok(!text.includes('test-openai')); assert.ok(!text.includes('test-youcam'));
         assert.equal(JSON.parse(text).youcam, undefined); assert.ok(JSON.parse(text).questions.length >= 11); assert.equal(JSON.parse(text).conditionOptions.length, 16); assert.ok(JSON.parse(text).knowledge.version);

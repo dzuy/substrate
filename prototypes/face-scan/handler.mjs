@@ -57,10 +57,6 @@ export function createHandler({ env = process.env, fetcher = fetch, local = fals
       try { if (new URL(origin).host !== req.headers.host) return send(403, { error: 'Cross-origin requests are disabled.' }); }
       catch { return send(403, { error: 'Invalid origin.' }); }
     }
-    if (!local && !env.FACE_SCAN_PROTOTYPE_PASSWORD) return send(503, { error: 'Set FACE_SCAN_PROTOTYPE_PASSWORD before hosting this prototype.' });
-    if (!local && env.FACE_SCAN_PROTOTYPE_PASSWORD && !equal(req.headers['x-prototype-password'], env.FACE_SCAN_PROTOTYPE_PASSWORD)) {
-      return send(401, { error: 'Enter the prototype access password.' });
-    }
     try {
       const body = await bodyOf(req);
       if (body.action === 'config') return send(200, { openai: Boolean(env.OPENAI_API_KEY), model: 'gpt-5.6-sol', local, questions, conditionOptions, knowledge: knowledgeInfo });

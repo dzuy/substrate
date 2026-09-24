@@ -4,7 +4,7 @@ const $ = id => document.getElementById(id);
 const definitions = [
   { id: 'detail', title: 'Detailed OpenAI', tag: 'A CLOSER LOOK', description: 'Eight visible concerns · high image detail' },
 ];
-let config, experiment, stream, busy = false, password = '';
+let config, experiment, stream, busy = false;
 let noticeTimer;
 function notice(message) {
   $('notice').textContent = message; $('notice').hidden = false;
@@ -18,17 +18,16 @@ function el(tag, text, className) {
 }
 async function api(action, data = {}) {
   const response = await fetch('/api/face-scan-prototype', { method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(password ? { 'X-Prototype-Password': password } : {}) },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action, ...data }) });
   const result = await response.json();
-  if (response.status === 401) $('access').hidden = false;
   if (!response.ok) throw new Error(result.error || 'Server request failed.');
   return result;
 }
 async function connect() {
   try {
     const previousVersion = config?.knowledge?.version;
-    config = await api('config'); $('access').hidden = true;
+    config = await api('config');
     configureConditions(config.conditionOptions || []);
     if(answers.conditions){answers.conditions=answers.conditions.filter(id=>config.conditionOptions.some(c=>c.id===id));if(!answers.conditions.length)delete answers.conditions;}
     renderQuestions();
@@ -45,7 +44,6 @@ async function connect() {
   } catch (error) { config = null; $('setup').textContent = error.message; $('setup').hidden = false; updateControls(); return false; }
 }
 window.addEventListener('focus', () => { if (!busy) connect(); });
-$('access').onsubmit = event => { event.preventDefault(); password = $('password').value; connect(); };
 function updateControls() {
   $('analysis-progress').hidden = !busy;
   $('run').setAttribute('aria-busy', String(busy));
