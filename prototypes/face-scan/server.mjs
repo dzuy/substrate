@@ -6,6 +6,7 @@ import { createHandler } from './handler.mjs';
 // The launch script loads the root .env server-side. Never serve that directory.
 const handler = createHandler({ local: true });
 const files = { '/face-scan-prototype': 'index.html', '/face-scan-prototype/': 'index.html',
+  '/face-scan-prototype/questions.mjs': 'questions.mjs',
   '/face-scan-prototype/scores.mjs': 'scores.mjs',
   '/face-scan-prototype/app.js': 'app.js', '/face-scan-prototype/style.css': 'style.css' };
 const types = { html: 'text/html', js: 'text/javascript', mjs: 'text/javascript', css: 'text/css' };

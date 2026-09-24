@@ -40,14 +40,17 @@
   },
   "scripts": {
     "start": "expo start",
-    "build:web": "expo export -p web && node prototypes/face-scan/build.mjs",
+    "build:web": "npm run build:ingredient-engine && expo export -p web && node prototypes/face-scan/build.mjs",
     "prototype:face-scan": "node --env-file-if-exists=.env prototypes/face-scan/server.mjs",
     "test:face-scan": "node --test prototypes/face-scan/*.test.mjs",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "build:ingredient-engine": "tsc -p packages/ingredient-engine/tsconfig.json",
+    "preprototype:face-scan": "npm run build:ingredient-engine",
+    "pretest:face-scan": "npm run build:ingredient-engine"
   },
   "private": true
 }

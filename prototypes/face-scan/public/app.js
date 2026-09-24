@@ -1,14 +1,11 @@
-import { concernScore, openaiCost, youcamCost } from './scores.mjs';
+import { questions, defaultTestAnswers, shuffledTestAnswers, configureConditions, visibleQuestions, scenarioAnswers } from './questions.mjs';
+import { concernScore, openaiCost } from './scores.mjs';
 const $ = id => document.getElementById(id);
 const definitions = [
   { id: 'detail', title: 'Detailed OpenAI', tag: 'A CLOSER LOOK', description: 'Eight visible concerns · high image detail' },
-  { id: 'youcam', title: 'YouCam HD', tag: 'SPECIALIST ENGINE', description: 'Skin Analysis v2.1 · four concerns + overlays' },
 ];
-let config, experiment, stream, busy = false, password = '', db;
-// Preserve unfinished work when browsing experiments, without silently saving photos to disk.
-const sessionExperiments = new Map();
+let config, experiment, stream, busy = false, password = '';
 let noticeTimer;
-let overlayExperimentId, selectedOverlay = null;
 function notice(message) {
   $('notice').textContent = message; $('notice').hidden = false;
   clearTimeout(noticeTimer); noticeTimer = setTimeout(() => { $('notice').hidden = true; }, 8000);
@@ -30,7 +27,18 @@ async function api(action, data = {}) {
 }
 async function connect() {
   try {
+    const previousVersion = config?.knowledge?.version;
     config = await api('config'); $('access').hidden = true;
+    configureConditions(config.conditionOptions || []);
+    if(answers.conditions){answers.conditions=answers.conditions.filter(id=>config.conditionOptions.some(c=>c.id===id));if(!answers.conditions.length)delete answers.conditions;}
+    renderQuestions();
+    if (previousVersion !== config.knowledge?.version) {
+      const selector=$('test-scenario'); selector.replaceChildren(el('option','Choose a synthetic scenario…'));
+      selector.firstChild.value='';
+      for(const condition of config.conditionOptions || []) { const option=el('option',condition.name);option.value=condition.id;selector.append(option); }
+      $('knowledge-version').textContent = `${config.knowledge?.version} · ${config.knowledge?.ruleVersion}`;
+      $('knowledge-coverage').textContent = JSON.stringify(config.knowledge?.coverage, null, 2);
+    }
     $('setup').textContent = ''; $('setup').hidden = true;
     updateControls();
     return true;
@@ -39,16 +47,15 @@ async function connect() {
 window.addEventListener('focus', () => { if (!busy) connect(); });
 $('access').onsubmit = event => { event.preventDefault(); password = $('password').value; connect(); };
 function updateControls() {
+  $('analysis-progress').hidden = !busy;
+  $('run').setAttribute('aria-busy', String(busy));
+  $('run').textContent = busy ? 'Analyzing…' : 'Analyze photo ↗';
   $('new-experiment').disabled = busy;
-  $('model-select').disabled = busy; $('include-youcam').disabled = busy;
-  $('run').disabled = busy || !experiment?.image || (!config?.openai && !($('include-youcam').checked && config?.youcam));
+  $('model-select').disabled = busy;
+  $('run').disabled = busy || !experiment?.image || experiment?.synthetic || !config?.openai;
+  $('load-scenario').disabled = busy;
+  $('reevaluate').disabled = busy || !experiment?.runs?.detail?.analysis;
   $('upload').disabled = busy; $('take-photo').disabled = busy;
-  $('save').disabled = busy || !experiment?.runs || !Object.keys(experiment.runs).length;
-  $('export').disabled = $('save').disabled;
-  $('retry-cleanup').hidden = !experiment?.taskToken || experiment?.cleanup?.deleted === true || busy;
-  const retryOverlays = Boolean(experiment?.runs?.youcam?.assetErrors?.length);
-  $('resume-youcam').hidden = !experiment?.taskToken || experiment?.cleanup?.deleted || (experiment?.runs?.youcam?.status !== 'pending' && !retryOverlays) || busy;
-  $('resume-youcam').textContent = retryOverlays ? 'Retry overlay retrieval (no new analysis)' : 'Resume YouCam result retrieval';
 }
 function stopCamera() {
   stream?.getTracks().forEach(track => track.stop()); stream = null;
@@ -58,8 +65,7 @@ function stopCamera() {
 }
 window.addEventListener('pagehide', stopCamera);
 window.addEventListener('beforeunload', event => {
-  if (busy || (experiment?.taskToken && !experiment?.cleanup?.deleted) ||
-      [...sessionExperiments.values()].some(item => item.taskToken && !item.cleanup?.deleted)) { event.preventDefault(); event.returnValue = ''; }
+  if (busy) { event.preventDefault(); event.returnValue = ''; }
 });
 $('take-photo').onclick = async () => {
   try {
@@ -71,36 +77,33 @@ $('take-photo').onclick = async () => {
 };
 $('close-camera').onclick = stopCamera;
 $('upload').onclick = () => $('file').click();
-function retainCurrentExperiment() {
-  if (experiment?.image) sessionExperiments.set(experiment.id, snapshot());
-}
 $('new-experiment').onclick = async () => {
   if (busy) return;
-  retainCurrentExperiment();
-  experiment = null;
+
+  experiment = null; answers = defaultTestAnswers(); answerRevision++; renderQuestions();
   stopCamera();
-  $('preview').removeAttribute('src'); $('overlay-image').removeAttribute('src');
-  $('experiment-name').value = ''; $('notes').value = ''; $('file').value = '';
+  $('preview').removeAttribute('src');
+   $('file').value = '';
   $('run-status').textContent = 'New experiment · add a photo';
-  render(); await listSaved();
+  render();
   $('upload').focus();
   notice('New experiment ready. Add a photo to begin.');
 };
 async function prepare(source, width, height) {
-  if (Math.min(width, height) < 1080) throw new Error('HD analysis needs at least 1080 px on the short side. Choose a larger photo or a higher-resolution camera.');
+  if (Math.min(width, height) < 512) throw new Error('Photo analysis needs at least 512 px on the short side. Choose a larger photo or a higher-resolution camera.');
   const scale = Math.min(1, 2560 / Math.max(width, height));
   const canvas = document.createElement('canvas'); canvas.width = Math.round(width * scale); canvas.height = Math.round(height * scale);
-  if (Math.min(canvas.width, canvas.height) < 1080) throw new Error('This photo is too narrow for HD analysis. Use a standard portrait or landscape photo.');
+  if (Math.min(canvas.width, canvas.height) < 512) throw new Error('This photo is too narrow for analysis. Use a standard portrait or landscape photo.');
   const context = canvas.getContext('2d'); context.fillStyle = '#fff'; context.fillRect(0, 0, canvas.width, canvas.height);
   context.drawImage(source, 0, 0, canvas.width, canvas.height);
   let quality = .94; let image = canvas.toDataURL('image/jpeg', quality);
   while (image.length > 3_730_000 && quality > .6) { quality -= .08; image = canvas.toDataURL('image/jpeg', quality); }
   if (image.length > 3_730_000) throw new Error('This photo is too large. Use a smaller image.');
-  retainCurrentExperiment();
+
   experiment = { id: crypto.randomUUID(), createdAt: new Date().toISOString(), image, width: canvas.width, height: canvas.height,
-    preparation: { format: 'jpeg', quality, maxSide: 2560 }, runs: {}, overlays: [], cleanup: null };
-  $('experiment-name').value = ''; $('notes').value = '';
-  stopCamera(); $('run-status').textContent = 'Ready when you are'; render(); await listSaved();
+    preparation: { format: 'jpeg', quality, maxSide: 2560 }, runs: {}, answers: { ...answers } };
+
+  stopCamera(); $('run-status').textContent = 'Ready when you are'; render();
 }
 $('file').onchange = async event => {
   const file = event.target.files[0]; if (!file) return;
@@ -122,16 +125,10 @@ function scoreFor(id, concern) {
   return concernScore(run, id, concern);
 }
 function renderCost(card, provider, run) {
-  if (provider === 'youcam') {
-    card.append(el('p', `$${youcamCost.toFixed(3)} / successful scan · estimated`, 'cost'));
-    card.append(el('p', '12 units × $0.048/unit · based on $24 for 500 units', 'small muted'));
-    return;
-  }
   const cost = openaiCost(run);
   card.append(el('p', cost ? `$${cost.usd.toFixed(6)} / scan · estimated` : 'Cost estimate available after analysis', 'cost'));
   if (cost) {
     card.append(el('p', `${cost.input.toLocaleString()} input (${cost.cached.toLocaleString()} cached) + ${cost.output.toLocaleString()} output tokens`, 'small muted'));
-    if (cost.usd > 0) card.append(el('p', `YouCam is ~${Math.round(youcamCost / cost.usd).toLocaleString()}× this scan’s estimated OpenAI cost.`, 'small muted'));
   } else if (run?.status === 'success') {
     card.lastChild.textContent = 'Cost estimate unavailable for this model, service tier, or usage data';
   }
@@ -143,17 +140,14 @@ function render() {
   $('preview').hidden = !experiment?.image;
   if (experiment?.image) $('preview').src = experiment.image;
   $('photo-empty').hidden = Boolean(experiment?.image);
-  $('image-meta').textContent = experiment?.image ? `${experiment.width} × ${experiment.height} · JPEG` : 'No photo selected';
-  const youcamToggle = $('youcam-toggle');
-  youcamToggle.remove();
+  $('image-meta').textContent = experiment?.image ? experiment.synthetic ? 'Synthetic fixture · no photo analysis' : `${experiment.width} × ${experiment.height} · JPEG` : 'No photo selected';
   $('engines').replaceChildren();
   for (const def of definitions) {
     const run = experiment?.runs?.[def.id];
     const card = el('article', undefined, 'engine ' + def.id);
     card.append(el('p', def.tag, 'eyebrow'), el('h2', def.title), el('p', def.description, 'description'));
-    if (def.id === 'youcam') card.append(youcamToggle);
     let state = 'Awaiting a photo';
-    if (experiment?.image) state = 'Ready to compare';
+    if (experiment?.image) state = 'Ready to analyze';
     if (run) state = { running: 'Analyzing…', pending: 'Awaiting completion · resume available', success: 'Analysis complete', error: 'Analysis unavailable', skipped: 'API key not configured' }[run.status];
     if (run?.disabledByUser) state = 'Not included in this run';
     card.append(el('p', state, 'state' + (run?.status === 'error' ? ' error' : '')));
@@ -177,13 +171,11 @@ function render() {
     const row = el('tr'); row.append(el('td', name));
     for (const def of definitions) {
       const value = scoreFor(def.id, key); const cell = el('td', fmt(value));
-      if (def.id === 'youcam' && !['redness', 'acne', 'texture', 'pore'].includes(key)) cell.append(el('small', 'Not requested'));
       row.append(cell);
     }
     $('scores').append(row);
   }
-  renderOverlays(); renderOpenAIRegions(); renderDetailedAnalysis();
-  $('cleanup').textContent = experiment?.cleanup?.message || 'Outputs are retrieved before an automatic YouCam task deletion attempt. Keep this tab open until it finishes.';
+  renderOpenAIRegions(); renderIngredients();
   updateControls();
 }
 let regionExperimentId, selectedConcern = null;
@@ -206,7 +198,7 @@ function renderOpenAIRegions() {
     button.onmouseleave = () => showOpenAIRegions(selectedConcern);
     button.onfocus = () => showOpenAIRegions(key);
     button.onblur = () => showOpenAIRegions(selectedConcern);
-    button.onclick = () => { selectedConcern = key; showOpenAIRegions(key); };
+    button.onclick = () => { selectedConcern = key; showOpenAIRegions(key); renderIngredients(); };
     list.append(button);
   }
   if (!available) list.append(el('p', analysis ? 'Run a new analysis to get regional evidence.' : 'Regional evidence appears after analysis.', 'small muted'));
@@ -240,10 +232,6 @@ function explainConcern(concern, provider, region) {
     const regions = experiment?.runs?.detail?.analysis?.regions || [];
     const ranked = regions.filter(item => Number.isFinite(item[concern]) && item[concern] > 0 && item[concern] <= 100).sort((a, b) => b[concern] - a[concern]);
     if (ranked.length) location = `; highest regional score: ${regionLabels[ranked[0].name] || ranked[0].name} (${Math.round(ranked[0][concern])}/100)`;
-  } else if (region && !['whole', 'all'].includes(region)) {
-    const row = experiment?.runs?.youcam?.rows?.find(item => item.type === 'hd_' + concern && item.region === region);
-    value = Number.isFinite(row?.raw_score) && row.raw_score >= 1 && row.raw_score <= 100 ? (100 - row.raw_score) * 100 / 99 : null;
-    location = ` for ${region}`;
   }
   const result = Number.isFinite(value) ? `your estimated concern score is ${Math.round(value)}/100${location} (higher = more visible)` : 'this photo has no assessable score for it';
   return `${concernMeanings[concern]} — ${result}.`;
@@ -305,7 +293,20 @@ function renderDetailedAnalysis() {
   const grid = el('div', undefined, 'findings-grid');
   for (const finding of analysis.detailedFindings) {
     const card = el('article', undefined, 'finding');
-    card.append(el('h3', concernLabels[finding.concern] || finding.concern), el('p', finding.assessment.replaceAll('_', ' '), 'small muted'));
+    card.append(el('h3', concernLabels[finding.concern] || finding.concern));
+    const related = experiment?.ingredients?.cards?.filter(ingredient => ingredient.concerns.includes(finding.concern)) || [];
+    if (related.length) {
+      const pills = el('div', undefined, 'finding-ingredients');
+      pills.setAttribute('role', 'group'); pills.setAttribute('aria-label', 'Related ingredients');
+      const statuses = { needs_context: 'Needs context', withheld: 'On hold', clinician_review: 'Clinician review', evidence_review: 'Evidence review', research_only: 'Research only', no_change: 'Already covered' };
+      for (const ingredient of related) {
+        const status = statuses[ingredient.status];
+        const pill = el('span', ingredient.name + (status ? ` · ${status}` : ''), 'product-chip' + (ingredient.status === 'withheld' ? ' on-hold' : ''));
+        pills.append(pill);
+      }
+      card.append(pills);
+    }
+    card.append(el('p', finding.assessment.replaceAll('_', ' '), 'small muted'));
     for (const [key, label] of [['evidence', 'Observation'], ['distribution', 'Where'], ['uncertainty', 'Uncertainty'], ['followUpQuestion', 'Ask next']]) {
       if (finding[key]) { const p = el('p', undefined, 'small'); p.append(el('strong', label + ': '), document.createTextNode(finding[key])); card.append(p); }
     }
@@ -313,176 +314,157 @@ function renderDetailedAnalysis() {
   }
   container.append(grid);
 }
-function overlayName(label) {
-  const [type, region, index] = label.split(' · ');
-  const name = { hd_redness: 'Redness', hd_acne: 'Acne', hd_texture: 'Texture', hd_pore: 'Pores', resize_image: 'Original' }[type] || type.replace(/^hd_/, '').replaceAll('_', ' ');
-  return name + (region && !['whole', 'all'].includes(region) ? ' · ' + region : '') + (Number(index) > 1 ? ' · ' + index : '');
-}
-function renderOverlays() {
-  if (overlayExperimentId !== experiment?.id) { overlayExperimentId = experiment?.id; selectedOverlay = null; }
-  const overlays = experiment?.overlays || [];
-  if (selectedOverlay !== null && !overlays[selectedOverlay]) selectedOverlay = null;
-  const list = $('overlay-list'); list.replaceChildren();
-  const add = (label, index) => {
-    const button = el('button', label, 'overlay-option');
-    button.type = 'button'; button.dataset.overlay = index === null ? 'original' : String(index);
-    button.disabled = !experiment?.image;
-    button.onmouseenter = () => showOverlay(index);
-    button.onmouseleave = () => showOverlay(selectedOverlay);
-    button.onfocus = () => showOverlay(index);
-    button.onblur = () => showOverlay(selectedOverlay);
-    button.onclick = () => { selectedOverlay = index; showOverlay(index); };
-    list.append(button);
-  };
-  add('Original', null);
-  overlays.forEach((overlay, i) => { if (!overlay.label.startsWith('resize_image')) add(overlayName(overlay.label), i); });
-  if (!overlays.length) list.append(el('p', 'Overlays appear after YouCam analysis.', 'small muted'));
-  showOverlay(selectedOverlay);
-}
-function showOverlay(index) {
-  const overlays = experiment?.overlays || [];
-  const overlay = index === null ? null : overlays[index];
-  const [type, region] = (overlay?.label || '').split(' · ');
-  $('youcam-explanation').textContent = explainConcern(type.replace(/^hd_/, ''), 'youcam', region);
-  const source = overlay?.dataUrl || overlays.find(item => item.label.startsWith('resize_image'))?.dataUrl || experiment?.image;
-  $('overlay-image').hidden = !source; $('overlay-empty').hidden = Boolean(source);
-  if (source) { $('overlay-image').src = source; $('overlay-image').alt = overlay ? overlayName(overlay.label) + ' overlay' : 'Original photo'; }
-  for (const button of $('overlay-list').querySelectorAll('button')) {
-    const key = index === null ? 'original' : String(index);
-    button.classList.toggle('previewing', button.dataset.overlay === key);
-    button.setAttribute('aria-pressed', String(button.dataset.overlay === (selectedOverlay === null ? 'original' : String(selectedOverlay))));
-  }
-}
-async function cleanup() {
-  if (!experiment?.taskToken) return;
-  try {
-    const result = await api('youcam-delete', { token: experiment.taskToken });
-    experiment.cleanup = { ...result, message: 'YouCam confirmed deletion of this task and its associated files. This is an API confirmation, not a backup-deletion guarantee.' };
-  } catch (error) { experiment.cleanup = { deleted: false, message: 'YouCam deletion not confirmed: ' + error.message + ' Save this experiment to retain the task reference for retry.' }; }
-  render();
-}
-async function collectYouCam() {
-  const start = Date.now();
-  while (Date.now() - start < 5 * 60_000) {
-    let result;
-    try { result = await api('youcam-status', { token: experiment.taskToken }); }
-    catch (error) { experiment.runs.youcam = { status: 'pending', error: error.message }; render(); return; }
-    if (result.status === 'running') { await new Promise(resolve => setTimeout(resolve, 10_000)); continue; }
-    experiment.runs.youcam = result;
-    if (result.status === 'success') {
-      experiment.overlays = [];
-      for (const asset of result.assets) {
-        try {
-          const data = await api('youcam-asset', { token: asset.token });
-          experiment.overlays.push({ label: asset.label, dataUrl: data.dataUrl });
-        } catch (error) { result.assetErrors = [...(result.assetErrors || []), `${asset.label}: ${error.message}`]; }
-      }
-      if (result.assetErrors?.length) {
-        result.error = `${result.assetErrors.length} overlays could not be retrieved. Raw scores are available.`;
-        experiment.cleanup = { deleted: false, message: 'Some overlays could not be retrieved. Retry overlay retrieval without a new paid analysis, or retry deletion to discard the remaining provider files.' };
-      } else await cleanup();
-    } else await cleanup();
-    render(); return;
-  }
-  experiment.runs.youcam = { status: 'pending', error: 'Still processing after five minutes. Resume retrieval without paying for a new task.' };
-  experiment.cleanup = { deleted: false, message: 'Task is still pending. Save this experiment to retain its retrieval and deletion reference.' };
-  render();
-}
-async function runYouCam() {
-  try {
-    const task = await api('youcam-start', { image: experiment.image });
-    experiment.taskToken = task.token; experiment.taskId = task.taskId;
-    await collectYouCam();
-  } catch (error) { experiment.runs.youcam = { status: 'error', error: error.message }; render(); }
-}
 $('run').onclick = async () => {
-  if (busy) return;
-  busy = true; stopCamera();
-  updateControls();
-  if (!await connect() || (!config.openai && !($('include-youcam').checked && config.youcam))) {
-    busy = false; updateControls(); return notice('Provider connections are unavailable. Check the server configuration.');
-  }
-  // A repeat creates a new experiment; previously saved runs are never overwritten implicitly.
-  if (Object.keys(experiment.runs || {}).length) retainCurrentExperiment();
-  experiment = { ...experiment, id: crypto.randomUUID(), createdAt: new Date().toISOString(), runs: {}, overlays: [], cleanup: null, taskToken: null, taskId: null };
-  const jobs = [];
-  for (const mode of ['detail']) {
-    experiment.runs[mode] = { status: config.openai ? 'running' : 'skipped' };
-    if (config.openai) jobs.push((async () => {
-      try { experiment.runs[mode] = { ...await api('openai', { image: experiment.image, mode, model: $('model-select').value }), status: 'success' }; }
-      catch (error) { experiment.runs[mode] = { status: 'error', error: error.message }; }
-      render();
-    })());
-  }
-  experiment.runs.youcam = { status: $('include-youcam').checked && config.youcam ? 'running' : 'skipped', disabledByUser: !$('include-youcam').checked };
-  if ($('include-youcam').checked && config.youcam) jobs.push(runYouCam());
-  $('run-status').textContent = 'Comparison in progress'; render();
-  await Promise.allSettled(jobs);
-  busy = false; $('run-status').textContent = 'Run finished · review each engine'; render(); await listSaved();
-};
-$('retry-cleanup').onclick = async () => { busy = true; updateControls(); await cleanup(); busy = false; updateControls(); };
-$('resume-youcam').onclick = async () => { busy = true; updateControls(); await collectYouCam(); busy = false; updateControls(); };
+  if (busy || !experiment?.image || experiment?.synthetic) return;
+  busy = true; stopCamera(); updateControls();
+  if (!await connect() || !config.openai) { busy = false; updateControls(); return notice('OpenAI is not configured on the server.'); }
 
-async function database() {
-  if (db) return db;
-  db = await new Promise((resolve, reject) => {
-    const request = indexedDB.open('substrate-face-scan-lab', 1);
-    request.onupgradeneeded = () => request.result.createObjectStore('experiments', { keyPath: 'id' });
-    request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
-  });
-  return db;
-}
-async function storage(method, value) {
-  const databaseValue = await database();
-  return new Promise((resolve, reject) => {
-    const transaction = databaseValue.transaction('experiments', method === 'getAll' ? 'readonly' : 'readwrite');
-    const request = transaction.objectStore('experiments')[method](value);
-    transaction.oncomplete = () => resolve(request.result);
-    transaction.onerror = () => reject(transaction.error); transaction.onabort = () => reject(transaction.error);
-  });
-}
-function snapshot() {
-  return { ...experiment, name: $('experiment-name').value.trim() || 'Untitled experiment', notes: $('notes').value, savedAt: new Date().toISOString(), schemaVersion: 1 };
-}
-$('save').onclick = async () => {
-  try { experiment = snapshot(); await storage('put', experiment); sessionExperiments.delete(experiment.id); await listSaved(); notice('Saved in this browser, including photo and overlays.'); }
-  catch { notice('Could not save. Browser storage may be unavailable or full. Export JSON to keep a copy.'); }
-};
-$('export').onclick = () => {
-  const blob = new Blob([JSON.stringify(snapshot(), null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob); const link = el('a'); link.href = url; link.download = `face-scan-${experiment.id}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
-  notice('Export includes the face photo, overlays, and provider responses.');
-};
-async function listSaved() {
+  experiment = { ...experiment, id: crypto.randomUUID(), createdAt: new Date().toISOString(), runs: { detail: { status: 'running' } }, ingredients: null, answers: structuredClone(answers) };
+  const current = experiment;
+  $('run-status').textContent = 'Analyzing visible findings…'; render();
   try {
-    const persisted = await storage('getAll');
-    const entries = new Map(persisted.map(item => [item.id, item]));
-    for (const [id, item] of sessionExperiments) entries.set(id, item);
-    const saved = [...entries.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    $('saved-count').textContent = saved.length; $('saved-list').replaceChildren();
-    if (!saved.length) $('saved-list').append(el('p', 'No experiments saved yet. Your first comparison is a good place to start.', 'muted small'));
-    for (const item of saved) {
-      const row = el('article', undefined, 'saved-row'); const image = el('img'); image.src = item.image; image.alt = 'Saved experiment photo';
-      const info = el('div', undefined, 'saved-info'); info.append(el('h3', item.name), el('p', new Date(item.createdAt).toLocaleString()));
-      if (sessionExperiments.has(item.id)) info.append(el('p', 'Session changes · click Save experiment to keep after closing this page'));
-      if (item.taskToken && !item.cleanup?.deleted) info.append(el('p', 'YouCam retrieval or cleanup pending'));
-      const open = el('button', 'Open'); open.onclick = async () => {
-        if (busy) return notice('Wait for the current request to finish before switching experiments.');
-        if (experiment?.id !== item.id) {
-          if (experiment?.image) sessionExperiments.set(experiment.id, snapshot());
-          stopCamera(); experiment = structuredClone(sessionExperiments.get(item.id) || item);
-          $('experiment-name').value = experiment.name; $('notes').value = experiment.notes;
-        }
-        $('run-status').textContent = 'Saved experiment'; render(); window.scrollTo({ top: 0, behavior: 'smooth' });
-        await listSaved();
-      };
-      const remove = el('button', 'Delete'); remove.onclick = async () => {
-        if (!confirm('Delete this saved experiment from this browser? This does not delete files still held by providers.')) return;
-        try { await storage('delete', item.id); sessionExperiments.delete(item.id); await listSaved(); } catch { notice('Could not delete the saved experiment.'); }
-      };
-      row.append(image, info, open, remove); $('saved-list').append(row);
-    }
-  } catch { $('saved-list').textContent = 'Browser storage is unavailable. You can still run comparisons and export JSON.'; }
+    const result = await api('openai', { image: current.image, mode: 'detail', model: $('model-select').value });
+    if (experiment !== current) return;
+    current.runs.detail = { ...result, status: 'success' };
+    await refreshIngredients();
+    $('run-status').textContent = 'Analysis complete';
+  } catch (error) { current.runs.detail = { status: 'error', error: error.message }; $('run-status').textContent = 'Analysis unavailable'; }
+  finally { busy = false; render();  }
+};
+
+let answers = defaultTestAnswers(), answerRevision = 0, resolveSequence = 0, questionTimer;
+$('reevaluate').onclick = () => refreshIngredients();
+$('load-scenario').onclick = async () => {
+  const conditionId=$('test-scenario').value;
+  if(!conditionId || busy)return;
+   busy=true;updateControls();
+  try {
+    answers=scenarioAnswers(conditionId); answerRevision++;const requestedRevision=answerRevision;renderQuestions();
+    const response=await api('test-scenario',{conditionId,answers});
+    const image='data:image/svg+xml,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="720"><rect width="600" height="720" fill="#f1e3e8"/><text x="300" y="335" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#78204e">Synthetic test scenario</text><text x="300" y="375" text-anchor="middle" font-family="sans-serif" font-size="16" fill="#78204e">No photo was analyzed</text></svg>');
+    experiment={id:crypto.randomUUID(),createdAt:new Date().toISOString(),image,width:600,height:720,synthetic:true,scenarioId:conditionId,answers:structuredClone(answers),ingredients:response.ingredients,decisionHistory:[response.ingredients],runs:{detail:{status:'success',analysis:response.analysis,model:'Synthetic fixture',promptVersion:'synthetic-v1',durationMs:0}}};
+    $('run-status').textContent='Synthetic scenario · no paid scan';
+    if(answerRevision!==requestedRevision)await refreshIngredients();
+  } catch(error){notice(error.message);}finally{busy=false;render();}
+};
+for (const [buttonId, bodyId, label] of [['toggle-quiz', 'quiz-body', 'quiz'], ['toggle-signals', 'signals-body', 'concern signals']]) {
+  const button = $(buttonId), body = $(bodyId);
+  button.onclick = () => {
+    body.hidden = !body.hidden;
+    button.setAttribute('aria-expanded', String(!body.hidden));
+    button.textContent = body.hidden ? '↓' : '↑';
+    const action = `${body.hidden ? 'Expand' : 'Collapse'} ${label}`;
+    button.setAttribute('aria-label', action);
+    button.title = action;
+  };
 }
-$('include-youcam').onchange = updateControls;
-render(); connect(); listSaved();
+$('shuffle-answers').onclick = () => {
+  answers = shuffledTestAnswers();
+  answerRevision++;
+  if (experiment) { experiment.answers = structuredClone(answers); experiment.ingredients = null; }
+  clearTimeout(questionTimer);
+  renderQuestions(); renderIngredients();
+  refreshIngredients();
+};
+function renderQuestions() {
+  const root = $('questions'); root.replaceChildren();
+  const displayed=visibleQuestions(answers);
+  for (const question of displayed) {
+    const field = el('fieldset'); field.append(el('legend', question.title));
+    const options = el('div', undefined, 'choice-options');
+    for (const option of question.options) {
+      const selected = question.multi ? answers[question.id]?.includes(option) : answers[question.id] === option;
+      const button = el('button', question.labels?.[option] || option, 'choice'); button.type = 'button'; button.setAttribute('aria-pressed', String(Boolean(selected)));
+      button.onclick = () => {
+        if (question.multi) {
+          let values = [...(answers[question.id] || [])];
+          if (values.includes(option)) values = values.filter(v => v !== option);
+          else if (['None', 'Unsure'].includes(option)) values = [option];
+          else values = [...values.filter(v => !['None','Unsure'].includes(v)), option];
+          if (values.length) answers[question.id] = values; else delete answers[question.id];
+        } else if (selected) delete answers[question.id]; else answers[question.id] = option;
+        answerRevision++;
+        if (experiment) { experiment.answers = structuredClone(answers); experiment.ingredients = null; }
+        renderQuestions(); renderIngredients();
+        // Restore keyboard focus after rebuilding the choice group.
+        const index = visibleQuestions(answers).indexOf(question); if(index >= 0) $('questions').children[index].querySelectorAll('button')[question.options.indexOf(option)].focus();
+        clearTimeout(questionTimer); questionTimer = setTimeout(refreshIngredients, 180);
+      };
+      options.append(button);
+    }
+    field.append(options); root.append(field);
+  }
+  $('question-progress').textContent = `${displayed.filter(q=>answers[q.id]).length} of ${displayed.length} answered · answers stay in this session`;
+}
+async function refreshIngredients() {
+  const current = experiment, revision = answerRevision, sequence = ++resolveSequence;
+  if (!current?.runs?.detail?.analysisToken && !current?.synthetic) return;
+  current.ingredients = null; current.ingredientMessage = 'Updating ingredient links…'; renderIngredients();
+  try {
+    const response = current.synthetic ? await api('test-scenario',{conditionId:current.scenarioId,answers}) : await api('ingredients', { analysisToken: current.runs.detail.analysisToken, answers });
+    const result = current.synthetic ? response.ingredients : response;
+    if (current !== experiment || revision !== answerRevision || sequence !== resolveSequence) return;
+    current.ingredients = result; current.ingredientMessage = ''; current.answerRevision = revision;
+    current.decisionHistory ||= []; current.decisionHistory.push(structuredClone(result));
+  } catch (error) {
+    if (current !== experiment || revision !== answerRevision || sequence !== resolveSequence) return;
+    current.ingredientMessage = error.message;
+  }
+  renderIngredients();
+}
+function renderProducts() {
+  const root = $('product-results'); root.replaceChildren();
+  const decision = experiment?.ingredients;
+  const result = decision?.productSuggestions;
+  if (!result) {
+    root.append(el('p', experiment?.ingredientMessage || (decision ? 'Re-evaluate ingredients to see product suggestions.' : 'Analyze a photo to discover products matched to your ingredients.'), 'muted'));
+    return;
+  }
+  if (result.items.length || !result.demoItems?.length) root.append(el('p', result.message, 'small muted'));
+  if (result.demoItems?.length) root.append(el('p', 'Demo examples show products containing linked ingredients. Pending evidence or context means these are not personalized recommendations.', 'small muted'));
+  const grid = el('div', undefined, 'product-grid'); root.append(grid);
+  for (const product of [...result.items, ...(result.demoItems || []).map(p => ({...p, demo: true}))]) {
+    const card = el('article', undefined, 'product-card');
+    if (product.demo) card.append(el('span', 'Demo example', 'badge'));
+    card.append(el('p', product.brand, 'product-brand'), el('h3', product.name), el('p', product.format, 'small muted'));
+    const chips = el('div', undefined, 'product-chips');
+    for (const match of product.matches) chips.append(el('span', match.label, 'product-chip'));
+    card.append(chips, el('p', (product.demo ? 'Related ingredient links: ' : 'Matched for: ') + [...new Set(product.matches.map(m => m.reason))].join(' · '), 'small'));
+    const link = el('a', 'View product ↗', 'product-link');
+    link.href = product.sourceUrl; link.target = '_blank'; link.rel = 'noopener noreferrer';
+    card.append(link);
+    const details = el('details'); details.append(el('summary', 'Match details'));
+    details.append(el('p', product.demo ? 'Catalog example only. Ingredient evidence or personal context is unresolved; this is not approval to use the product.' : 'Matches eligible ingredients, not a finished-formula assessment. Check the current label before use.', 'small muted'));
+    if (product.note) details.append(el('p', product.note, 'small muted'));
+    details.append(el('p', `${result.region} formula · Brand details checked ${result.verifiedAt}`, 'small muted'));
+    card.append(details); grid.append(card);
+  }
+  if (result.items.length || result.demoItems?.length) root.append(el('p', 'A curated selection · Ingredient matches from brand product details.', 'small muted product-footnote'));
+}
+function renderIngredients() {
+  renderDetailedAnalysis();
+  renderProducts();
+  const root = $('ingredient-results'); root.replaceChildren();
+  const result = experiment?.ingredients;
+  if (!result) {
+    root.append(el('p', experiment?.ingredientMessage || (experiment?.runs?.detail?.status === 'success' ? 'Update a context answer to link ingredients. Older saved analyses may need a new scan.' : 'Analyze a photo to connect visible findings with ingredient options.'), 'muted'));
+    return;
+  }
+  if (!result.cards.length) root.append(el('p', result.message, 'ingredient-intro'));
+  const labels = { candidate: 'Option to explore', needs_context: 'More context needed', withheld: 'Hold for now', clinician_review: 'Clinician review', evidence_review: 'Evidence review pending', research_only: 'Research only', no_change: 'Already covered / no change' };
+  const chips = el('div', undefined, 'ingredient-chips');
+  chips.setAttribute('role', 'group'); chips.setAttribute('aria-label', 'Ingredients');
+  if (result.cards.length) root.append(chips);
+  const otherChips=el('section',undefined,'other-ingredients');
+  const otherGroup=el('div',undefined,'ingredient-chips');
+  otherChips.append(el('p','Other linked ingredients · review / context required','small muted'),otherGroup);
+  if(result.cards.some(c=>c.status!=='candidate'))root.append(otherChips);
+  if(result.cards.length && !result.cards.some(c=>c.status==='candidate'))chips.append(el('p','No eligible options yet. Other linked ingredients are shown below.','small muted'));
+  for (const card of result.cards) {
+    const chip = el('span', card.name, 'ingredient-chip');
+    chip.title = labels[card.status];
+    chip.setAttribute('aria-label', `${card.name}: ${labels[card.status]}`);
+    (card.status === 'candidate' ? chips : otherGroup).append(chip);
+  }
+}
+renderQuestions(); render(); connect();

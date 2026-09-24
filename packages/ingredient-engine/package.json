@@ -1,0 +1,1 @@
+{"name":"@substrate/ingredient-engine","private":true,"type":"module","exports":"./dist/engine.js","types":"./dist/engine.d.ts"}

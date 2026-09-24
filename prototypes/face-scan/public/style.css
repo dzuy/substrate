@@ -45,7 +45,6 @@ h2{font-size:17px;font-weight:550;margin:0 0 10px}
 .engine h2{font-size:16px}
 .engine .description{color:var(--muted);font-size:12px;min-height:40px}
 .engine .state{font-size:12px;border-top:1px solid var(--line);padding-top:12px;margin-top:20px}
-.engine.youcam{background:#f0f3e9;border-color:#c4d0bc}
 .engine .summary{font-size:12px}
 .engine .error{color:#a13a2d}
 .signals,.evidence{margin-bottom:20px}
@@ -60,7 +59,6 @@ summary{cursor:pointer;color:var(--muted)}
 pre{font-size:10px;white-space:pre-wrap;max-height:260px;overflow:auto;background:#f6f7f2;padding:10px}
 select{max-width:60%;padding:7px;border:1px solid var(--line);border-radius:5px;background:white;font-size:11px}
 .empty-evidence{padding:45px 15px;background:#f6f7f1;text-align:center;font-size:12px;color:var(--muted);border-radius:6px}
-#overlay-image{width:100%;max-height:460px;object-fit:contain;background:#f1f3ed;border-radius:6px}
 .notebook{margin-top:28px;display:grid;grid-template-columns:1fr 1.3fr;gap:50px}
 .notebook h2{font:30px Georgia,serif}
 .notebook p{max-width:350px}
@@ -123,7 +121,6 @@ footer span{display:block;margin-top:8px}
 .overlay-option.previewing{background:#F1E3E8;color:var(--green);border-color:#E8B8CD}
 .overlay-option[aria-pressed=true]{font-weight:700}
 .evidence-photo{min-width:0;background:#f1f3ed;border-radius:6px;overflow:hidden;aspect-ratio:3/4;display:flex;align-items:center;justify-content:center}
-#overlay-image{display:block;width:100%;height:100%;max-height:none;object-fit:contain}
 .evidence-photo .empty-evidence{padding:20px 12px}
 @media(max-width:900px){.signals-evidence{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:420px){.evidence-view{grid-template-columns:100px minmax(0,1fr);gap:8px}.overlay-option{padding:8px 5px}}
@@ -139,9 +136,36 @@ footer span{display:block;margin-top:8px}
 
 .concern-explanation{font-size:12px;line-height:1.5;color:var(--muted);min-height:3em;margin:8px 0 14px}
 
-.youcam-toggle{display:flex;align-items:center;gap:8px;margin:12px 0;font-weight:600}
-.youcam-toggle input{accent-color:#9C2D68}
 #concern-explanation{height:90px;min-height:90px;overflow:auto;margin:8px 0 14px}
 #regional-scores{height:350px;min-height:350px;overflow:auto}
 #openai-map-caption{height:24px;line-height:24px;overflow:hidden;white-space:nowrap}
 @media(max-width:700px){#concern-explanation{height:108px;min-height:108px}}
+
+#questions{display:grid;grid-template-columns:1fr 1fr;gap:22px 28px}fieldset{border:0;padding:0;margin:0;min-width:0}legend{font-size:13px;font-weight:650;margin-bottom:9px}.choice-options{display:flex;flex-wrap:wrap;gap:6px}.choice{font-size:12px;padding:8px 11px;border-radius:20px}.choice[aria-pressed=true]{background:#f1e3e8;color:#78204e;border-color:#a83e74}.ingredient-card{padding:18px 0;border-top:1px solid var(--line)}.ingredient-card h3{font:23px Georgia,serif;margin:10px 0 6px}.ingredient-card p{margin:8px 0}.ingredient-card.related{border-left:3px solid #9c2d68;padding-left:15px}.context-note{background:#f7f4ef;padding:9px 12px;border-radius:5px;font-size:12px}.link-concern{font-size:11px;padding:6px 9px;margin:3px 4px 3px 0}.ingredient-panel{max-height:1000px;overflow:auto}.engine-grid{grid-template-columns:1fr;margin-top:15px}.engine{min-height:0}.questionnaire>.section-title{align-items:start}#regional-scores{height:auto;min-height:0;max-height:350px}#concern-explanation{height:auto;min-height:3em}.ingredient-intro{font-size:13px}@media(max-width:700px){#questions{grid-template-columns:1fr}.ingredient-panel{max-height:none}.choice{min-height:40px}}
+
+.quiz-actions{display:flex;gap:8px;flex-wrap:wrap}.analysis-progress{position:sticky;top:12px;z-index:10;display:flex;align-items:center;gap:12px;padding:16px 20px;border:1px solid var(--line);border-radius:8px;background:#fff;box-shadow:0 4px 18px #21352c12}.analysis-progress[hidden]{display:none}.analysis-spinner{width:22px;height:22px;flex:none;border:3px solid #ead5df;border-top-color:var(--green);border-radius:50%;animation:analysis-spin .8s linear infinite}@keyframes analysis-spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.analysis-spinner{animation:none}}
+
+.ingredient-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 20px}.ingredient-chip{border-radius:999px;padding:8px 13px;font-size:12px;background:#f1e3e8;border-color:#e4cbd6;color:#78204e}.ingredient-card:focus-visible{outline:2px solid var(--green);outline-offset:3px}
+
+.test-tools{margin-bottom:20px}.test-controls{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.test-controls select{max-width:100%;padding:10px;border:1px solid var(--line);border-radius:7px}.decision-inspector pre,#knowledge-coverage{white-space:pre-wrap;overflow-wrap:anywhere;max-height:400px;overflow:auto;font-size:11px}.other-ingredients{margin-bottom:18px}.other-ingredients .ingredient-chips{margin-top:12px}.other-ingredients .ingredient-chip{background:#f7f4ef;color:var(--ink);border-color:var(--line)}summary{cursor:pointer}
+
+.product-panel{margin-bottom:20px}.product-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.product-card{border:1px solid var(--line);border-radius:10px;padding:22px;min-width:0;background:#fff}.product-brand{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin:0 0 12px}.product-card h3{font:23px Georgia,serif;margin:0 0 12px;line-height:1.25}.product-chips{display:flex;flex-wrap:wrap;gap:6px;margin:16px 0}.product-chip{font-size:11px;border-radius:99px;padding:7px 10px;background:#f1e3e8;color:#78204e}.product-link{display:inline-block;margin:12px 0 18px;font-size:13px;color:var(--green)}.product-card details{border-top:1px solid var(--line);padding-top:12px;font-size:12px}.product-footnote{margin-bottom:0}@media(max-width:700px){.product-grid{grid-template-columns:1fr}}
+
+.finding-ingredients{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 14px}.finding-ingredients .product-chip{background:#fee2e2;color:#991b1b}.finding-ingredients .product-chip.on-hold{background:#e5e7eb;color:#4b5563}
+
+.analysis-notes + .product-panel{margin-top:32px}
+
+/* Shared panel title hierarchy and right-aligned controls. */
+.panel{padding:24px}
+.panel > .section-title{min-height:32px;margin-bottom:20px;align-items:center;flex-wrap:wrap;justify-content:flex-start}
+.panel > .section-title h2,.panel-summary h2{font-family:inherit;font-size:20px;line-height:1.3;font-weight:650;letter-spacing:0;margin:0}
+.panel > .section-title h2{margin-right:auto}
+.panel > .section-title .muted{font-size:12px}
+.panel-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;list-style:none;min-height:32px}
+.panel-summary::-webkit-details-marker{display:none}
+.panel-summary::after{content:'↓';font-size:18px;flex:none}
+details[open] > .panel-summary::after{content:'↑'}
+details[open] > .panel-summary{margin-bottom:20px}
+.finding h3,.product-card h3{font-family:inherit;font-size:17px;line-height:1.35;font-weight:650;letter-spacing:0;margin:0 0 12px}
+.map-caption{font-size:14px;font-weight:550}
+@media(max-width:700px){.panel{padding:20px}.questionnaire > .section-title h2{flex-basis:100%}.quiz-actions{margin-left:auto}}

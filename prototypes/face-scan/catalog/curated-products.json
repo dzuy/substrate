@@ -1,0 +1,306 @@
+{
+  "version": "curated-us-2026-09-23-v2",
+  "region": "US",
+  "verifiedAt": "2026-09-23",
+  "products": [
+    {
+      "id": "ordinary-sa",
+      "brand": "The Ordinary",
+      "name": "Salicylic Acid 2% Solution",
+      "format": "Leave-on serum",
+      "sourceUrl": "https://theordinary.com/en-us/salicylic-acid-2-solution-acne-control-100098.html",
+      "expressions": [
+        {
+          "ingredientId": "I_SA",
+          "label": "2% salicylic acid",
+          "role": "primary",
+          "concentration": 2
+        }
+      ],
+      "requiredEligibleIds": [
+        "I_SA"
+      ],
+      "note": "",
+      "category": "Acne care",
+      "demoAllowed": false
+    },
+    {
+      "id": "ordinary-aza",
+      "brand": "The Ordinary",
+      "name": "Azelaic Acid Suspension 10%",
+      "format": "Suspension",
+      "sourceUrl": "https://theordinary.com/en-us/azelaic-acid-suspension-10-exfoliator-100407.html",
+      "expressions": [
+        {
+          "ingredientId": "I_AZA",
+          "label": "10% azelaic acid",
+          "role": "primary",
+          "concentration": 10
+        }
+      ],
+      "requiredEligibleIds": [
+        "I_AZA"
+      ],
+      "note": "An ingredient match does not establish equivalence to prescription azelaic acid formulas.",
+      "category": "Acne care",
+      "demoAllowed": false
+    },
+    {
+      "id": "panoxyl-bpo",
+      "brand": "PanOxyl",
+      "name": "Acne Creamy Wash 4%",
+      "format": "Rinse-off cleanser",
+      "sourceUrl": "https://panoxyl.com/acne-products/acne-creamy-wash/",
+      "expressions": [
+        {
+          "ingredientId": "I_BPO",
+          "label": "4% benzoyl peroxide",
+          "role": "primary",
+          "concentration": 4
+        }
+      ],
+      "requiredEligibleIds": [
+        "I_BPO"
+      ],
+      "note": "Rinse-off formula; follow the product label. Glycerin in this wash is not used as a separate moisturizing recommendation.",
+      "category": "Acne care",
+      "demoAllowed": false
+    },
+    {
+      "id": "paulas-sa",
+      "brand": "Paula\u2019s Choice",
+      "name": "SKIN PERFECTING 2% BHA Liquid Exfoliant",
+      "format": "Leave-on liquid",
+      "sourceUrl": "https://www.paulaschoice.com/skin-perfecting-2pct-bha-liquid-exfoliant/201-2010.html",
+      "expressions": [
+        {
+          "ingredientId": "I_SA",
+          "label": "2% salicylic acid",
+          "role": "primary",
+          "concentration": 2
+        }
+      ],
+      "requiredEligibleIds": [
+        "I_SA"
+      ],
+      "note": "",
+      "category": "Acne care",
+      "demoAllowed": false
+    },
+    {
+      "id": "cerave-cream",
+      "brand": "CeraVe",
+      "name": "Moisturizing Cream",
+      "format": "Face & body moisturizer",
+      "sourceUrl": "https://www.cerave.com/skincare/moisturizers/moisturizing-cream",
+      "expressions": [
+        {
+          "ingredientId": "I_CER",
+          "label": "Ceramides NP, AP & EOP",
+          "role": "primary",
+          "concentration": null
+        },
+        {
+          "ingredientId": "I_GLY",
+          "label": "Glycerin",
+          "role": "primary",
+          "concentration": null
+        },
+        {
+          "ingredientId": "I_HA",
+          "label": "Sodium hyaluronate",
+          "role": "primary",
+          "concentration": null
+        }
+      ],
+      "requiredEligibleIds": [],
+      "note": "Ingredient concentrations are not published.",
+      "category": "Moisturizer",
+      "demoAllowed": true
+    },
+    {
+      "id": "cerave-pm",
+      "brand": "CeraVe",
+      "name": "PM Facial Moisturizing Lotion",
+      "format": "Night moisturizer",
+      "sourceUrl": "https://www.cerave.com/skincare/moisturizers/pm-facial-moisturizing-lotion",
+      "expressions": [
+        {
+          "ingredientId": "I_CER",
+          "label": "Ceramides",
+          "role": "primary",
+          "concentration": null
+        },
+        {
+          "ingredientId": "I_HA",
+          "label": "Hyaluronic acid",
+          "role": "primary",
+          "concentration": null
+        },
+        {
+          "ingredientId": "I_NIA",
+          "label": "Niacinamide",
+          "role": "primary",
+          "concentration": null
+        }
+      ],
+      "requiredEligibleIds": [],
+      "note": "Published ingredients are a formula snapshot; check the current package.",
+      "category": "Moisturizer",
+      "demoAllowed": true,
+      "demoOnly": false
+    },
+    {
+      "id": "lrp-double",
+      "brand": "La Roche-Posay",
+      "name": "Toleriane Double Repair Face Moisturizer",
+      "format": "Face moisturizer",
+      "sourceUrl": "https://www.laroche-posay.us/our-products/face/face-moisturizer/toleriane-double-repair-face-moisturizer-3337875839969.html",
+      "expressions": [
+        {
+          "ingredientId": "I_CER",
+          "label": "Ceramides",
+          "role": "primary",
+          "concentration": null
+        },
+        {
+          "ingredientId": "I_NIA",
+          "label": "Niacinamide",
+          "role": "primary",
+          "concentration": null
+        },
+        {
+          "ingredientId": "I_GLY",
+          "label": "Glycerin",
+          "role": "primary",
+          "concentration": null
+        }
+      ],
+      "requiredEligibleIds": [],
+      "note": "Published ingredients are a formula snapshot; check the current package.",
+      "category": "Moisturizer",
+      "demoAllowed": true,
+      "demoOnly": false
+    },
+    {
+      "id": "lrp-b5",
+      "brand": "La Roche-Posay",
+      "name": "Cicaplast Balm B5+",
+      "format": "Barrier cream",
+      "sourceUrl": "https://www.laroche-posay.us/our-products/body/body-lotion/cicaplast-balm-b5-for-dry-skin-irritations-cicaplastbalmb5.html",
+      "expressions": [
+        {
+          "ingredientId": "I_PANTH",
+          "label": "5% panthenol",
+          "role": "primary",
+          "concentration": 5
+        }
+      ],
+      "requiredEligibleIds": [],
+      "note": "Published ingredients are a formula snapshot; check the current package.",
+      "category": "Barrier care",
+      "demoAllowed": true,
+      "demoOnly": false
+    },
+    {
+      "id": "cerave-ha",
+      "brand": "CeraVe",
+      "name": "Hydrating Hyaluronic Acid Serum",
+      "format": "Hydrating serum",
+      "sourceUrl": "https://www.cerave.com/skincare/facial-serums/hydrating-hyaluronic-acid-serum",
+      "expressions": [
+        {
+          "ingredientId": "I_HA",
+          "label": "Hyaluronic acid",
+          "role": "primary",
+          "concentration": null
+        },
+        {
+          "ingredientId": "I_CER",
+          "label": "Ceramides",
+          "role": "primary",
+          "concentration": null
+        },
+        {
+          "ingredientId": "I_PANTH",
+          "label": "Panthenol",
+          "role": "primary",
+          "concentration": null
+        }
+      ],
+      "requiredEligibleIds": [],
+      "note": "Published ingredients are a formula snapshot; check the current package.",
+      "category": "Hydration",
+      "demoAllowed": true,
+      "demoOnly": false
+    },
+    {
+      "id": "ordinary-nia",
+      "brand": "The Ordinary",
+      "name": "Niacinamide 10% + Zinc 1%",
+      "format": "Water-based serum",
+      "sourceUrl": "https://theordinary.com/en-us/niacinamide-10-zinc-1-serum-100436.html",
+      "expressions": [
+        {
+          "ingredientId": "I_NIA",
+          "label": "10% niacinamide",
+          "role": "primary",
+          "concentration": 10
+        }
+      ],
+      "requiredEligibleIds": [],
+      "note": "Published ingredients are a formula snapshot; check the current package.",
+      "category": "Tone & texture",
+      "demoAllowed": true,
+      "demoOnly": false
+    },
+    {
+      "id": "cerave-spf",
+      "brand": "CeraVe",
+      "name": "Hydrating Mineral Sunscreen Face Lotion SPF 30",
+      "format": "Mineral sunscreen",
+      "sourceUrl": "https://www.cerave.com/sunscreen/face/hydrating-mineral-sunscreen-face-lotion-spf-30",
+      "expressions": [
+        {
+          "ingredientId": "I_CER",
+          "label": "Ceramides",
+          "role": "primary",
+          "concentration": null
+        },
+        {
+          "ingredientId": "I_NIA",
+          "label": "Niacinamide",
+          "role": "primary",
+          "concentration": null
+        }
+      ],
+      "requiredEligibleIds": [],
+      "note": "SPF is a labeled finished-product property, not inferred from ceramides or niacinamide. Sun-protection suitability is not assessed by the ingredient engine.",
+      "category": "Sun protection",
+      "demoAllowed": true,
+      "demoOnly": true
+    },
+    {
+      "id": "cerave-retinol",
+      "brand": "CeraVe",
+      "name": "Resurfacing Retinol Serum",
+      "format": "Retinol serum",
+      "sourceUrl": "https://www.cerave.com/skincare/facial-serums/resurfacing-retinol-serum",
+      "expressions": [
+        {
+          "ingredientId": "I_RET",
+          "label": "Retinol \u00b7 concentration unpublished",
+          "role": "primary",
+          "concentration": null
+        }
+      ],
+      "requiredEligibleIds": [
+        "I_RET"
+      ],
+      "note": "Published ingredients are a formula snapshot; check the current package.",
+      "category": "Texture & marks",
+      "demoAllowed": false,
+      "demoOnly": false
+    }
+  ]
+}

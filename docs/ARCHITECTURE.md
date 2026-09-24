@@ -1,6 +1,6 @@
 # Substrate Technical Architecture
 
-Last updated: September 8, 2026
+Last updated: September 23, 2026
 
 This document is for future agents and engineers working on Substrate. It explains the current architecture, the product strategy behind it, and the main extension points.
 
@@ -19,7 +19,7 @@ The app should avoid becoming a generic beauty-commerce app. Product and ingredi
 
 ## Isolated Face Scan Lab
 
-`prototypes/face-scan` is a separate browser UI and Node server for comparing high-detail OpenAI analysis (Sol, Astra, Terra, or Luna) with optional YouCam HD analysis. It has no Expo routes or Supabase data writes. Local launch: `npm run prototype:face-scan`. The web build copies its public assets to `/face-scan-prototype`; a separate Vercel Node function keeps credentials server-side and requires a hosted access password. This prototype intentionally uses its own Node backend instead of the main app's Edge Function pattern. See `prototypes/face-scan/README.md` for privacy, browser-local storage, cleanup limitations, and deployment setup. Saving controls are currently hidden.
+`prototypes/face-scan` is a separate browser UI and Node server for OpenAI photo analysis plus a clickable contextual questionnaire. A portable TypeScript engine (`packages/ingredient-engine`) evaluates a versioned import of the full workbook graph and displays concern-linked ingredient cards beside the photo. The importer stages, validates and reports updated workbook files before explicit activation. Prototype test tools include 16 synthetic scenarios and coverage/decision inspection. YouCam is removed. Questionnaire changes reuse a signed analysis without another paid scan. It has no Expo routes or Supabase writes and does not change the main app's questionnaire. Local launch: `npm run prototype:face-scan`. The web build copies public assets to `/face-scan-prototype`; a shared Vercel Node handler keeps credentials server-side and requires a hosted password. Explicit browser-local test-session saving preserves findings, answers and versioned decision history. See [prototype setup and limits](../prototypes/face-scan/README.md) and [the ongoing architecture and decision record](CONDITION_TO_INGREDIENT_ENGINE.md).
 
 ## Application Stack
 
@@ -147,6 +147,8 @@ Catalog admin access is controlled by `src/lib/admin.ts` and Supabase RLS using 
 The admin page should remain an operations tool, not a primary user flow.
 
 ## Ingredient Intelligence Backlog
+
+The current photo-to-ingredient feature discussion is tracked in [Photo-to-Ingredient Architecture](CONDITION_TO_INGREDIENT_ENGINE.md). That running record separates confirmed user requirements, proposed design, open questions, and implementation status. Update it as decisions evolve; its proposals are not descriptions of shipped behavior.
 
 The ingredient table already exists, but the intelligence layer is intentionally future work.
 
@@ -277,3 +279,7 @@ Before changing behavior:
 - Document new architecture decisions here when they affect future work.
 
 Known existing lint warnings may appear in `src/app/progress.tsx` and `src/services/environment.ts`; do not treat them as caused by unrelated changes unless you touched those files.
+
+### Face-scan curated product prototype (2026-09-23)
+
+The prototype now matches eligible ingredient decisions to a versioned, five-product US catalog and renders Product Suggestions above Concern signals. `packages/ingredient-engine/src/products.ts` is a pure matcher; `prototypes/face-scan/catalog/curated-products.json` supplies separately maintained brand facts and URLs. Product and ingredient results share request invalidation and saved decision provenance. Larger product-database ingestion and optimization remain future work. See `docs/CONDITION_TO_INGREDIENT_ENGINE.md` for catalog coverage and eligibility limitations.

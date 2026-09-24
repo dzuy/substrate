@@ -1,0 +1,46 @@
+{
+  "version": "workbook-e01b98a69808a24a",
+  "previousVersion": null,
+  "counts": {
+    "conditions": 16,
+    "pathways": 11,
+    "ingredients": 14,
+    "conditionPathways": 16,
+    "pathwayIngredients": 21,
+    "modifiers": 19,
+    "governors": 10,
+    "memberState": 15,
+    "stages": 13,
+    "outcomes": 1,
+    "sources": 3,
+    "evidence": 4,
+    "expressions": 2,
+    "products": 2,
+    "wardrobe": 2,
+    "load": 2,
+    "actions": 8,
+    "personalEvidence": 1,
+    "clinicalRules": 3,
+    "firewall": 5,
+    "admissions": 2,
+    "expressionSpec": 12,
+    "tests": 9
+  },
+  "errors": [],
+  "warnings": [
+    "No explicit condition edges: C_MELASMA, C_DEHYDRATION, C_OIL, C_TEXTURE, C_LAXITY, C_VOLUME, C_SCAR, C_BRUISE",
+    "16 ingredient edges lack evidence references"
+  ],
+  "changes": {},
+  "unmappedConditions": [
+    "C_MELASMA",
+    "C_DEHYDRATION",
+    "C_OIL",
+    "C_TEXTURE",
+    "C_LAXITY",
+    "C_VOLUME",
+    "C_SCAR",
+    "C_BRUISE"
+  ],
+  "activation": "ready for explicit activation"
+}

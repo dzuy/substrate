@@ -1,72 +1,92 @@
 # Face Scan Lab
 
-Isolated internal web prototype. No Expo screens, main-app navigation, Supabase records, or production photo-analysis behavior are changed. The standalone source lives here alongside the main application source so the existing Vercel project can eventually serve both.
+OpenAI photo findings + questionnaire → workbook pathways → ingredient options. This isolated prototype does not change Expo screens, the daily questionnaire, Supabase records or the paused product databases.
 
-## Local use
+## Run
 
-Requires Node 22. From the Substrate root:
+Node 22 and the repository's installed TypeScript compiler are required.
 
 ```sh
 npm run prototype:face-scan
 ```
 
-Open http://localhost:4317/face-scan-prototype. The local server binds to loopback only. Restart after changing `.env`.
+This compiles the portable engine, then serves http://localhost:4317/face-scan-prototype on loopback. The root `.env` supplies `OPENAI_API_KEY`, optional `OPENAI_VISION_MODEL`, `FACE_SCAN_PROTOTYPE_PASSWORD` (required when hosted; ignored on localhost), and optional `FACE_SCAN_SIGNING_SECRET`. These are server-only variables. Never prefix secrets with `EXPO_PUBLIC_`. YouCam is removed; external credentials have not been changed.
 
-The root `.env` supplies server-only variables:
+One Analyze action makes one paid OpenAI vision call. Answer edits reuse the signed result. Synthetic scenarios make no OpenAI calls and display an explicit synthetic image. To return to a real scan, upload a photo or start a new experiment.
 
-```dotenv
-OPENAI_API_KEY=...
-YOUCAM_API_KEY=...
-# Existing main-app model configuration is reused; fallback matches analyze-photo.
-OPENAI_VISION_MODEL=...
-# Required when hosted; optional locally.
-FACE_SCAN_PROTOTYPE_PASSWORD=...
-# Optional stable task-signing key (defaults to YOUCAM_API_KEY).
-FACE_SCAN_SIGNING_SECRET=...
+## Workbook ingestion and updates
+
+The standard-library Python importer reads XLSX without editing it or requiring a spreadsheet package:
+
+```sh
+python3 prototypes/face-scan/import-workbook.py /absolute/path/updated.xlsx
 ```
 
-Never prefix these secrets with `EXPO_PUBLIC_`, `NEXT_PUBLIC_`, or `VITE_`. No keys are sent to the browser. The root `.env` remains gitignored. No paid calls happen until Run comparison is clicked. If only one provider is configured, its runs remain usable and the others are visibly skipped.
+The default stages an immutable snapshot and report under `knowledge/versions/workbook-<hash>/`. Read `report.json`: it contains counts, errors, missing mappings, and added/removed/changed records compared with the active version. Then activate explicitly:
 
-## Comparison design
+```sh
+python3 prototypes/face-scan/import-workbook.py /absolute/path/updated.xlsx --activate
+```
 
-- Detailed OpenAI: one high-image-detail call with four nullable concern scores, regional observations, and explicit 0/25/50/75/100 visibility anchors. Prompt version: `four-concern-anchors-v2`. Older saved results are labeled with their earlier scoring prompt.
-- YouCam: `/s2s/v2.1/task/skin-analysis`, HD redness/acne/texture/pore, JSON results, preblended overlays. Estimated consumption is 12 units per successful task. No dollar estimate is invented; OpenAI token usage is recorded.
-- Missing or invalid metrics stay unavailable. Only whole-face YouCam scores are compared, using `(100 - raw_score) * 100 / 99` to align its 1–100 health range to 0–100 concern. Original raw/UI scores remain in the response. Range alignment is not empirical calibration; score differences are not accuracy measurements.
-- The browser decodes and re-encodes a JPEG, dropping original metadata, max long side 2560, min short side 1080, max upload 2.8 MB. Identical prepared bytes are sent to every run; providers record SHA-256. Camera capture uses the browser, not Perfect's restricted Camera Kit.
+Restart the prototype after activation. Re-evaluate a saved scan to create a new decision version. Historical decisions keep their old knowledge/rule versions. Restore an earlier `knowledge/versions/<version>/knowledge.json` to `knowledge/active.json` and restart to roll back; do not overwrite archived snapshots.
 
-## Privacy and saving
+Column and row reordering and additive columns are supported. Stable canonical IDs and named table headers identify relationships. Duplicate IDs/edges, broken references, removed/renamed columns, invalid scores, formulas, missing tables and unsupported schemas fail rather than silently misread data. Added conditions appear in the selector and scenario list; new visual or evidence endpoint vocabularies require an explicit adapter. The engine never guesses novel clinical interpretations.
 
-Unsaved photos/results live in page memory. Save explicitly writes photo, outputs, overlays, task reference, configuration, and notes to this browser's IndexedDB. This is not shared cloud storage. Deleting browser data removes saved experiments. Export JSON contains sensitive images and results and should be handled accordingly.
+Changes to governors, clinical rules, decision stages, modifiers, firewall, admission, action or acceptance tables require policy implementation review before activation. After that review and any needed code/tests, `--policy-reviewed --activate` acknowledges it. This is an engineering acknowledgement, not evidence admission or clinical approval. Data-only mapping/name/score changes do not require rewriting the engine.
 
-After receiving scores and downloading every available overlay, the browser asks the server to delete the completed YouCam task using `/s2s/v2.0/task/delete`. The UI distinguishes confirmed deletion, pending work, and failures. A partial overlay download leaves the task available and exposes deletion retry. The API documentation says deletion includes associated input/output files; this is not a verified backup purge. Task tokens expire after 30 days and become invalid if the signing secret changes.
+The original file generated `workbook-e01b98a69808a24a`: 24 preserved sheets, 16 conditions, 11 pathways, 14 ingredients, 16 condition edges, 21 ingredient edges, 10 governors, four evidence objects, three unresolved clinical rules and nine acceptance scenarios.
 
-Keep the tab open during a run. If polling fails or takes over five minutes, Resume retrieves the existing task without submitting another paid analysis. Save pending experiments to retain their task references. Tab crashes/closure before saving or before receiving a task ID can leave files with the provider. Upload success followed by task creation failure can also leave a file; the UI reports this explicitly. There is no background cleanup worker in this prototype.
+## Architecture
 
-OpenAI requests set `store: false`; this is not a claim of zero provider retention. Provider policies apply independently of local experiment saving. Send consenting adults' test photos only. The prototype does not make diagnoses or recommend ingredients from image scores.
+- `packages/ingredient-engine/src`: pure TypeScript contracts, pathway evaluator, explicit interpretation policy, and product/evidence integrity functions. No UI, Node filesystem, Expo or Supabase dependencies. Its generated `dist/` is built automatically before local start, tests and web export.
+- `knowledge/active.json`: imported source data, separate from the interpretation policy. `knowledge/versions/` retains source snapshots and import reports. The full raw worksheets are retained alongside normalized tables.
+- `ingredients.mjs`: thin adapter that loads the active dataset, validates questions and supplies the explicit prototype age assumption of 40–50.
+- `handler.mjs`: authenticated/same-origin API for scans, signed-result resolution, config/coverage and labeled synthetic scenarios. Hosted mode fails closed without a password.
+- `public/questions.mjs`: clickable questions, conditional follow-ups, defaults, valid shuffling and named scenarios. Selected concerns are not clinician diagnoses.
+- `public/app.js`: photo/overlay display, ingredient chips, eligibility details, decision inspector, questionnaire, spinner and explicit local session saving.
 
-## Vercel (prepared, not deployed)
+The engine ranks using the maximum pathway relevance × applicable evidence score, plus one point for a selected goal/condition. Multiple overlapping routes do not sum into inflated evidence. Textual modifiers use explicit capped one-point prototype adjustments; these are not spreadsheet formulas or calibrated probabilities. Trace records preserve every route, source row, evidence ID and rule code.
 
-`npm run build:web` exports Expo, then copies only `public/` into `dist/face-scan-prototype`. Explicit rewrites precede the Expo fallback. `api/face-scan-prototype.mjs` is a Node function using the same handler as local development. Requests use short YouCam start/status/asset/delete operations rather than one long-running polling function. OpenAI calls allow up to 110 seconds; the function duration is configured for 180 seconds, subject to the project's plan.
+Eight conditions lack explicit source edges. `policy.ts` provides labeled provisional narrative-derived routes, and provisional pigment edges fill another graph gap. Where no ingredient relationship exists (for example the adipose pathway), the result says so. New source edges supersede the missing-condition fallback. Proposed relationships cannot alone yield an eligible option.
 
-Add the server secrets to Vercel's environment settings. Hosted API access fails closed without `FACE_SCAN_PROTOTYPE_PASSWORD`. Testers enter that password in the page; it stays in memory. Use Vercel Deployment Protection as appropriate for wider internal access. A shared password is an internal prototype gate, not per-user production authentication or a distributed rate limiter. Set provider spending limits before expanding access.
+Evidence must match the linked ingredient and a supported endpoint vocabulary. Acne guideline support is not transferred to redness/photoaging. Form families, research-only entries and unknown eligibility remain explicit. The original admission package is still pending; eligible cards are provisional prototype exploration options, not production-approved recommendations. Unlike the first partial prototype, this version does not silently promote hydration evidence from outside the workbook. Adding those reviewed evidence objects is a dataset task.
 
-Saved experiments remain browser-local on Vercel; shared experiment storage and individual tester identities are future work. Run a protected preview deployment and validate route precedence/function behavior before production promotion.
+## Test experience
+
+Open **Prototype test tools & workbook coverage** for 16 named condition scenarios. A synthetic scenario drives the real evaluator but not the vision model. The coverage view accounts for every entity and identifies missing/proposed links, rule states, and unassessed external modifiers. Ingredient chips separate eligible options from links needing context/evidence review. The decision inspector exposes state → pathway → ingredient → evidence → rule traces.
+
+Current treatments support provisional overlap checks. The product/formulation/no-buy and evidence-firewall functions are tested with synthetic fixtures corresponding to the workbook's acceptance cases. There is no live catalog or longitudinal learning integration. No product purchase or prescription-change plan is emitted.
+
+Wearables, biomarkers, cycle history and other external feeds remain explicitly unassessed when absent. Available questionnaire climate/travel, protection and life-stage inputs can modify priorities. The assumed age is a testing setting and must be replaced by real profile context in the product adapter.
+
+## Saving, privacy and versions
+
+Photos and answers stay in page memory until **Save test session** explicitly writes to this browser's IndexedDB. Saved sessions contain the photo, questionnaire, signed analysis, results, decision history and notes. Export JSON contains the same sensitive data. Delete removes that local saved record; it does not delete provider records. Old YouCam data remains readable and is never resumed or remotely deleted.
+
+The questionnaire is evaluated on the prototype server; it is not sent in the vision prompt. OpenAI requests set `store: false`; provider retention policies still apply. Scan references expire after 24 hours and become invalid if the signing key changes. Historical results can still be reopened after expiry, but new evaluation needs a valid reference/new scan. Saving is not cross-device storage.
+
+A new photo invalidates findings. Answer revisions and request sequence guards reject stale responses. A new evaluation appends a versioned result; saved historical decisions are not overwritten automatically. Old incompatible questionnaires preserve their saved result and request current answers.
 
 ## Validation
 
 ```sh
 npm run test:face-scan
+python3 prototypes/face-scan/import_workbook_test.py
 npx tsc --noEmit
 npm run lint
 npm run build:web
 ```
 
-Transport tests use mocked providers and no real faces. Live endpoint/account compatibility, output appearance, timing, and deletion behavior must be checked with a consenting test photo after both credentials are present.
+The suite includes all 16 condition routes, all 14 ingredient identities, source/update compatibility, eligibility and evidence scope, signed scan reuse and nine workbook acceptance cases. The latter use explicit synthetic product/outcome/admission objects: passing them is not clinical validation or proof of a production integration. Browser checks cover synthetic resolution, chips, quiz edits and local save/reopen. No live paid photo scan is part of automated validation.
 
-References: [YouCam skin analysis](https://docs.perfectcorp.com/reference/ai_skin_analysis), [task deletion](https://docs.perfectcorp.com/reference/task_management), [OpenAI image inputs](https://developers.openai.com/api/docs/guides/images-vision).
+## Hosting and migration
 
-### Regional OpenAI experiment
+`npm run build:web` compiles the engine, exports Expo and copies the prototype public assets. The existing Vercel API uses the same adapter. Hosting is prepared, not deployed. Validate a protected preview before promotion.
 
-The lab defaults to GPT-5.6 Sol, with Terra and Luna selectable per run. YouCam is opt-in so OpenAI experiments can run independently. Model selection is server-allowlisted and recorded in each response. Regional prompt `regional-concerns-v3` returns four concern scores per visible facial region and approximate normalized polygons. These are model-estimated anatomical outlines, not landmark detection or pixel-level concern segmentation. Invalid outlines are omitted; missing scores remain unavailable. Older saved runs need a fresh analysis to obtain regions. The original image is preserved under an SVG layer; hover/focus previews and click selects. Evidence panels sit together above whole-face concern signals.
+For the product app, adapt its photo findings/profile/questionnaire to the shared contracts, reconcile workbook ingredient IDs with the catalog, add authenticated persistence, and render the response in React Native. Real product expressions, external signals, longitudinal learning and evidence/clinical approval remain separate integrations. See `docs/FULL_INGREDIENT_PROTOTYPE_PLAN.md` and `docs/CONDITION_TO_INGREDIENT_ENGINE.md` for the tracked scope.
 
-Cost estimates support the three selectable models using standard published rates verified September 16, 2026. Sol's promotional rate should be reviewed after November 21, 2026. No claim of parity with YouCam is made; evaluate localization and repeated-run consistency before integration.
+### Curated product suggestions
+
+Ingredient results now include `productSuggestions` from the portable product matcher. The independent catalog lives in `catalog/curated-products.json`; increment its version when product facts change and verify official brand links, US formulations, concentrations and required treatment IDs. Only eligible ingredients may match. Product cards sit above Concern signals and retain source links, catalog version and knowledge/rule provenance in saved results. These are alternative ingredient matches, not a prescribed routine or finished-product efficacy assessment. No external product database is connected. Run `npm run test:face-scan` for eligibility, deduplication and context regression coverage.
+
+Catalog v2 now contains 12 products. `productSuggestions.items` remains eligible matches; `demoItems` contains visibly labeled catalog examples for unresolved support-ingredient links. Demo examples do not admit evidence or override holds. See the latest workflow-demo entry in `docs/CONDITION_TO_INGREDIENT_ENGINE.md` for exact exclusions.

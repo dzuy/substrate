@@ -1,18 +1,11 @@
-// Range alignment only; provider scores are not empirically calibrated to one another.
+// Visual scores are exploratory, not calibrated clinical measurements.
 export function concernScore(run, provider, concern) {
   if (run?.status !== 'success') return null;
-  if (provider === 'youcam') {
-    const rows = (run.rows || []).filter(row => row.type === 'hd_' + concern || row.type === concern);
-    const row = rows.find(row => ['whole', 'all'].includes(row.region)) || rows.find(row => !row.region);
-    const raw = row?.raw_score;
-    return Number.isFinite(raw) && raw >= 1 && raw <= 100 ? (100 - raw) * 100 / 99 : null;
-  }
   const value = run.analysis?.[concern];
   return run.analysis?.faceDetected && Number.isFinite(value) && value >= 0 && value <= 100 ? value : null;
 }
 
 // Standard USD rates verified 2026-09-16; historical runs are estimates at these rates.
-export const youcamCost = 12 * 24 / 500;
 export function openaiCost(run) {
   const model = run?.raw?.model || run?.model;
   const tier = /^gpt-6-astra(?:-\d{4}-\d{2}-\d{2})?$/.test(model || '') ? 'astra' : /^gpt-5\.6-(sol|terra|luna)(?:-\d{4}-\d{2}-\d{2})?$/.exec(model || '')?.[1];
