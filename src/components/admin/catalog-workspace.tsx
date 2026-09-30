@@ -46,7 +46,7 @@ export default function CatalogWorkspace() {
   const [total, setTotal] = useState(0);
   const [counts, setCounts] = useState<Record<string, number>>({ active: 0, published: 0, unpublished: 0, archived: 0 });
   const [brandQuery, setBrandQuery] = useState('');
-  const [sort, setSort] = useState<'name' | 'brand' | 'category'>('name');
+  const [sort, setSort] = useState<'name' | 'brand' | 'category' | 'ingredients' | 'availability'>('name');
   const [descending, setDescending] = useState(false);
   const [page, setPage] = useState(1);
   const [editor, setEditor] = useState(false);
