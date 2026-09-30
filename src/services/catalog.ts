@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { collectCatalogRows } from './catalog-pagination';
 import type {
   Database,
   ProductCategory,
@@ -104,11 +105,11 @@ type WardrobeQueryRow = WardrobeItemRow & {
 };
 
 export async function listBrands() {
-  return supabase.from('brands').select('*').order('name', { ascending: true });
+  return collectCatalogRows<BrandRow>((from, to) => supabase.from('brands').select('*').order('name').order('id').range(from, to));
 }
 
 export async function listIngredients() {
-  return supabase.from('ingredients').select('*').order('name', { ascending: true });
+  return collectCatalogRows<IngredientRow>((from, to) => supabase.from('ingredients').select('*').order('name').order('id').range(from, to));
 }
 
 export async function listCatalogProducts({ includeArchived = false, includeUnpublished = false } = {}) {
@@ -132,7 +133,7 @@ export async function listCatalogProducts({ includeArchived = false, includeUnpu
 
   if (!includeUnpublished) query = query.eq('catalog_visible', true);
 
-  const response = await query;
+  const response = await collectCatalogRows<ProductQueryRow>((from, to) => query.order('id').range(from, to));
 
   return {
     data: response.data?.map(normalizeCatalogProduct) ?? null,
@@ -227,7 +228,7 @@ export async function saveProductWithIngredients(input: ProductInput) {
 export async function archiveProduct(productId: string) {
   return supabase
     .from('products')
-    .update({ archived_at: new Date().toISOString(), status: 'draft' })
+    .update({ archived_at: new Date().toISOString(), status: 'draft',catalog_visible:false,recommendation_enabled:false })
     .eq('id', productId)
     .select('*')
     .single();
@@ -319,7 +320,7 @@ export async function removeWardrobeItem(itemId: string) {
   return supabase.from('user_wardrobe_items').delete().eq('id', itemId);
 }
 
-async function getCatalogProduct(productId: string) {
+export async function getCatalogProduct(productId: string) {
   const response = (await supabase
     .from('products')
     .select(

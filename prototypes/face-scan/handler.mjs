@@ -2,6 +2,7 @@ import { timingSafeEqual, createHmac, createHash } from 'node:crypto';
 import { resolveIngredients, conditionOptions, knowledgeInfo } from './ingredients.mjs';
 import { questions } from './public/questions.mjs';
 import { createProviders } from './providers.mjs';
+import { loadDatabaseCatalog } from './catalog/database.mjs';
 
 const MAX_BODY = 3_900_000;
 function equal(a, b) {
@@ -59,7 +60,7 @@ export function createHandler({ env = process.env, fetcher = fetch, local = fals
     }
     try {
       const body = await bodyOf(req);
-      if (body.action === 'config') return send(200, { openai: Boolean(env.OPENAI_API_KEY), model: 'gpt-5.6-sol', local, questions, conditionOptions, knowledge: knowledgeInfo });
+      if (body.action === 'config') return send(200, { openai: Boolean(env.OPENAI_API_KEY), model: 'gpt-5.6-sol', local, questions, conditionOptions, knowledge: knowledgeInfo, catalogAuthStorageKey:env.EXPO_PUBLIC_SUPABASE_URL ? 'sb-'+new URL(env.EXPO_PUBLIC_SUPABASE_URL).hostname.split('.')[0]+'-auth-token' : null });
       if (body.action === 'openai') {
         if (body.mode !== 'detail') return send(400, { error: 'Unknown analysis mode.' });
         const result = await providers.openai(body.image, body.model);
@@ -71,11 +72,11 @@ export function createHandler({ env = process.env, fetcher = fetch, local = fals
         const concerns = { C_ACNE:['acne'],C_ROSACEA:['redness'],C_PIH:['residual_marks','pigmentation'],C_MELASMA:['pigmentation'],C_BARRIER:['flaking'],C_TEXTURE:['texture','pore'],C_PHOTOAGING:['fine_lines','pigmentation'],C_WRINKLE:['fine_lines'],C_GLOW:[] }[body.conditionId] || [];
         const names = ['redness','acne','texture','pore','pigmentation','flaking','fine_lines','residual_marks'];
         const analysis = { faceDetected:true, lighting:90,sharpness:90,framing:90,confidence:90,retakeReasons:[],regions:[],summary:'Synthetic test fixture. No photo inference was performed.',photoLimitations:['Synthetic test fixture'],observations:[],detailedFindings:names.map(concern=>({concern,assessment:concerns.includes(concern)?'visible':'not visible',observation:'Synthetic scenario',distribution:'Test fixture',uncertainty:'Not a real photo analysis',followUpQuestion:null})),...Object.fromEntries(names.map(n=>[n,concerns.includes(n)?35:0])) };
-        return send(200, { analysis, ingredients:resolveIngredients(analysis,body.answers), synthetic:true, conditionId:body.conditionId });
+        return send(200, { analysis, ingredients:resolveIngredients(analysis,body.answers,await loadDatabaseCatalog(env,fetcher,req.headers.authorization)), synthetic:true, conditionId:body.conditionId });
       }
       if (body.action === 'ingredients') {
         const signed = verify(body.analysisToken);
-        return send(200, { ...resolveIngredients(signed.analysis, body.answers), imageHash: signed.imageHash, model: signed.model, promptVersion: signed.promptVersion });
+        return send(200, { ...resolveIngredients(signed.analysis, body.answers,await loadDatabaseCatalog(env,fetcher,req.headers.authorization)), imageHash: signed.imageHash, model: signed.model, promptVersion: signed.promptVersion });
       }
       return send(400, { error: 'Unknown action.' });
     } catch (error) {

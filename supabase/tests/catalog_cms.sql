@@ -2,9 +2,9 @@
 begin;
 do $$
 begin
-  if (select count(*) from public.catalog_records) <> 285 then raise exception 'Canonical count mismatch'; end if;
-  if (select count(*) from public.catalog_records where product_id is not null) <> 192 then raise exception 'Retail count mismatch'; end if;
-  if (select count(*) from public.catalog_reviews) <> 411 then raise exception 'Review count mismatch'; end if;
+  if (select count(*) from public.catalog_records where source_id like 'SKP-%') <> 285 then raise exception 'Pilot canonical count mismatch'; end if;
+  if (select count(*) from public.catalog_records where source_id like 'SKP-%' and product_id is not null) <> 192 then raise exception 'Pilot retail count mismatch'; end if;
+  if (select count(*) from public.catalog_reviews where id not like 'brand-review-%') <> 411 then raise exception 'Pilot review count mismatch'; end if;
   if exists (select 1 from public.catalog_records where product_id is not null and entity_type not in ('Finished Product','Multi-step System / Kit')) then raise exception 'Non-retail entity entered products'; end if;
 end;
 $$;

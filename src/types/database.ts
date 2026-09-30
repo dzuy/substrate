@@ -182,6 +182,14 @@ export type ProductSubmissionStatus = 'pending' | 'approved' | 'rejected' | 'mer
 export type Database = {
   public: {
     Tables: {
+      catalog_sources: {
+        Row: { source_id: string; product_id: string | null; import_id: string; source_file_id: string; sheet_name: string; source_row: number; fields: Record<string, string>; raw_fields: Json; created_at: string };
+        Insert: never; Update: never; Relationships: [];
+      };
+      catalog_engine_expressions: {
+        Row: { product_id: string; ingredient_id: string; engine_ingredient_id: string; role: 'primary' | 'support'; required_eligible: boolean; approved: boolean };
+        Insert: never; Update: never; Relationships: [];
+      };
       catalog_records: {
         Row: CatalogRecord;
         Insert: never;
@@ -501,6 +509,10 @@ export type Database = {
       };
       products: {
         Row: {
+          product_type?: string;
+          formula_status?: string;
+          recommendation_enabled?: boolean;
+          variant_label?: string | null;
           id: string;
           brand_id: string;
           name: string;
@@ -536,6 +548,7 @@ export type Database = {
         };
         Update: {
           brand_id?: string;
+          recommendation_enabled?: boolean;
           name?: string;
           slug?: string | null;
           category?: ProductCategory;
@@ -700,6 +713,9 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      search_catalog_products: { Args: { filters: Json; page_index: number; page_size: number }; Returns: Json };
+      get_recommendation_catalog: { Args: Record<string, never>; Returns: Json };
+      set_catalog_recommendation_enabled: { Args: { target_id: string; enabled: boolean; expected_updated_at: string }; Returns: undefined };
       save_catalog_product: {
         Args: { product_data: Json; ingredient_data: Json; evidence_data: Json; expected_updated_at: string | null; expected_evidence_updated_at: string | null };
         Returns: string;

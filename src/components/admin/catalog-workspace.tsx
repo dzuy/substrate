@@ -1,21 +1,23 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Archive, ArrowDown, ArrowUp, ArrowUpRight, Box, Check, ChevronLeft, ChevronRight, ClipboardList, Database, FileText, Layers, Plus, RefreshCw, Save, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { isCatalogAdmin } from '@/lib/admin';
 import { useAuth } from '@/lib/auth-context';
-import { archiveProduct, createBrand, createIngredient, listBrands, listCatalogProducts, listIngredients, productCategories, productStatuses, type CatalogBrand, type CatalogIngredient, type CatalogProduct, type ProductIngredientInput } from '@/services/catalog';
-import { listCatalogHistory, listCatalogRecords, listCatalogReviews, restoreProduct, saveCatalogReview, saveCmsProduct, type CatalogRecord, type CatalogReview } from '@/services/catalog-cms';
+import { archiveProduct, createBrand, createIngredient, getCatalogProduct, listBrands, listIngredients, productCategories, productStatuses, type CatalogBrand, type CatalogIngredient, type CatalogProduct, type ProductIngredientInput } from '@/services/catalog';
+import { getCatalogExpressions, getCatalogSources, type EngineExpression, getCatalogRecord, listCatalogImports, listCmsProductPage, listCatalogHistory, listCatalogRecords, listCatalogReviews, restoreProduct, saveCatalogReview, saveCmsProduct, type CatalogRecord, type CatalogReview } from '@/services/catalog-cms';
 import type { Database as DatabaseTypes, ProductCategory, ProductStatus } from '@/types/database';
 import { evidenceSections, fieldLabel } from './catalog-fields';
 import './catalog-workspace.css';
+import { key as ingredientKey, parseIngredients } from '@/lib/inci-parser.mjs';
+import engineIngredients from '@/lib/catalog-engine-ingredients.json';
 
 type Workspace = 'products' | 'reviews' | 'sources';
-type EditorTab = 'overview' | keyof typeof evidenceSections | 'ingredients' | 'reviews' | 'history';
-type Form = { id?: string; brandId: string; newBrandName: string; name: string; category: ProductCategory; description: string; imageUrl: string; barcode: string; upc: string; aliasesText: string; status: ProductStatus; catalogVisible: boolean; expectedUpdatedAt?: string; record: CatalogRecord | null; ingredients: ProductIngredientInput[] };
-const emptyForm: Form = { brandId: '', newBrandName: '', name: '', category: 'other', description: '', imageUrl: '', barcode: '', upc: '', aliasesText: '', status: 'needs_review', catalogVisible: false, record: null, ingredients: [] };
+type EditorTab = 'overview' | keyof typeof evidenceSections | 'ingredients' | 'recommendations' | 'reviews' | 'history';
+type Form = { id?: string; brandId: string; newBrandName: string; name: string; category: ProductCategory; description: string; imageUrl: string; barcode: string; upc: string; aliasesText: string; status: ProductStatus; catalogVisible: boolean; expectedUpdatedAt?: string; record: CatalogRecord | null; ingredients: ProductIngredientInput[]; engineExpressions: EngineExpression[]; recommendationEnabled: boolean };
+const emptyForm: Form = { brandId: '', newBrandName: '', name: '', category: 'other', description: '', imageUrl: '', barcode: '', upc: '', aliasesText: '', status: 'needs_review', catalogVisible: false, record: null, ingredients: [], engineExpressions: [], recommendationEnabled: false };
 const label = (value: string) => value === 'spf' ? 'SPF' : value.replaceAll('_', ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(' ');
-function toForm(product: CatalogProduct, record?: CatalogRecord): Form {
-  return { id: product.id, brandId: product.brand_id, newBrandName: '', name: product.name, category: product.category, description: product.description ?? '', imageUrl: product.image_url ?? '', barcode: product.barcode ?? '', upc: product.upc ?? '', aliasesText: product.aliases.join(', '), status: product.status, catalogVisible: product.catalog_visible, expectedUpdatedAt: product.updated_at, record: record ?? null, ingredients: product.ingredients.map((i) => ({ ingredientId: i.ingredient_id, ingredientOrder: i.ingredient_order, concentration: i.concentration, concentrationUnit: i.concentration_unit, notes: i.notes })) };
+function toForm(product: CatalogProduct, record?: CatalogRecord, expressions: EngineExpression[] = []): Form {
+  return { id: product.id, brandId: product.brand_id, newBrandName: '', name: product.name, category: product.category, description: product.description ?? '', imageUrl: product.image_url ?? '', barcode: product.barcode ?? '', upc: product.upc ?? '', aliasesText: product.aliases.join(', '), status: product.status, catalogVisible: product.catalog_visible, expectedUpdatedAt: product.updated_at, record: record ?? null, ingredients: product.ingredients.map((i) => ({ ingredientId: i.ingredient_id, ingredientOrder: i.ingredient_order, concentration: i.concentration, concentrationUnit: i.concentration_unit, notes: i.notes })), engineExpressions: expressions, recommendationEnabled: product.recommendation_enabled ?? false };
 }
 
 export default function CatalogWorkspace() {
@@ -36,6 +38,12 @@ export default function CatalogWorkspace() {
   const [brandFilter, setBrandFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [formulaFilter, setFormulaFilter] = useState('all');
+  const [batchFilter, setBatchFilter] = useState('all');
+  const [imports,setImports] = useState<{id:string;title:string|null}[]>([]);
+  const [total, setTotal] = useState(0);
+  const [counts, setCounts] = useState<Record<string, number>>({ active: 0, published: 0, unpublished: 0, archived: 0 });
   const [brandQuery, setBrandQuery] = useState('');
   const [sort, setSort] = useState<'name' | 'brand' | 'category' | 'status'>('name');
   const [descending, setDescending] = useState(false);
@@ -43,6 +51,7 @@ export default function CatalogWorkspace() {
   const [editor, setEditor] = useState(false);
   const [tab, setTab] = useState<EditorTab>('overview');
   const [form, setForm] = useState<Form>(emptyForm);
+  const [selectedProduct,setSelectedProduct] = useState<CatalogProduct|null>(null);
   const [baseline, setBaseline] = useState(JSON.stringify(emptyForm));
   const [ingredientQuery, setIngredientQuery] = useState('');
   const [editingIngredient, setEditingIngredient] = useState<string | null>(null);
@@ -52,9 +61,8 @@ export default function CatalogWorkspace() {
   const searchRef = useRef<HTMLInputElement>(null);
   const saveLock = useRef(false);
   const requestVersion = useRef(0);
+  const metadataLoaded = useRef(false);
   const dirty = JSON.stringify(form) !== baseline;
-  const recordMap = useMemo(() => new Map(records.filter((r) => r.product_id).map((r) => [r.product_id, r])), [records]);
-  const active = products.filter((p) => !p.archived_at);
   const openReviews = reviews.filter((r) => r.status !== 'RESOLVED').length;
 
   const load = useCallback(async () => {
@@ -62,16 +70,22 @@ export default function CatalogWorkspace() {
     const version = ++requestVersion.current;
     setLoading(true); setError('');
     try {
-      const [p, b, i, r, q] = await Promise.all([listCatalogProducts({ includeArchived: true, includeUnpublished: true }), listBrands(), listIngredients(), listCatalogRecords(), listCatalogReviews()]);
+      const p = await listCmsProductPage({ query: query.trim(), availability, brand: brandFilter, category: categoryFilter, status: statusFilter, product_type: typeFilter, formula_status: formulaFilter, batch: batchFilter, sort, descending }, page);
       if (version !== requestVersion.current) return;
-      const failure = p.error || b.error || i.error || r.error || q.error;
-      if (failure) throw new Error(failure.message);
-      setProducts(p.data ?? []); setBrands(b.data ?? []); setIngredients(i.data ?? []); setRecords(r.data ?? []); setReviews(q.data ?? []);
+      if (p.error || !p.data) throw new Error(p.error?.message ?? 'Could not load catalog page');
+      setProducts(p.data.products); setTotal(p.data.total); setCounts(p.data.counts);
+      if (!metadataLoaded.current) {
+        const [b, i, r, q, batches] = await Promise.all([listBrands(), listIngredients(), listCatalogRecords(), listCatalogReviews(),listCatalogImports()]);
+        if (version !== requestVersion.current) return;
+        const failure = b.error || i.error || r.error || q.error || batches.error;
+        if (failure) throw new Error(failure.message);
+        setBrands(b.data ?? []); setIngredients(i.data ?? []); setRecords(r.data ?? []); setReviews(q.data ?? []); setImports(batches.data??[]); metadataLoaded.current = true;
+      }
     } catch (e) { if (version === requestVersion.current) setError(e instanceof Error ? e.message : 'Could not load the catalog. Try refreshing.'); }
     finally { if (version === requestVersion.current) setLoading(false); }
-  }, [canManage]);
-  useEffect(() => { const requests = requestVersion; void load(); return () => { requests.current++; }; }, [load]);
-  useEffect(() => { setPage(1); }, [query, availability, brandFilter, categoryFilter, statusFilter, sort, descending, workspace]);
+  }, [canManage, query, availability, brandFilter, categoryFilter, statusFilter, typeFilter, formulaFilter, batchFilter, sort, descending, page]);
+  useEffect(() => { const version = requestVersion.current; const timer = setTimeout(() => void load(), 200); return () => { clearTimeout(timer); requestVersion.current = Math.max(requestVersion.current, version + 1); }; }, [load]);
+  useEffect(() => { setPage(1); }, [query, availability, brandFilter, categoryFilter, statusFilter, typeFilter, formulaFilter, batchFilter, sort, descending, workspace]);
   useEffect(() => {
     if (!dirty || !editor) return;
     const protect = (event: BeforeUnloadEvent) => { event.preventDefault(); };
@@ -79,19 +93,9 @@ export default function CatalogWorkspace() {
     return () => window.removeEventListener('beforeunload', protect);
   }, [dirty, editor]);
 
-  const filtered = useMemo(() => products.filter((p) => {
-    const text = [p.name, p.brand?.name, ...p.aliases, recordMap.get(p.id)?.source_id].join(' ').toLowerCase();
-    const matchesAvailability = availability === 'archived' ? !!p.archived_at : !p.archived_at && (availability === 'all' || (availability === 'published' ? p.catalog_visible : !p.catalog_visible));
-    return matchesAvailability && (brandFilter === 'all' || p.brand_id === brandFilter) && (categoryFilter === 'all' || p.category === categoryFilter) && (statusFilter === 'all' || p.status === statusFilter) && text.includes(query.trim().toLowerCase());
-  }).sort((a, b) => {
-    const aValue = sort === 'brand' ? a.brand?.name ?? '' : a[sort];
-    const bValue = sort === 'brand' ? b.brand?.name ?? '' : b[sort];
-    return (aValue.localeCompare(bValue) || a.name.localeCompare(b.name)) * (descending ? -1 : 1);
-  }), [products, recordMap, query, availability, brandFilter, categoryFilter, statusFilter, sort, descending]);
-  const pages = Math.max(1, Math.ceil(filtered.length / 25));
+  const pages = Math.max(1, Math.ceil(total / 25));
   const currentPage = Math.min(page, pages);
-  const pageProducts = filtered.slice((currentPage - 1) * 25, currentPage * 25);
-  const selectedProduct = products.find((p) => p.id === form.id);
+  const pageProducts = products;
   const productReviews = reviews.filter((r) => form.record && [r.fields.product_id, ...(r.fields.affected_ids ?? '').split(/[,;]/)].map((id) => id.trim()).includes(form.record.source_id));
   const filteredSources = records.filter((r) => !r.product_id && [r.source_id, ...Object.values(r.fields)].join(' ').toLowerCase().includes(query.toLowerCase()));
   const filteredReviews = reviews.filter((r) => [r.id, ...Object.values(r.fields)].join(' ').toLowerCase().includes(query.toLowerCase()));
@@ -103,11 +107,20 @@ export default function CatalogWorkspace() {
     else action();
   }
   function navigate(next: Workspace) { guard(() => { setWorkspace(next); setEditor(false); setSource(null); setQuery(''); setNotice(''); setError(''); }); }
-  function openProduct(product?: CatalogProduct, reviewId?: string) {
-    guard(() => { setReviewContext(reviewId ?? null); const next = product ? toForm(product, recordMap.get(product.id)) : { ...emptyForm }; setForm(next); setBaseline(JSON.stringify(next)); setEditor(true); setTab('overview'); setIngredientQuery(''); setError(''); setNotice(''); });
+  function openProduct(product?: Pick<CatalogProduct, 'id'>, reviewId?: string) {
+    guard(() => { void (async () => {
+      setError(''); setNotice('');
+      const detail = product ? await getCatalogProduct(product.id) : null;
+      const evidence = product ? await getCatalogRecord(product.id) : null;
+      const expressions = product ? await getCatalogExpressions(product.id) : null;
+      if (detail?.error || evidence?.error || expressions?.error) { setError(detail?.error?.message ?? evidence?.error?.message ?? expressions?.error?.message ?? 'Could not open product'); return; }
+      const next = detail?.data ? toForm(detail.data, evidence?.data ?? undefined, expressions?.data ?? []) : { ...emptyForm };
+      setSelectedProduct(detail?.data??null);
+      setReviewContext(reviewId ?? null); setForm(next); setBaseline(JSON.stringify(next)); setEditor(true); setTab('overview'); setIngredientQuery('');
+    })().catch((e) => setError(e instanceof Error ? e.message : 'Could not open product')); });
   }
   function changeSort(next: typeof sort) { if (next === sort) setDescending(!descending); else { setSort(next); setDescending(false); } }
-  function clearFilters() { setAvailability('all'); setBrandFilter('all'); setCategoryFilter('all'); setStatusFilter('all'); setBrandQuery(''); setQuery(''); }
+  function clearFilters() { setAvailability('all'); setBrandFilter('all'); setCategoryFilter('all'); setStatusFilter('all'); setTypeFilter('all'); setFormulaFilter('all'); setBatchFilter('all'); setBrandQuery(''); setQuery(''); }
 
   const save = useCallback(async () => {
     if (saveLock.current || !dirty) return;
@@ -122,10 +135,15 @@ export default function CatalogWorkspace() {
       if (result.error || !result.data) throw new Error(result.error?.message ?? 'The product could not be saved.');
       const evidence = await listCatalogRecords();
       if (evidence.error) { setBaseline(JSON.stringify(form)); setEditor(false); setNotice('Product saved. Refresh the catalog to load the latest evidence.'); await load(); return; }
-      const next = toForm(result.data, evidence.data?.find((r) => r.product_id === result.data?.id));
-      setProducts((current) => [...current.filter((p) => p.id !== result.data!.id), result.data!]);
+      const expressions = await getCatalogExpressions(result.data.id);
+      if (expressions.error) throw new Error(expressions.error.message);
+      const savedEvidence = await getCatalogRecord(result.data.id);
+      if(savedEvidence.error)throw new Error(savedEvidence.error.message);
+      const next = toForm(result.data, savedEvidence.data ?? undefined, expressions.data ?? []);
+      setSelectedProduct(result.data);
       setRecords(evidence.data ?? []); setForm(next); setBaseline(JSON.stringify(next)); setNotice('All changes saved.');
       const nextBrands = await listBrands(); if (nextBrands.data) setBrands(nextBrands.data);
+      await load();
     } catch (e) { setError(e instanceof Error ? e.message : 'Connection failed. Your edits are still here.'); }
     finally { saveLock.current = false; setSaving(false); }
   }, [dirty, form, load]);
@@ -159,13 +177,30 @@ export default function CatalogWorkspace() {
   function attachIngredient(id: string) { if (form.ingredients.some((i) => i.ingredientId === id)) return; update({ ingredients: [...form.ingredients, { ingredientId: id, ingredientOrder: form.ingredients.length + 1 }] }); setIngredientQuery(''); }
   function updateIngredient(index: number, next: Partial<ProductIngredientInput>) { update({ ingredients: form.ingredients.map((i, position) => position === index ? { ...i, ...next } : i) }); }
 
+  async function parseFormula() {
+    const parsed = parseIngredients(form.record?.fields.ingredient_list ?? '');
+    if (parsed.reason) { setError(parsed.reason); return; }
+    const matched: ProductIngredientInput[] = [];
+    const unknown: string[] = [];
+    for (const item of parsed.items) {
+      const options = ingredients.filter((i) => [i.name, i.inci_name, ...i.aliases].filter(Boolean).some((name) => ingredientKey(name!) === ingredientKey(item.name)));
+      if (options.length !== 1) { unknown.push(item.name); continue; }
+      if (matched.some((i) => i.ingredientId === options[0].id)) continue;
+      matched.push({ ingredientId: options[0].id, ingredientOrder: item.order, concentration: item.concentration, concentrationUnit: item.concentration === null ? null : '%', notes: 'Parsed from current CMS formula; source order is not concentration.' });
+    }
+    if (unknown.length) { setError('Create or resolve these ingredient names in the library, then parse again: ' + unknown.join(', ')); return; }
+    update({ ingredients: matched, engineExpressions: [], recommendationEnabled: false, record: form.record ? { ...form.record, fields: { ...form.record.fields, formula_status: 'full_unverified' } } : null });
+    setNotice('Ingredient links prepared. Save, verify the complete formula, then review recommendation mappings.');
+  }
+
   if (!canManage) return <div className="cms cms-access"><Database size={30} color="#795365" /><h1>Catalog access required</h1><p>This workspace is available to catalog administrators.</p><a href="/profile">Return to your account</a></div>;
-  const filteredBy = [availability !== 'all', brandFilter !== 'all', categoryFilter !== 'all', statusFilter !== 'all'].filter(Boolean).length;
+  const filteredBy = [availability !== 'all', brandFilter !== 'all', categoryFilter !== 'all', statusFilter !== 'all', typeFilter !== 'all', formulaFilter !== 'all', batchFilter !== 'all'].filter(Boolean).length;
   const title = workspace === 'products' ? 'Products' : workspace === 'reviews' ? 'Review queue' : 'Source library';
   const editorTabs: { id: EditorTab; name: string; disabled?: boolean }[] = [
     { id: 'overview', name: 'Overview' }, { id: 'ingredients', name: 'Ingredients' }, ...Object.entries(evidenceSections).filter(([id]) => id !== 'formula').map(([id, section]) => ({ id: id as EditorTab, name: section.label, disabled: !form.record })),
+    { id: 'recommendations', name: 'Recommendations', disabled: !form.id },
     { id: 'reviews', name: 'Reviews' + (productReviews.length ? ' (' + productReviews.length + ')' : ''), disabled: !form.record }, { id: 'history', name: 'History', disabled: !form.id },
-    { id: 'formula', name: 'Original Source', disabled: !form.record },
+    { id: 'formula', name: 'Formula & sources', disabled: !form.record },
   ];
 
   return <div className="cms">
@@ -174,35 +209,38 @@ export default function CatalogWorkspace() {
       <aside className="cms-sidebar" aria-label="Catalog navigation and filters">
         <div className="cms-rail-heading">WORKSPACE</div>
         <nav className="cms-nav" aria-label="Admin workspace">
-          <button className={cx('cms-nav-item', workspace === 'products' && 'active')} onClick={() => navigate('products')}><Box size={17} /><span>Products</span><small>{active.length}</small></button>
+          <button className={cx('cms-nav-item', workspace === 'products' && 'active')} onClick={() => navigate('products')}><Box size={17} /><span>Products</span><small>{counts.active}</small></button>
           <button className={cx('cms-nav-item', workspace === 'reviews' && 'active')} onClick={() => navigate('reviews')}><ClipboardList size={17} /><span>Review queue</span><small>{openReviews}</small></button>
         </nav>
         <div className="cms-rail-rule" />
         {workspace === 'products' ? <div className={cx('cms-filter-scroll', editor && 'cms-filters-paused')}>
           <div className="cms-filter-heading"><span><SlidersHorizontal size={13} /> FILTERS</span><button className="cms-text-button" disabled={editor} onClick={clearFilters}>Reset{filteredBy ? ' (' + filteredBy + ')' : ''}</button></div>
           {editor ? <p className="cms-rail-hint">Filters are preserved while you edit.</p> : null}
+          <FilterSection title="Product type"><select aria-label="Product type" value={typeFilter} disabled={editor} onChange={(e) => setTypeFilter(e.target.value)}>{['all', 'topical', 'hair_scalp', 'cosmetic', 'device', 'supplement', 'accessory', 'unknown'].map((value) => <option key={value} value={value}>{value === 'all' ? 'All product types' : label(value)}</option>)}</select></FilterSection>
+          <FilterSection title="Ingredient completeness"><select aria-label="Ingredient completeness" value={formulaFilter} disabled={editor} onChange={(e) => setFormulaFilter(e.target.value)}>{['all', 'missing', 'partial', 'unresolved', 'full_unverified', 'full_verified', 'not_applicable'].map((value) => <option key={value} value={value}>{value === 'all' ? 'All ingredient statuses' : label(value)}</option>)}</select></FilterSection>
           <FilterSection title="Availability">
-            {[['all', 'All active', active.length], ['published', 'Published', active.filter((p) => p.catalog_visible).length], ['unpublished', 'Unpublished', active.filter((p) => !p.catalog_visible).length], ['archived', 'Archived', products.length - active.length]].map(([id, name, count]) => <FilterOption key={id} name={String(name)} count={Number(count)} selected={availability === id} disabled={editor} onClick={() => setAvailability(String(id))} />)}
+            {[['all', 'All active', counts.active], ['published', 'Published', counts.published], ['unpublished', 'Unpublished', counts.unpublished], ['archived', 'Archived', counts.archived]].map(([id, name, count]) => <FilterOption key={id} name={String(name)} count={Number(count)} selected={availability === id} disabled={editor} onClick={() => setAvailability(String(id))} />)}
           </FilterSection>
           <FilterSection title="Brand">
             <div className="cms-rail-search"><Search size={13} /><input aria-label="Filter brands" placeholder="Find a brand…" value={brandQuery} disabled={editor} onChange={(e) => setBrandQuery(e.target.value)} /></div>
             <div className="cms-brand-list"><FilterOption name="All brands" selected={brandFilter === 'all'} disabled={editor} onClick={() => setBrandFilter('all')} />
-              {brands.filter((b) => b.name.toLowerCase().includes(brandQuery.toLowerCase())).map((b) => <FilterOption key={b.id} name={b.name} count={products.filter((p) => p.brand_id === b.id && (availability === 'archived' ? !!p.archived_at : !p.archived_at)).length} selected={brandFilter === b.id} disabled={editor} onClick={() => setBrandFilter(b.id)} />)}
+              {brands.filter((b) => b.name.toLowerCase().includes(brandQuery.toLowerCase())).map((b) => <FilterOption key={b.id} name={b.name} selected={brandFilter === b.id} disabled={editor} onClick={() => setBrandFilter(b.id)} />)}
               {!brands.some((b) => b.name.toLowerCase().includes(brandQuery.toLowerCase())) ? <p className="cms-rail-hint">No matching brands</p> : null}
             </div>
           </FilterSection>
-          <FilterSection title="Category"><FilterOption name="All categories" selected={categoryFilter === 'all'} disabled={editor} onClick={() => setCategoryFilter('all')} />{productCategories.map((category) => <FilterOption key={category} name={label(category)} count={active.filter((p) => p.category === category).length} selected={categoryFilter === category} disabled={editor} onClick={() => setCategoryFilter(category)} />)}</FilterSection>
+          <FilterSection title="Source file"><select aria-label="Source file" value={batchFilter} disabled={editor} onChange={(e)=>setBatchFilter(e.target.value)}><option value="all">All source files</option>{imports.map(b=><option key={b.id} value={b.id}>{b.title||b.id}</option>)}</select></FilterSection>
+          <FilterSection title="Category"><FilterOption name="All categories" selected={categoryFilter === 'all'} disabled={editor} onClick={() => setCategoryFilter('all')} />{productCategories.map((category) => <FilterOption key={category} name={label(category)} selected={categoryFilter === category} disabled={editor} onClick={() => setCategoryFilter(category)} />)}</FilterSection>
           <FilterSection title="Verification"><FilterOption name="All statuses" selected={statusFilter === 'all'} disabled={editor} onClick={() => setStatusFilter('all')} />{productStatuses.map((status) => <FilterOption key={status} name={label(status)} selected={statusFilter === status} disabled={editor} onClick={() => setStatusFilter(status)} />)}</FilterSection>
         </div> : <div className="cms-rail-context"><Database size={18} /><strong>{workspace === 'reviews' ? 'Keep the catalog reliable' : 'Preserve the evidence'}</strong><p>{workspace === 'reviews' ? 'Track decisions, document resolutions, and work through outstanding product questions.' : 'Generic families, treatments and procedures are retained separately from the product catalog.'}</p></div>}
         <div className="cms-rail-footer"><span className="cms-live-dot" /><span>{loading ? 'Connecting…' : !products.length && error ? 'Connection needs attention' : 'Connected to database'}</span></div>
       </aside>
       <main className="cms-main">
-        <div className="cms-page-heading"><div><div className="cms-breadcrumb">Catalog management <ChevronRight size={12} />{title}</div><div className="cms-title-line"><h1>{title}</h1>{workspace === 'products' ? <span className="cms-count-badge">{active.length}</span> : null}</div><p>{workspace === 'products' ? 'Your product catalog, organized and ready to manage.' : workspace === 'reviews' ? 'Resolve outstanding questions with a clear record of every decision.' : 'Research entities preserved from the original product database.'}</p></div><div className="cms-heading-actions"><button className="cms-button" disabled={loading} onClick={() => void load()}><RefreshCw size={15} />Refresh</button>{workspace === 'products' ? <button className="cms-button primary" disabled={loading} onClick={() => openProduct()}><Plus size={16} />New product</button> : null}</div></div>
+        <div className="cms-page-heading"><div><div className="cms-breadcrumb">Catalog management <ChevronRight size={12} />{title}</div><div className="cms-title-line"><h1>{title}</h1>{workspace === 'products' ? <span className="cms-count-badge">{counts.active}</span> : null}</div><p>{workspace === 'products' ? 'Your product catalog, organized and ready to manage.' : workspace === 'reviews' ? 'Resolve outstanding questions with a clear record of every decision.' : 'Research entities preserved from the original product database.'}</p></div><div className="cms-heading-actions"><button className="cms-button" disabled={loading} onClick={() => { metadataLoaded.current = false; void load(); }}><RefreshCw size={15} />Refresh</button>{workspace === 'products' ? <button className="cms-button primary" disabled={loading} onClick={() => openProduct()}><Plus size={16} />New product</button> : null}</div></div>
         {!editor && error ? <div className="cms-banner error" role="alert">{error}</div> : null}
         {!editor && notice ? <div className="cms-banner success" role="status">{notice}</div> : null}
 
-          <div className="cms-toolbar"><div className="cms-search"><Search size={17} color="#7d7980" /><input ref={searchRef} aria-label={'Search ' + title.toLowerCase()} placeholder={workspace === 'products' ? 'Search products, brands, or source IDs…' : 'Search ' + title.toLowerCase() + '…'} value={query} onChange={(e) => setQuery(e.target.value)} />{query ? <button aria-label="Clear search" onClick={() => setQuery('')}><X size={15} /></button> : <kbd>⌘ K</kbd>}</div><span className="cms-result-count">{workspace === 'products' ? filtered.length : workspace === 'reviews' ? filteredReviews.length : filteredSources.length} results</span>{workspace === 'products' && filteredBy ? <button className="cms-text-button" onClick={clearFilters}>Clear filters</button> : null}</div>
-          {workspace === 'products' ? <><div className="cms-table-viewport" aria-busy={loading}><table className="cms-table cms-product-table"><thead><tr>{[['name', 'Product'], ['brand', 'Brand'], ['category', 'Category'], ['status', 'Verification']].map(([id, name]) => <th key={id}><button onClick={() => changeSort(id as typeof sort)}>{name}{sort === id ? descending ? <ArrowDown size={12} /> : <ArrowUp size={12} /> : null}</button></th>)}<th>Availability</th><th><span className="cms-sr-only">Open product</span></th></tr></thead><tbody>{!loading && pageProducts.map((p) => <tr key={p.id} onClick={() => openProduct(p)}><td><button className="cms-product-name" onClick={(e) => { e.stopPropagation(); openProduct(p); }}><span className="cms-product-icon"><Box size={17} color="#887382" /></span><span>{p.name}</span></button></td><td className="cms-brand-cell">{p.brand?.name ?? '—'}</td><td><span className="cms-category">{label(p.category)}</span></td><td><Badge value={p.status} /></td><td><span className={cx('cms-availability', p.catalog_visible && !p.archived_at && 'published')}><i />{p.archived_at ? 'Archived' : p.catalog_visible ? 'Published' : 'Unpublished'}</span></td><td><ChevronRight size={15} color="#a19aa1" /></td></tr>)}</tbody></table>{loading ? <Empty title="Loading the catalog…" detail="Fetching the latest records from the database." /> : !filtered.length ? <Empty title="No products found" detail="Try a different search or reset the filters." action={<button className="cms-button" onClick={clearFilters}>Reset filters</button>} /> : null}</div><footer className="cms-table-footer"><span>{filtered.length ? (currentPage - 1) * 25 + 1 : 0}–{Math.min(currentPage * 25, filtered.length)} of {filtered.length} products<span className="cms-footer-divider">·</span>25 per page</span><div className="cms-pagination"><button aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><ChevronLeft size={15} /></button><span>Page {currentPage} of {pages}</span><button aria-label="Next page" disabled={currentPage === pages} onClick={() => setPage(currentPage + 1)}><ChevronRight size={15} /></button></div></footer></> : null}
+          <div className="cms-toolbar"><div className="cms-search"><Search size={17} color="#7d7980" /><input ref={searchRef} aria-label={'Search ' + title.toLowerCase()} placeholder={workspace === 'products' ? 'Search products, brands, or source IDs…' : 'Search ' + title.toLowerCase() + '…'} value={query} onChange={(e) => setQuery(e.target.value)} />{query ? <button aria-label="Clear search" onClick={() => setQuery('')}><X size={15} /></button> : <kbd>⌘ K</kbd>}</div><span className="cms-result-count">{workspace === 'products' ? total : workspace === 'reviews' ? filteredReviews.length : filteredSources.length} results</span>{workspace === 'products' && filteredBy ? <button className="cms-text-button" onClick={clearFilters}>Clear filters</button> : null}</div>
+          {workspace === 'products' ? <><div className="cms-table-viewport" aria-busy={loading}><table className="cms-table cms-product-table"><thead><tr>{[['name', 'Product'], ['brand', 'Brand'], ['category', 'Category'], ['status', 'Verification']].map(([id, name]) => <th key={id}><button onClick={() => changeSort(id as typeof sort)}>{name}{sort === id ? descending ? <ArrowDown size={12} /> : <ArrowUp size={12} /> : null}</button></th>)}<th>Availability</th><th><span className="cms-sr-only">Open product</span></th></tr></thead><tbody>{!loading && pageProducts.map((p) => <tr key={p.id} onClick={() => openProduct(p)}><td><button className="cms-product-name" onClick={(e) => { e.stopPropagation(); openProduct(p); }}><span className="cms-product-icon"><Box size={17} color="#887382" /></span><span>{p.name}</span></button></td><td className="cms-brand-cell">{p.brand?.name ?? '—'}</td><td><span className="cms-category">{label(p.category)}</span></td><td><Badge value={p.status} /></td><td><span className={cx('cms-availability', p.catalog_visible && !p.archived_at && 'published')}><i />{p.archived_at ? 'Archived' : p.catalog_visible ? 'Published' : 'Unpublished'}</span></td><td><ChevronRight size={15} color="#a19aa1" /></td></tr>)}</tbody></table>{loading ? <Empty title="Loading the catalog…" detail="Fetching the latest records from the database." /> : !total ? <Empty title="No products found" detail="Try a different search or reset the filters." action={<button className="cms-button" onClick={clearFilters}>Reset filters</button>} /> : null}</div><footer className="cms-table-footer"><span>{total ? (currentPage - 1) * 25 + 1 : 0}–{Math.min(currentPage * 25, total)} of {total} products<span className="cms-footer-divider">·</span>25 per page</span><div className="cms-pagination"><button aria-label="Previous page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><ChevronLeft size={15} /></button><span>Page {currentPage} of {pages}</span><button aria-label="Next page" disabled={currentPage === pages} onClick={() => setPage(currentPage + 1)}><ChevronRight size={15} /></button></div></footer></> : null}
           {workspace === 'reviews' ? <div className="cms-secondary-scroll"><ReviewWorkspace products={products} records={records} onOpenProduct={openProduct} reviews={filteredReviews} onSaved={(r) => setReviews((current) => current.map((x) => x.id === r.id ? r : x))} /></div> : null}
           {workspace === 'sources' ? <div className="cms-secondary-scroll">{source ? <Section title={source.fields.product_name} description={source.source_id + ' · ' + source.entity_type}><button className="cms-button compact" onClick={() => setSource(null)}><ChevronLeft size={14} />Back to source records</button><dl className="cms-source-details">{Object.entries(source.fields).filter(([, value]) => value).map(([key, value]) => <div key={key}><dt>{fieldLabel(key)}</dt><dd>{value}</dd></div>)}</dl></Section> : <><div className="cms-inline-note"><FileText size={17} /><span>These entities are retained as research records. They are not published as products.</span></div><table className="cms-table"><thead><tr><th>Source ID</th><th>Entity</th><th>Type</th><th /></tr></thead><tbody>{filteredSources.map((r) => <tr key={r.source_id} onClick={() => setSource(r)}><td className="cms-mono">{r.source_id}</td><td><button className="cms-table-link" onClick={() => setSource(r)}>{r.fields.product_name}</button></td><td>{r.entity_type}</td><td><ArrowUpRight size={14} /></td></tr>)}</tbody></table>{!filteredSources.length ? <Empty title="No source records found" detail="Try another search term." /> : null}</>}</div> : null}
 
@@ -210,8 +248,8 @@ export default function CatalogWorkspace() {
     </div>
     {editor ? <ProductDrawer suspended={!!confirm} onClose={() => guard(() => setEditor(false))}>
         <div className="cms-page-heading">
-          <div><div className="cms-breadcrumb">Catalog management <ChevronRight size={12} /> {editor ? <button onClick={() => guard(() => setEditor(false))}>Products</button> : title}{editor ? <><ChevronRight size={12} /><span>{form.id ? form.record?.source_id ?? 'Edit product' : 'New product'}</span></> : null}</div><div className="cms-title-line"><h1 id="cms-drawer-title">{editor ? form.name || 'New product' : title}</h1>{!editor && workspace === 'products' ? <span className="cms-count-badge">{active.length}</span> : null}</div><p>{editor ? (form.id ? 'Edit product details, supporting evidence, and catalog availability.' : 'Create a product in the shared catalog.') : workspace === 'products' ? 'Your product catalog, organized and ready to manage.' : workspace === 'reviews' ? 'Resolve outstanding questions with a clear record of every decision.' : 'Research entities preserved from the original product database.'}</p></div>
-          <div className="cms-heading-actions">{editor ? <><span className={cx('cms-save-state', dirty && 'dirty')}>{saving ? 'Saving…' : dirty ? 'Unsaved changes' : 'All changes saved'}</span><button className="cms-button" disabled={saving} onClick={() => guard(() => setEditor(false))} aria-label="Close product drawer"><X size={17} /></button><button className="cms-button primary" disabled={saving || !dirty} onClick={() => void save()}><Save size={15} />{saving ? 'Saving…' : 'Save changes'}</button></> : <><button className="cms-button" disabled={loading} onClick={() => void load()}><RefreshCw size={15} />Refresh</button>{workspace === 'products' ? <button className="cms-button primary" disabled={loading} onClick={() => openProduct()}><Plus size={16} />New product</button> : null}</>}</div>
+          <div><div className="cms-breadcrumb">Catalog management <ChevronRight size={12} /> {editor ? <button onClick={() => guard(() => setEditor(false))}>Products</button> : title}{editor ? <><ChevronRight size={12} /><span>{form.id ? form.record?.source_id ?? 'Edit product' : 'New product'}</span></> : null}</div><div className="cms-title-line"><h1 id="cms-drawer-title">{editor ? form.name || 'New product' : title}</h1>{!editor && workspace === 'products' ? <span className="cms-count-badge">{counts.active}</span> : null}</div><p>{editor ? (form.id ? 'Edit product details, supporting evidence, and catalog availability.' : 'Create a product in the shared catalog.') : workspace === 'products' ? 'Your product catalog, organized and ready to manage.' : workspace === 'reviews' ? 'Resolve outstanding questions with a clear record of every decision.' : 'Research entities preserved from the original product database.'}</p></div>
+          <div className="cms-heading-actions">{editor ? <><span className={cx('cms-save-state', dirty && 'dirty')}>{saving ? 'Saving…' : dirty ? 'Unsaved changes' : 'All changes saved'}</span><button className="cms-button" disabled={saving} onClick={() => guard(() => setEditor(false))} aria-label="Close product drawer"><X size={17} /></button><button className="cms-button primary" disabled={saving || !dirty} onClick={() => void save()}><Save size={15} />{saving ? 'Saving…' : 'Save changes'}</button></> : <><button className="cms-button" disabled={loading} onClick={() => { metadataLoaded.current = false; void load(); }}><RefreshCw size={15} />Refresh</button>{workspace === 'products' ? <button className="cms-button primary" disabled={loading} onClick={() => openProduct()}><Plus size={16} />New product</button> : null}</>}</div>
         </div>
         {error ? <div className="cms-banner error" role="alert"><span>{error}</span><button aria-label="Dismiss error" onClick={() => setError('')}><X size={16} /></button></div> : null}
         {notice ? <div className="cms-banner success" role="status"><Check size={15} /><span>{notice}</span><button aria-label="Dismiss notification" onClick={() => setNotice('')}><X size={16} /></button></div> : null}
@@ -233,6 +271,20 @@ export default function CatalogWorkspace() {
               {selectedProduct ? <button className="cms-button cms-archive-action" onClick={() => requestArchive(selectedProduct)}><Archive size={15} />{selectedProduct.archived_at ? 'Restore product' : 'Archive product'}</button> : null}
             </div></div> : null}
             {tab in evidenceSections && form.record ? <EvidenceFields section={tab as keyof typeof evidenceSections} record={form.record} onChange={(record) => update({ record })} /> : null}
+            {tab === 'formula' && form.record ? <><button className="cms-button" disabled={saving} onClick={() => void parseFormula()}>Parse current ingredient list</button>{form.id ? <SourceEvidence productId={form.id} /> : null}</> : null}
+            {tab === 'recommendations' ? <Section title="Recommendation readiness" description="Review the complete formula and ingredient mappings before enabling personalized product matching.">
+              <p className="cms-help">Formula: {label(form.record?.fields.formula_status || selectedProduct?.formula_status || 'missing')} · Mapping library {engineIngredients.version}</p>
+              <Field name="Enable recommendations"><input type="checkbox" checked={form.recommendationEnabled} onChange={(e) => update({ recommendationEnabled: e.target.checked })} /></Field>
+              <p className="cms-help">Requires publication, verified product status, a verified full formula and approved primary ingredient mappings. Saving changed ingredients turns eligibility off until reviewed again.</p>
+              {form.engineExpressions.map((expression, index) => <div className="cms-form-grid" key={index}>
+                <Field name="Formula ingredient"><select value={expression.ingredient_id} onChange={(e) => update({ engineExpressions: form.engineExpressions.map((x, i) => i === index ? { ...x, ingredient_id: e.target.value, approved: false } : x), recommendationEnabled: false })}>{form.ingredients.map((i) => <option key={i.ingredientId} value={i.ingredientId}>{ingredients.find((x) => x.id === i.ingredientId)?.name || i.ingredientId}</option>)}</select></Field>
+                <Field name="Ingredient engine identity"><select value={expression.engine_ingredient_id} onChange={(e) => update({ engineExpressions: form.engineExpressions.map((x, i) => i === index ? { ...x, engine_ingredient_id: e.target.value, approved: false } : x), recommendationEnabled: false })}>{engineIngredients.ingredients.map((i) => <option key={i.id} value={i.id}>{i.name} ({i.id})</option>)}</select></Field>
+                <Field name="Role"><select value={expression.role} onChange={(e) => update({ engineExpressions: form.engineExpressions.map((x, i) => i === index ? { ...x, role: e.target.value as EngineExpression['role'], approved: false } : x), recommendationEnabled: false })}><option value="primary">Primary</option><option value="support">Support</option></select></Field>
+                <Field name="Mapping reviewed"><input type="checkbox" checked={expression.approved} onChange={(e) => update({ engineExpressions: form.engineExpressions.map((x, i) => i === index ? { ...x, approved: e.target.checked } : x), recommendationEnabled: false })} /></Field>
+                <button className="cms-button" onClick={() => update({ engineExpressions: form.engineExpressions.filter((_, i) => i !== index), recommendationEnabled: false })}>Remove mapping</button>
+              </div>)}
+              <button className="cms-button" disabled={!form.ingredients.length} onClick={() => update({ engineExpressions: [...form.engineExpressions, { ingredient_id: form.ingredients[0].ingredientId, engine_ingredient_id: engineIngredients.ingredients[0].id, role: 'primary', required_eligible: true, approved: false }], recommendationEnabled: false })}>Add ingredient mapping</button>
+            </Section> : null}
             {tab === 'ingredients' ? <Section title="Ingredient library"><div className="cms-ingredient-search"><Field name="Find or create an ingredient"><input placeholder="Search the ingredient library…" value={ingredientQuery} onChange={(e) => setIngredientQuery(e.target.value)} /></Field>{ingredientQuery.trim() ? <><p className="cms-help">Search results — click to add</p><div className="cms-ingredient-options">{ingredients.filter((i) => !form.ingredients.some((f) => f.ingredientId === i.id) && i.name.toLowerCase().includes(ingredientQuery.trim().toLowerCase())).slice(0, 8).map((i) => <button key={i.id} className="cms-button compact" onClick={() => attachIngredient(i.id)}><Plus size={12} />{i.name}</button>)}{ingredientQuery.trim() ? <button className="cms-button compact" onClick={() => void addIngredient()}>Create “{ingredientQuery.trim()}”</button> : null}</div></> : null}</div>
               <p className="cms-help">{form.ingredients.length} linked ingredients · Click a chip to edit its order, concentration, or notes.</p>
               <div className="cms-ingredient-chips" role="list" aria-label="Linked ingredients">{form.ingredients.map((i, index) => {
@@ -272,11 +324,19 @@ function ConfirmDialog({ title, detail, label: actionLabel, onCancel, onConfirm 
 
 function EvidenceFields({ section, record, onChange }: { section: keyof typeof evidenceSections; record: CatalogRecord; onChange: (record: CatalogRecord) => void }) {
   const group = evidenceSections[section];
-  const short = new Set(['primary_market', 'time_of_day', 'frequency', 'post_open_shelf_life', 'water_resistance', 'application_format', 'tier', 'ladder_id', 'layering_position', 'ramp_required', 'mechanism_subtype', 'acid_form', 'formulation_pH', 'anhydrous', 'activation_required', 'photosensitivity_tail_days']);
-  return <Section title={group.label} description={'Private source evidence · ' + record.source_id}><div className="cms-inline-note"><FileText size={17} /><span>Original evidence is preserved. Editing these fields does not activate recommendation rules.</span></div><div className="cms-evidence-grid">{group.fields.map((key) => <div key={key} className={short.has(key) ? '' : 'wide'}><Field name={fieldLabel(key)}>{short.has(key) ? <input value={record.fields[key] ?? ''} onChange={(e) => onChange({ ...record, fields: { ...record.fields, [key]: e.target.value } })} /> : <textarea rows={key === 'ingredient_list' ? 7 : 3} value={record.fields[key] ?? ''} onChange={(e) => onChange({ ...record, fields: { ...record.fields, [key]: e.target.value } })} />}</Field></div>)}</div></Section>;
+  const options: Record<string, string[]> = { product_type: ['unknown','topical','hair_scalp','cosmetic','device','supplement','accessory'], is_bundle: ['false','true'], formula_status: ['missing','partial','unresolved','full_unverified','full_verified','not_applicable'] };
+  const short = new Set(['product_type','is_bundle','variant','manufacturer_sku','price_amount','currency','availability','formula_status','primary_market', 'time_of_day', 'frequency', 'post_open_shelf_life', 'water_resistance', 'application_format', 'tier', 'ladder_id', 'layering_position', 'ramp_required', 'mechanism_subtype', 'acid_form', 'formulation_pH', 'anhydrous', 'activation_required', 'photosensitivity_tail_days']);
+  return <Section title={group.label} description={'Private source evidence · ' + record.source_id}><div className="cms-inline-note"><FileText size={17} /><span>Original evidence is preserved. Editing these fields does not activate recommendation rules.</span></div><div className="cms-evidence-grid">{group.fields.map((key) => <div key={key} className={short.has(key) ? '' : 'wide'}><Field name={fieldLabel(key)}>{options[key] ? <select value={record.fields[key] || options[key][0]} onChange={(e) => onChange({ ...record, fields: { ...record.fields, [key]: e.target.value } })}>{options[key].map((value) => <option key={value} value={value}>{label(value)}</option>)}</select> : short.has(key) ? <input value={record.fields[key] ?? ''} onChange={(e) => onChange({ ...record, fields: { ...record.fields, [key]: e.target.value } })} /> : <textarea rows={key === 'ingredient_list' ? 7 : 3} value={record.fields[key] ?? ''} onChange={(e) => onChange({ ...record, fields: { ...record.fields, [key]: e.target.value } })} />}</Field></div>)}</div></Section>;
 }
 
-function ReviewWorkspace({ reviews, products, records, onOpenProduct, onSaved }: { reviews: CatalogReview[]; products: CatalogProduct[]; records: CatalogRecord[]; onOpenProduct: (product: CatalogProduct, reviewId: string) => void; onSaved: (review: CatalogReview) => void }) {
+function SourceEvidence({ productId }: { productId: string }) {
+  const [sources, setSources] = useState<DatabaseTypes['public']['Tables']['catalog_sources']['Row'][]>([]);
+  const [error, setError] = useState('');
+  useEffect(() => { let active = true; getCatalogSources(productId).then((r) => { if (!active) return; if (r.error) setError(r.error.message); else setSources(r.data ?? []); }); return () => { active = false; }; }, [productId]);
+  return <Section title="Workbook sources" description="Original rows are retained alongside the editable canonical record.">{error ? <p role="alert">{error}</p> : null}{sources.map((s) => <details key={s.source_id}><summary>{s.sheet_name} · Row {s.source_row} · {s.source_id}</summary><a href={'https://drive.google.com/file/d/' + s.source_file_id} target="_blank" rel="noreferrer">Open source workbook</a><dl className="cms-source-details">{Object.entries(s.raw_fields as Record<string, unknown>).map(([key,value]) => <div key={key}><dt>{key}</dt><dd>{value == null ? '—' : String(value)}</dd></div>)}</dl></details>)}{!sources.length && !error ? <p className="cms-help">No additional brand workbook sources are linked.</p> : null}</Section>;
+}
+
+function ReviewWorkspace({ reviews, records, onOpenProduct, onSaved }: { reviews: CatalogReview[]; products: CatalogProduct[]; records: CatalogRecord[]; onOpenProduct: (product: Pick<CatalogProduct, 'id'>, reviewId: string) => void; onSaved: (review: CatalogReview) => void }) {
   const [selectedSnapshot, setSelected] = useState<CatalogReview | null>(null);
   const selected = reviews.find((r) => r.id === selectedSnapshot?.id) ?? selectedSnapshot;
   const [status, setStatus] = useState('unresolved');
@@ -295,7 +355,7 @@ function ReviewWorkspace({ reviews, products, records, onOpenProduct, onSaved }:
     finally { setSaving(false); }
   }
   return <div className="cms-review-workspace"><div className="cms-review-toolbar"><div className="cms-segmented">{[['unresolved', 'Unresolved'], ['RESOLVED', 'Resolved'], ['all', 'All reviews']].map(([id, name]) => <button key={id} className={cx(status === id && 'active')} onClick={() => { setStatus(id); setPage(1); }}>{name}</button>)}</div><span>{visible.length} items</span></div>
-    {selected ? <Section title={selected.fields.product_name || selected.fields.issue_type} description={selected.fields.review_id + ' · Source row ' + selected.source_row}><div className="cms-review-detail-heading"><Badge value={selected.status} /><button className="cms-button compact" disabled={saving} onClick={() => { if (note !== selected.resolution_note && !window.confirm('Discard the unsaved resolution note?')) return; setSelected(null); setMessage(''); }}><ChevronLeft size={13} />Back to queue</button></div><div className="cms-review-detail-grid"><div><h3>Issue</h3><p>{selected.fields.issue}</p><h3>Recommended action</h3><p>{selected.fields.recommended_action}</p></div><dl className="cms-record-details"><dt>Issue type</dt><dd>{label(selected.fields.issue_type)}</dd><dt>Affected products</dt><dd>{selected.fields.affected_ids || selected.fields.product_id || '—'}</dd><dt>Blocks app use</dt><dd>{selected.fields.blocking_for_app || 'Not specified'}</dd></dl></div>{selected ? <div className="cms-review-products"><h3>Edit affected products</h3>{products.filter((p) => records.some((r) => r.product_id === p.id && ((selected.fields.affected_ids || '') + ' ' + (selected.fields.product_id || '')).match(/SKP-\d+/g)?.includes(r.source_id))).map((p) => <button key={p.id} className="cms-button" disabled={saving} onClick={() => onOpenProduct(p, selected.id)}>{p.brand?.name} · {p.name}<ChevronRight size={14} /></button>)}<p className="cms-help">Open a linked product to edit its details and resolve this review in the same drawer. Reviews about research records may have no editable product.</p></div> : null}<Field name="Resolution note" hint="Optional — add context if helpful."><textarea rows={5} value={note} onChange={(e) => setNote(e.target.value)} disabled={saving} placeholder="Document your decision…" /></Field>{message ? <p role="status" className="cms-help">{message}</p> : null}<div className="cms-review-actions"><button className="cms-button" disabled={saving} onClick={() => void save('OPEN')}>Save as open</button><button className="cms-button" disabled={saving} onClick={() => void save('PARTIALLY RESOLVED')}>Partially resolve</button><button className="cms-button primary" disabled={saving} onClick={() => void save('RESOLVED')}><Check size={14} />Resolve review</button></div></Section> : <><table className="cms-table cms-review-table"><thead><tr><th>Review / product</th><th>Issue type</th><th>Status</th><th>Blocking</th><th /></tr></thead><tbody>{visible.slice((currentPage - 1) * 25, currentPage * 25).map((r) => <tr key={r.id} onClick={() => { setSelected(r); setNote(r.resolution_note); }}><td><button className="cms-table-link" onClick={() => { setSelected(r); setNote(r.resolution_note); }}>{r.fields.product_name || r.fields.issue_type}</button><small>{r.fields.review_id} · Row {r.source_row}</small></td><td>{label(r.fields.issue_type)}</td><td><Badge value={r.status} /></td><td>{r.fields.blocking_for_app === 'YES' ? <span className="cms-blocking">Yes</span> : 'No'}</td><td><ChevronRight size={14} /></td></tr>)}</tbody></table>{!visible.length ? <Empty title="No reviews in this view" detail="Choose another status or search term." /> : null}<div className="cms-table-footer"><span>{visible.length} review items</span><div className="cms-pagination"><button aria-label="Previous review page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><ChevronLeft size={14} /></button><span>{currentPage} / {lastPage}</span><button aria-label="Next review page" disabled={currentPage === lastPage} onClick={() => setPage(currentPage + 1)}><ChevronRight size={14} /></button></div></div></>}
+    {selected ? <Section title={selected.fields.product_name || selected.fields.issue_type} description={selected.fields.review_id + ' · Source row ' + selected.source_row}><div className="cms-review-detail-heading"><Badge value={selected.status} /><button className="cms-button compact" disabled={saving} onClick={() => { if (note !== selected.resolution_note && !window.confirm('Discard the unsaved resolution note?')) return; setSelected(null); setMessage(''); }}><ChevronLeft size={13} />Back to queue</button></div><div className="cms-review-detail-grid"><div><h3>Issue</h3><p>{selected.fields.issue}</p><h3>Recommended action</h3><p>{selected.fields.recommended_action}</p></div><dl className="cms-record-details"><dt>Issue type</dt><dd>{label(selected.fields.issue_type)}</dd><dt>Affected products</dt><dd>{selected.fields.affected_ids || selected.fields.product_id || '—'}</dd><dt>Blocks app use</dt><dd>{selected.fields.blocking_for_app || 'Not specified'}</dd></dl></div>{selected ? <div className="cms-review-products"><h3>Edit affected products</h3>{records.filter((r) => r.product_id && (r.product_id === selected.fields.product_uuid || [selected.fields.product_id, ...(selected.fields.affected_ids || '').split(/[,;]/)].map((id) => id?.trim()).includes(r.source_id))).map((r) => <button key={r.source_id} className="cms-button" disabled={saving} onClick={() => onOpenProduct({ id: r.product_id! }, selected.id)}>{r.fields.product_name || r.source_id}<ChevronRight size={14} /></button>)}<p className="cms-help">Open a linked product to edit its details and resolve this review in the same drawer. Reviews about research records may have no editable product.</p></div> : null}<Field name="Resolution note" hint="Optional — add context if helpful."><textarea rows={5} value={note} onChange={(e) => setNote(e.target.value)} disabled={saving} placeholder="Document your decision…" /></Field>{message ? <p role="status" className="cms-help">{message}</p> : null}<div className="cms-review-actions"><button className="cms-button" disabled={saving} onClick={() => void save('OPEN')}>Save as open</button><button className="cms-button" disabled={saving} onClick={() => void save('PARTIALLY RESOLVED')}>Partially resolve</button><button className="cms-button primary" disabled={saving} onClick={() => void save('RESOLVED')}><Check size={14} />Resolve review</button></div></Section> : <><table className="cms-table cms-review-table"><thead><tr><th>Review / product</th><th>Issue type</th><th>Status</th><th>Blocking</th><th /></tr></thead><tbody>{visible.slice((currentPage - 1) * 25, currentPage * 25).map((r) => <tr key={r.id} onClick={() => { setSelected(r); setNote(r.resolution_note); }}><td><button className="cms-table-link" onClick={() => { setSelected(r); setNote(r.resolution_note); }}>{r.fields.product_name || r.fields.issue_type}</button><small>{r.fields.review_id} · Row {r.source_row}</small></td><td>{label(r.fields.issue_type)}</td><td><Badge value={r.status} /></td><td>{r.fields.blocking_for_app === 'YES' ? <span className="cms-blocking">Yes</span> : 'No'}</td><td><ChevronRight size={14} /></td></tr>)}</tbody></table>{!visible.length ? <Empty title="No reviews in this view" detail="Choose another status or search term." /> : null}<div className="cms-table-footer"><span>{visible.length} review items</span><div className="cms-pagination"><button aria-label="Previous review page" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}><ChevronLeft size={14} /></button><span>{currentPage} / {lastPage}</span><button aria-label="Next review page" disabled={currentPage === lastPage} onClick={() => setPage(currentPage + 1)}><ChevronRight size={14} /></button></div></div></>}
   </div>;
 }
 

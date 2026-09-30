@@ -50,3 +50,13 @@ example
 data/catalog/ingredients-before.json
 data/catalog/ingredients-after.json
 data/catalog/ingredients-import.sql
+data/catalog/brand-workbooks/
+data/catalog/brand-extractions/
+data/catalog/brand-workbook-snapshots.json
+data/catalog/brand-staging.json
+data/catalog/brand-import-prepared.json
+data/catalog/brand-import.sql
+data/catalog/brand-import-batches/
+data/catalog/brand-files-manifest.json
+data/catalog/brand-staging-report.json
+data/catalog/brand-import-report.json

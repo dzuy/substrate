@@ -17,8 +17,15 @@ function el(tag, text, className) {
   return node;
 }
 async function api(action, data = {}) {
+  let authorization;
+  if (config?.catalogAuthStorageKey && ['ingredients','test-scenario'].includes(action)) {
+    try {
+      const session=JSON.parse(localStorage.getItem(config.catalogAuthStorageKey)||'null');
+      if(session?.access_token && session.expires_at > Date.now()/1000) authorization='Bearer '+session.access_token;
+    } catch { /* Missing app session means there are no live catalog matches. */ }
+  }
   const response = await fetch('/api/face-scan-prototype', { method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(authorization ? {Authorization:authorization} : {}) },
     body: JSON.stringify({ action, ...data }) });
   const result = await response.json();
   if (!response.ok) throw new Error(result.error || 'Server request failed.');

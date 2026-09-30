@@ -1,0 +1,61 @@
+{
+  "version": "workbook-e01b98a69808a24a",
+  "ingredients": [
+    {
+      "id": "I_AZA",
+      "name": "Azelaic acid"
+    },
+    {
+      "id": "I_SA",
+      "name": "Salicylic acid"
+    },
+    {
+      "id": "I_RET",
+      "name": "Topical retinoids"
+    },
+    {
+      "id": "I_NIA",
+      "name": "Niacinamide"
+    },
+    {
+      "id": "I_CER",
+      "name": "Ceramides"
+    },
+    {
+      "id": "I_GLY",
+      "name": "Glycerin"
+    },
+    {
+      "id": "I_VITC",
+      "name": "Vitamin C"
+    },
+    {
+      "id": "I_CENT",
+      "name": "Centella asiatica"
+    },
+    {
+      "id": "I_HEL_EXT",
+      "name": "Helichrysum italicum extract"
+    },
+    {
+      "id": "I_HEL_HYD",
+      "name": "Helichrysum italicum hydrolate"
+    },
+    {
+      "id": "I_HEL_EO",
+      "name": "Helichrysum italicum essential oil"
+    },
+    {
+      "id": "I_PANTH",
+      "name": "Panthenol"
+    },
+    {
+      "id": "I_HA",
+      "name": "Hyaluronic acid"
+    },
+    {
+      "id": "I_BPO",
+      "name": "Benzoyl peroxide"
+    }
+  ]
+}
