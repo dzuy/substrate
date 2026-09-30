@@ -6,6 +6,7 @@ const columns = [
   { id: 'name', label: 'Product', width: 360, min: 180 },
   { id: 'brand', label: 'Brand', width: 190, min: 100 },
   { id: 'category', label: 'Category', width: 150, min: 100 },
+  { id: 'ingredients', label: 'Ingredients', width: 130, min: 100 },
   { id: 'availability', label: 'Availability', width: 150, min: 110 },
 ] as const;
 const storageKey = 'substrate:admin-products:column-widths:v2';
@@ -61,7 +62,7 @@ export default function ResizableProductTable({ sort, descending, onSort, childr
   return <table ref={tableRef} className={'cms-table cms-product-table cms-resizable-table' + (resizing ? ' cms-resizing' : '')} style={{ width: widths.reduce((sum, width) => sum + width, 44) }}>
     <colgroup>{widths.map((width, index) => <col key={columns[index].id} style={{ width }} />)}<col style={{ width: 44 }} /></colgroup>
     <thead><tr>{columns.map((column, index) => <th key={column.id} aria-sort={column.id === sort ? descending ? 'descending' : 'ascending' : undefined}>
-      {column.id === 'availability' ? column.label : <button onClick={() => onSort(column.id)}>{column.label}{column.id === sort ? descending ? <ArrowDown size={12} /> : <ArrowUp size={12} /> : null}</button>}
+      {column.id === 'availability' || column.id === 'ingredients' ? column.label : <button onClick={() => onSort(column.id)}>{column.label}{column.id === sort ? descending ? <ArrowDown size={12} /> : <ArrowUp size={12} /> : null}</button>}
       <span className="cms-column-resizer" role="separator" tabIndex={0} aria-label={'Resize ' + column.label + ' column'} aria-orientation="vertical" aria-valuemin={column.min} aria-valuemax={maxWidth} aria-valuenow={widths[index]} title="Drag to resize. Arrow keys adjust width; double-click to reset."
         onClick={(event) => event.stopPropagation()}
         onPointerDown={(event) => {
