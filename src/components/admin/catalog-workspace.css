@@ -15,3 +15,5 @@
 .cms-review-products{margin:0 0 22px}.cms-review-products h3{font-size:12px;margin-bottom:10px}.cms-review-products>.cms-button{margin:0 8px 8px 0;white-space:normal;text-align:left}.cms-review-context{margin:0 24px 14px;padding:14px 16px;background:#f7f3f8;border:1px solid #e6dce8;border-radius:6px;max-height:240px;overflow:auto;flex-shrink:0}.cms-review-context>div{display:flex;align-items:center;justify-content:space-between;gap:12px}.cms-review-context p{font-size:12px;margin:9px 0;line-height:1.6}.cms-review-context summary,.cms-review-context small{font-size:11px;color:#85718b}.cms-review-context details{margin-bottom:12px}
 
 .cms-filter-section>select{width:100%;max-width:100%;padding:8px;border:1px solid var(--line);border-radius:5px;background:#fff;color:var(--ink);font-size:11px}.cms-source-details summary{cursor:pointer;font-weight:600;overflow-wrap:anywhere}.cms-source-details details{border-top:1px solid var(--line);padding:14px 0}
+
+.cms-product-label{display:flex;flex-direction:column;gap:3px;min-width:0}.cms-product-variant{font-size:11px;font-weight:400;color:var(--muted);line-height:1.4;white-space:normal;overflow-wrap:anywhere}
