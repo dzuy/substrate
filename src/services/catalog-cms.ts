@@ -67,7 +67,6 @@ export async function saveCmsProduct(input: ProductInput & {
   expectedUpdatedAt?: string;
   record?: CatalogRecord | null;
   engineExpressions?: EngineExpression[];
-  recommendationEnabled?: boolean;
 }) {
   const result = await supabase.rpc('save_catalog_product', {
     product_data: {
@@ -77,7 +76,6 @@ export async function saveCmsProduct(input: ProductInput & {
       image_url: input.imageUrl ?? null, barcode: input.barcode ?? null, upc: input.upc ?? null,
       aliases: input.aliases ?? [], status: input.status, catalog_visible: input.catalogVisible,
       ...(input.engineExpressions ? { engine_expressions: input.engineExpressions } : {}),
-      ...(input.recommendationEnabled !== undefined ? { recommendation_enabled: input.recommendationEnabled } : {}),
     },
     ingredient_data: input.ingredients.map((i) => ({
       ingredient_id: i.ingredientId, ingredient_order: i.ingredientOrder ?? null,
@@ -85,7 +83,7 @@ export async function saveCmsProduct(input: ProductInput & {
     })),
     evidence_data: input.record?.fields ?? null,
     expected_updated_at: input.expectedUpdatedAt ?? null,
-    expected_evidence_updated_at: input.record?.updated_at ?? null,
+    expected_evidence_updated_at: input.record?.updated_at || null,
   });
   if (result.error) return { data: null, error: result.error };
   return getCatalogProduct(result.data);

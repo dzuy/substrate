@@ -29,11 +29,11 @@ Admin-only RLS protects the source/review/history tables. Members can read publi
 
 ## CMS workflow
 
-Search by name, brand, alias or SKP ID. Filter by availability, category, brand and verification status. Edit a product to maintain display information, ingredients, publication, and grouped source evidence. Use the product's review queue to track unresolved issues; resolution notes are optional. Change history lists recent database changes.
+Search by name, brand, alias or SKP ID. Filter by availability, category, brand, product type, and ingredient completeness. Edit a product to maintain display information, ingredients, publication, and grouped source evidence. Use the product's review queue to track unresolved issues; resolution notes are optional. Change history lists recent database changes.
 
 `save_catalog_product` saves product fields, ingredient links and evidence in one transaction. Both product and source timestamps protect against concurrent edits. An ingredient validation failure rolls back the whole save. Existing ingredient concentrations and notes survive edits.
 
-Non-product entities are viewable separately and cannot be published as retail products. Conversion of a generic family, Rx entity or procedure into a specific product is a subsequent curated workflow. Manually created products currently support the basic catalog/ingredient editor; the imported-evidence editor applies to records with a source link.
+Non-product entities are viewable separately and cannot be published as retail products. Conversion of a generic family, Rx entity or procedure into a specific product is a subsequent curated workflow. Manually created products receive an editable CMS source record on their first save. Original imported records and snapshots remain preserved.
 
 ## Reproduce and verify
 
@@ -53,9 +53,9 @@ The local pre-import backup `data/catalog/live-backup-20260908.json` contains ca
 
 ## Desktop workspace
 
-The web admin uses a full-width desktop layout with its own navigation, separate from the consumer app. Availability, Brand (searchable), Category, and Verification filters combine in the left rail. Products are searchable and sortable, with 25 rows per page. Filters are retained when opening and closing an editor.
+The web admin uses a full-width desktop layout with its own navigation, separate from the consumer app. Availability, Brand (searchable), Category, product type, and ingredient completeness filters combine in the left rail. Products are searchable and sortable, with 25 rows per page. Filters are retained when opening and closing an editor.
 
-Clicking a product row or New product opens a right-side slide-out drawer, keeping the table and filters in place behind it. The drawer supports Escape, outside-click and close-button dismissal with unsaved-change protection, keyboard focus containment, and reduced-motion preferences. Product editing uses Overview, Formula & sources, Directions, Evidence, Rules, Ingredients, Reviews, and History tabs. Save controls remain visible, Cmd/Ctrl+S saves product changes, and Cmd/Ctrl+K focuses catalog search. Closing an edited product prompts before discarding changes. Source library is hidden from navigation; its research records remain preserved. Reviews link to affected product drawers, where the issue and resolution action remain visible while editing. Save product changes before resolving the review; no note is required.
+Clicking a product row or New product opens a right-side slide-out drawer, keeping the table and filters in place behind it. The drawer supports Escape, outside-click and close-button dismissal with unsaved-change protection, keyboard focus containment, and reduced-motion preferences. Product editing uses Overview, Formula & sources, Directions, Evidence, Ingredients, Reviews, and History tabs. Save controls remain visible, Cmd/Ctrl+S saves product changes, and Cmd/Ctrl+K focuses catalog search. Closing an edited product prompts before discarding changes. Source library is hidden from navigation; its research records remain preserved. Reviews link to affected product drawers, where the issue and resolution action remain visible while editing. Save product changes before resolving the review; no note is required.
 
 ## Ingredient backfill
 
@@ -77,16 +77,20 @@ Prices/currencies need review on 2,792 imported identities, and 2,676 have incom
 
 The CMS uses server-side search/filter/sort and 25-product pages, with complete counts beyond Supabase's default row cap. Brand and ingredient libraries and review links traverse every page. Full product/evidence details load on opening the drawer. Filters include product type, ingredient completeness, and source file, including identical-file copies and the earlier pilot import. The Formula & sources tab shows original workbook rows, and Product details stores commercial metadata.
 
-### Formula review and recommendation workflow
+### Publishing workflow
 
-1. Confirm the exact product, variant, market, and current official ingredient list in Formula & sources. Save changed text first.
-2. Use **Parse current ingredient list** to prepare ingredient links. Unknown or ambiguous names require library resolution; missing/partial/narrative text is not silently accepted. Save, check every ingredient and explicit concentration, then mark the formula `full_verified` in Product details or Formula & sources and save again.
-3. In Recommendations, map actual formula ingredients to the active ingredient engine IDs. Review each mapping, its primary/support role, and required eligibility. This is a deliberate approval step, not automatic inheritance from marketing claims.
-4. Publish the verified topical product and enable recommendations only when the full formula and mappings are reviewed. Bundles and non-topical types remain outside this topical matcher.
+Publishing is the single approval action. There are no separate product verification, mapping approval, or recommendation enablement controls. Internal compatibility fields (`status`, `approved`, `recommendation_enabled`, and the formula approval state) are derived atomically from publication; drafts never enter matching.
 
-The database enforces the readiness guard, and changes to formula text or ingredient links disable recommendations. Formula text changes also unapprove mappings. Unchanged associations survive ordinary saves. Product, evidence, ingredient, and mapping edits remain atomic and audited; stale timestamps reject conflicting saves.
+1. Confirm product type, exact variant, market, and official product URL.
+2. In **Ingredients**, enter the full formula, parse ingredient links, and resolve ambiguous names. Completeness describes the available data; it is not a separate approval. The editor checks that linked ingredient identities match the full formula before publishing.
+3. In the same tab, map relevant formula ingredients to the matching library and select primary/support roles.
+4. Select **Published** and save. That save approves the product, complete formula, and its mappings together. Missing formula data, linked ingredients, or primary topical mappings block publication with an actionable message. Devices/accessories and bundles may publish without a single topical formula; the current matcher continues to support individual topical products only.
 
-`get_recommendation_catalog` exposes only approved retail facts to authenticated users. The face-scan ingredient handler uses this live projection and the existing same-origin app session. Missing/expired sign-in or a catalog outage returns no product matches; it never substitutes the static demo catalog. The static catalog remains only as a direct engine test fixture. No imported product is currently approved, so the live matcher correctly returns an empty product catalog. The condition/ingredient evidence engine still needs its own clinical review; importing retail data does not validate diagnostic or treatment claims.
+Unpublishing removes matching eligibility. Direct edits to ingredient links, mappings, or formula text outside the atomic save return the product to draft. CMS saves of a published product revalidate and approve the final data in the same transaction. A failed publication rolls back the whole save; stale timestamps reject conflicting edits. Legacy published products remain published, but incomplete or unmapped records stay outside the matching projection until corrected.
+
+Migration `202609300004` implements this workflow without widening member access to evidence or snapshots. Existing admins may create only source records for CMS-authored products under the fixed manual provenance container. Rollback-only checks in `supabase/tests/catalog_publishing.sql` cover publication, automatic matching eligibility, incomplete-data rejection, atomic failure, conflicting edits, unpublishing, formula invalidation, devices, manual source records, audit, and member access.
+
+`get_recommendation_catalog` exposes approved retail facts to authenticated users. The face-scan handler uses this live projection and the existing same-origin app session. Missing/expired sign-in or a catalog outage returns no product matches; it never substitutes the static demo catalog. Ingredient/condition evidence still requires its own clinical review; publication does not validate diagnostic or treatment claims.
 
 ### Reproduction and recovery
 

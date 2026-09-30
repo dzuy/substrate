@@ -17,7 +17,7 @@ begin
   select * into r from public.catalog_records where source_id = 'SKP-0081';
   select * into p from public.products where id = r.product_id;
   if p.id <> '00000000-0000-4000-8000-000000000301' then raise exception 'Existing C E Ferulic ID changed'; end if;
-  product_json := to_jsonb(p) || jsonb_build_object('name', 'Transaction test');
+  product_json := to_jsonb(p) || jsonb_build_object('name', 'Transaction test', 'catalog_visible', false);
   select count(*) into original_count from public.product_ingredients where product_id = p.id;
   begin
     perform public.save_catalog_product(product_json,

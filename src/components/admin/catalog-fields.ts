@@ -1,6 +1,6 @@
 export const evidenceSections = {
   commercial: { label: 'Product details', fields: ['product_type', 'is_bundle', 'variant', 'primary_market', 'manufacturer_sku', 'price_amount', 'currency', 'price_raw', 'availability'] },
-  formula: { label: 'Formula & sources', fields: ['product_url', 'image_url', 'ingredient_list', 'formula_status', 'ingredient_status_source', 'formula_verification_status', 'review_status', 'notes', 'variant_formulas', 'supporting_evidence'] },
+  formula: { label: 'Formula & sources', fields: ['product_url', 'image_url', 'ingredient_status_source', 'notes', 'variant_formulas', 'supporting_evidence'] },
   directions: { label: 'Directions', fields: ['manufacturer_directions', 'time_of_day', 'frequency', 'post_open_shelf_life', 'water_resistance', 'application_format'] },
   evidence: { label: 'Evidence', fields: ['use_cases', 'key_technology_actives', 'substrate_status', 'tier', 'evidence_position_source', 'clinical_evidence_population', 'ladder_id', 'substitution_blockers'] },
 } as const;

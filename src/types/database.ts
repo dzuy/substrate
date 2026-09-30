@@ -510,6 +510,7 @@ export type Database = {
       products: {
         Row: {
           product_type?: string;
+          is_bundle?: boolean;
           formula_status?: string;
           recommendation_enabled?: boolean;
           variant_label?: string | null;

@@ -12,12 +12,8 @@ begin
  insert into public.catalog_records(source_id,product_id,import_id,entity_type,fields)
  values('DRV-fixture-'||p,p,'brand-fixture-'||p,'Finished Product','{"product_type":"topical","is_bundle":"false","price_amount":"25","currency":"USD","variant":"30 mL","product_url":"https://example.com/serum","formula_status":"full_unverified","ingredient_list":"Water, Glycerin"}');
  if (select price_amount from public.products where id=p)<>25 then raise exception 'Metadata sync failed'; end if;
- begin
-  update public.products set recommendation_enabled=true where id=p;
-  raise exception 'Incomplete product entered recommendations';
- exception when raise_exception then
-  if sqlerrm='Incomplete product entered recommendations' then raise; end if;
- end;
+ update public.products set recommendation_enabled=true where id=p;
+ if (select recommendation_enabled from public.products where id=p) then raise exception 'Draft entered recommendations'; end if;
  update public.catalog_records set fields=jsonb_set(fields,'{ingredient_list}','"Water, Retinol"') where product_id=p;
  if (select formula_status from public.products where id=p)<>'unresolved' then raise exception 'Formula edit did not invalidate readiness'; end if;
  page:=public.search_catalog_products('{"query":"Brand import fixture"}',1,25);
@@ -36,7 +32,7 @@ begin
   (select updated_at from public.products where id=p),(select updated_at from public.catalog_records where product_id=p));
  if not (select recommendation_enabled from public.products where id=p) then raise exception 'Unchanged save invalidated reviewed formula'; end if;
  update public.product_ingredients set concentration=2,concentration_unit='%' where product_id=p;
- if (select recommendation_enabled from public.products where id=p) then raise exception 'Ingredient edit left recommendations enabled'; end if;
+ if (select recommendation_enabled or catalog_visible from public.products where id=p) then raise exception 'Ingredient edit left publication enabled'; end if;
 end $$;
 set local role authenticated;
 do $$ begin

@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp } from 'lucide-react-native';
 
-type SortColumn = 'name' | 'brand' | 'category' | 'status';
+type SortColumn = 'name' | 'brand' | 'category';
 const columns = [
   { id: 'name', label: 'Product', width: 360, min: 180 },
   { id: 'brand', label: 'Brand', width: 190, min: 100 },
   { id: 'category', label: 'Category', width: 150, min: 100 },
-  { id: 'status', label: 'Verification', width: 150, min: 110 },
   { id: 'availability', label: 'Availability', width: 150, min: 110 },
 ] as const;
-const storageKey = 'substrate:admin-products:column-widths:v1';
+const storageKey = 'substrate:admin-products:column-widths:v2';
 const maxWidth = 1200;
 const defaults = columns.map((column) => column.width as number);
 const clamp = (width: number, index: number) => Math.round(Math.max(columns[index].min, Math.min(maxWidth, width)));
@@ -28,7 +27,7 @@ export default function ResizableProductTable({ sort, descending, onSort, childr
     const scale = available ? (available - 44) / defaults.reduce((sum, width) => sum + width, 0) : 1;
     let next = defaults.map((width, index) => clamp(width * scale, index));
     try {
-      const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? 'null');
+      const saved: unknown = JSON.parse(localStorage.getItem(storageKey) ?? localStorage.getItem('substrate:admin-products:column-widths:v1') ?? 'null');
       if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
         next = columns.map((column, index) => {
           const value = (saved as Record<string, unknown>)[column.id];
