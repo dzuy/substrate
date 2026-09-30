@@ -20,3 +20,9 @@ test('reuses INCI matches and preserves existing link metadata',()=>{
 test('refuses ambiguous library matches',()=>{
  assert.throws(()=>generate({ingredients:[{id:'a',name:'Water'},{id:'b',name:'WATER'}],links:[],records:[{source_id:'SKP-0001',product_id:'p',fields:{ingredient_list:'Water'}}]}),/Ambiguous/);
 });
+
+test('rejects note-only ingredient placeholders',()=>{
+ for(const text of ['KEY INGREDIENTS — PARTIAL, NOT FULL INCI','INCI NOT PUBLISHED — DO NOT INFER','FULL INCI — verified in Evereden official centralized INCI library','Full ingredient list not published on the accessible current official page.']) {
+  assert.equal(parseIngredients(text).items.length,0); assert.ok(parseIngredients(text).reason);
+ }
+});

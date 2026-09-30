@@ -1,11 +1,12 @@
 export const evidenceSections = {
   commercial: { label: 'Product details', fields: ['product_type', 'is_bundle', 'variant', 'primary_market', 'manufacturer_sku', 'price_amount', 'currency', 'price_raw', 'availability'] },
-  formula: { label: 'Formula & sources', fields: ['product_url', 'image_url', 'ingredient_status_source', 'notes', 'variant_formulas', 'supporting_evidence'] },
+  formula: { label: 'Formula & sources', fields: ['product_url', 'image_url', 'ingredient_status_source', 'ingredient_source_notes', 'notes', 'variant_formulas', 'supporting_evidence'] },
   directions: { label: 'Directions', fields: ['manufacturer_directions', 'time_of_day', 'frequency', 'post_open_shelf_life', 'water_resistance', 'application_format'] },
   evidence: { label: 'Evidence', fields: ['use_cases', 'key_technology_actives', 'substrate_status', 'tier', 'evidence_position_source', 'clinical_evidence_population', 'ladder_id', 'substitution_blockers'] },
 } as const;
 
 const labels: Record<string, string> = {
+  ingredient_source_notes: 'Ingredient source notes',
   product_url: 'Official product URL', image_url: 'Source image URL', ingredient_list: 'Full ingredient list / INCI',
   formula_verification_status: 'Formula verification notes', review_status: 'Source review status',
   formulation_pH: 'Formulation pH', clinical_evidence_population: 'Clinical evidence population',

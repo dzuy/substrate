@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
+from catalog_formula_notes import separate_ingredient_note
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / 'data/catalog'
@@ -48,6 +49,7 @@ def normalize(raw, source):
     for pattern,category in [(r'cleanser|cleansing|face wash','cleanser'),(r'sunscreen|\bspf\b','spf'),(r'toner','toner'),(r'essence','essence'),(r'moisturi|cream|lotion|balm','moisturizer'),(r'serum','serum'),(r'mask','mask'),(r'face oil|facial oil','oil'),(r'peel|exfolia','exfoliant'),(r'retinol|retinoid','retinoid'),(r'treatment','treatment')]:
         if re.search(pattern,text):cat=category;break
     if typ=='device':cat='device'
+    separate_ingredient_note(fields)
     formula=fields['ingredient_list'];status=fields['ingredient_status_source']
     if not formula:completeness='missing'
     elif re.search(r'partial|key ingredient|not full|not captured|not verified|not available|not retrieved',formula+' '+status,re.I):completeness='partial'

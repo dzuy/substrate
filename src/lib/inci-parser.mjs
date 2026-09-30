@@ -1,5 +1,6 @@
 export const key = (s) => s.normalize('NFKC').trim().replace(/\s+/g, ' ').toLowerCase();
 export function parseIngredients(raw) {
+  if (/^(?:KEY INGREDIENTS\s*[—–-]\s*PARTIAL,?\s*NOT FULL INCI|INCI NOT PUBLISHED\s*[—–-]\s*DO NOT INFER|FULL INCI\s*[—–-]\s*verified in|Full ingredient list not published)/i.test(raw ?? '')) return { reason: 'Source note contains no ingredient list', items: [] };
   if (!raw || /NEEDS_MANUFACTURER|NOT VERIFIED|NOT APPLICABLE|\bPARTIAL\b|LEGACY FORMULA|PRIOR FORMULA|\[|\]|;|— see/i.test(raw)) return { reason: 'Missing, partial, historical, or annotated formula requires review', items: [] };
   let text = raw.replace(/^CURRENT FORMULA — (?=ACTIVE:)/i, '').replace(/^CURRENT[^:]*:\s*/i, '').replace(/^EU FORMULA:\s*/i, '');
   const split = text.match(/^(?:CURRENT FORMULA — )?ACTIVE:\s*([\s\S]+?)\.\s*INACTIVE(?:\s*\([^)]*\))?:\s*([\s\S]+)$/i);
