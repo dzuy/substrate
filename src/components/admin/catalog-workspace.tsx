@@ -53,7 +53,6 @@ export default function CatalogWorkspace() {
   const [form, setForm] = useState<Form>(emptyForm);
   const [selectedProduct,setSelectedProduct] = useState<CatalogProduct|null>(null);
   const [baseline, setBaseline] = useState(JSON.stringify(emptyForm));
-  const [ingredientQuery, setIngredientQuery] = useState('');
   const [newIngredientName, setNewIngredientName] = useState('');
   const [editingIngredient, setEditingIngredient] = useState<string | null>(null);
   const [reviewContext, setReviewContext] = useState<string | null>(null);
@@ -117,7 +116,7 @@ export default function CatalogWorkspace() {
       if (detail?.error || evidence?.error || expressions?.error) { setError(detail?.error?.message ?? evidence?.error?.message ?? expressions?.error?.message ?? 'Could not open product'); return; }
       const next = detail?.data ? toForm(detail.data, evidence?.data ?? undefined, expressions?.data ?? []) : { ...emptyForm };
       setSelectedProduct(detail?.data??null);
-      setReviewContext(reviewId ?? null); setForm(next); setBaseline(JSON.stringify(next)); setEditor(true); setTab('overview'); setIngredientQuery(''); setNewIngredientName('');
+      setReviewContext(reviewId ?? null); setForm(next); setBaseline(JSON.stringify(next)); setEditor(true); setTab('overview'); setNewIngredientName('');
     })().catch((e) => setError(e instanceof Error ? e.message : 'Could not open product')); });
   }
   function changeSort(next: typeof sort) { if (next === sort) setDescending(!descending); else { setSort(next); setDescending(false); } }
@@ -201,7 +200,7 @@ export default function CatalogWorkspace() {
     catch (e) { setError(e instanceof Error ? e.message : 'Could not create ingredient.'); }
     finally { setSaving(false); }
   }
-  function attachIngredient(id: string) { if (form.ingredients.some((i) => i.ingredientId === id)) return; update({ ingredients: [...form.ingredients, { ingredientId: id, ingredientOrder: form.ingredients.length + 1 }] }); setIngredientQuery(''); }
+  function attachIngredient(id: string) { if (form.ingredients.some((i) => i.ingredientId === id)) return; update({ ingredients: [...form.ingredients, { ingredientId: id, ingredientOrder: form.ingredients.length + 1 }] }); }
   function updateIngredient(index: number, next: Partial<ProductIngredientInput>) { update({ ingredients: form.ingredients.map((i, position) => position === index ? { ...i, ...next } : i) }); }
 
 
@@ -281,8 +280,9 @@ export default function CatalogWorkspace() {
             </div></div> : null}
             {tab in evidenceSections && form.record ? <EvidenceFields section={tab as keyof typeof evidenceSections} record={form.record} onChange={(record) => update({ record })} /> : null}
             {tab === 'formula' && form.id ? <SourceEvidence productId={form.id} /> : null}
-            {tab === 'ingredients' ? <><Section title="Ingredients"><div className="cms-ingredient-search"><Field name="Find an ingredient"><input placeholder="Search ingredients…" value={ingredientQuery} onChange={(e) => setIngredientQuery(e.target.value)} /></Field>{ingredientQuery.trim() ? <><p className="cms-help">Search results — click to add</p><div className="cms-ingredient-options">{ingredients.filter((i) => !form.ingredients.some((f) => f.ingredientId === i.id) && [i.name, i.inci_name, ...i.aliases].filter(Boolean).some((name) => name!.toLowerCase().includes(ingredientQuery.trim().toLowerCase()))).slice(0, 8).map((i) => <button key={i.id} className="cms-button compact" onClick={() => attachIngredient(i.id)}><Plus size={12} />{i.name}</button>)}</div></> : null}</div>
-              <div className="cms-ingredient-search"><Field name="New ingredient name"><input placeholder="Enter an ingredient name" value={newIngredientName} onChange={(e) => setNewIngredientName(e.target.value)} /></Field><button className="cms-button" disabled={saving || !newIngredientName.trim()} onClick={() => void addIngredient()}><Plus size={15} />Add new ingredient</button></div>
+            {tab === 'ingredients' ? <><Section title="Ingredients"><div className="cms-ingredient-search"><Field name="New ingredient name"><input placeholder="Search or enter an ingredient name…" value={newIngredientName} onChange={(e) => setNewIngredientName(e.target.value)} /></Field>
+              {newIngredientName.trim() ? <><p className="cms-help">Existing ingredients — click to add</p><div className="cms-ingredient-options">{ingredients.filter((i) => [i.name, i.inci_name, ...i.aliases].filter(Boolean).some((name) => name!.toLowerCase().includes(newIngredientName.trim().toLowerCase()))).slice(0, 8).map((i) => <button key={i.id} className="cms-button compact" disabled={form.ingredients.some((f) => f.ingredientId === i.id)} onClick={() => { attachIngredient(i.id); setNewIngredientName(''); }}><Plus size={12} />{i.name}{form.ingredients.some((f) => f.ingredientId === i.id) ? ' · Added' : ''}</button>)}</div></> : null}
+              <button className="cms-button" disabled={saving || !newIngredientName.trim()} onClick={() => void addIngredient()}><Plus size={15} />Add ingredient</button></div>
               <p className="cms-help">{form.ingredients.length} linked ingredients · Click a chip to edit its order, concentration, or notes.</p>
               <div className="cms-ingredient-chips" role="list" aria-label="Linked ingredients">{form.ingredients.map((i, index) => {
                 const name = ingredients.find((x) => x.id === i.ingredientId)?.name ?? 'Ingredient';
