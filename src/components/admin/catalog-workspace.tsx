@@ -40,7 +40,6 @@ export default function CatalogWorkspace() {
   const [brandFilter, setBrandFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [formulaFilter, setFormulaFilter] = useState('all');
   const [batchFilter, setBatchFilter] = useState('all');
   const [imports,setImports] = useState<{id:string;title:string|null}[]>([]);
   const [total, setTotal] = useState(0);
@@ -71,7 +70,7 @@ export default function CatalogWorkspace() {
     const version = ++requestVersion.current;
     setLoading(true); setError('');
     try {
-      const p = await listCmsProductPage({ query: query.trim(), availability, brand: brandFilter, category: categoryFilter, product_type: typeFilter, formula_status: formulaFilter, batch: batchFilter, sort, descending }, page);
+      const p = await listCmsProductPage({ query: query.trim(), availability, brand: brandFilter, category: categoryFilter, product_type: typeFilter, batch: batchFilter, sort, descending }, page);
       if (version !== requestVersion.current) return;
       if (p.error || !p.data) throw new Error(p.error?.message ?? 'Could not load catalog page');
       setProducts(p.data.products); setTotal(p.data.total); setCounts(p.data.counts);
@@ -84,9 +83,9 @@ export default function CatalogWorkspace() {
       }
     } catch (e) { if (version === requestVersion.current) setError(e instanceof Error ? e.message : 'Could not load the catalog. Try refreshing.'); }
     finally { if (version === requestVersion.current) setLoading(false); }
-  }, [canManage, query, availability, brandFilter, categoryFilter, typeFilter, formulaFilter, batchFilter, sort, descending, page]);
+  }, [canManage, query, availability, brandFilter, categoryFilter, typeFilter, batchFilter, sort, descending, page]);
   useEffect(() => { const version = requestVersion.current; const timer = setTimeout(() => void load(), 200); return () => { clearTimeout(timer); requestVersion.current = Math.max(requestVersion.current, version + 1); }; }, [load]);
-  useEffect(() => { setPage(1); }, [query, availability, brandFilter, categoryFilter, typeFilter, formulaFilter, batchFilter, sort, descending, workspace]);
+  useEffect(() => { setPage(1); }, [query, availability, brandFilter, categoryFilter, typeFilter, batchFilter, sort, descending, workspace]);
   useEffect(() => {
     if (!dirty || !editor) return;
     const protect = (event: BeforeUnloadEvent) => { event.preventDefault(); };
@@ -121,7 +120,7 @@ export default function CatalogWorkspace() {
     })().catch((e) => setError(e instanceof Error ? e.message : 'Could not open product')); });
   }
   function changeSort(next: typeof sort) { if (next === sort) setDescending(!descending); else { setSort(next); setDescending(false); } }
-  function clearFilters() { setAvailability('all'); setBrandFilter('all'); setCategoryFilter('all'); setTypeFilter('all'); setFormulaFilter('all'); setBatchFilter('all'); setBrandQuery(''); setQuery(''); }
+  function clearFilters() { setAvailability('all'); setBrandFilter('all'); setCategoryFilter('all'); setTypeFilter('all'); setBatchFilter('all'); setBrandQuery(''); setQuery(''); }
 
   const save = useCallback(async () => {
     if (saveLock.current || !dirty) return;
@@ -230,7 +229,7 @@ export default function CatalogWorkspace() {
   }
 
   if (!canManage) return <div className="cms cms-access"><Database size={30} color="#795365" /><h1>Catalog access required</h1><p>This workspace is available to catalog administrators.</p><a href="/profile">Return to your account</a></div>;
-  const filteredBy = [availability !== 'all', brandFilter !== 'all', categoryFilter !== 'all', typeFilter !== 'all', formulaFilter !== 'all', batchFilter !== 'all'].filter(Boolean).length;
+  const filteredBy = [availability !== 'all', brandFilter !== 'all', categoryFilter !== 'all', typeFilter !== 'all', batchFilter !== 'all'].filter(Boolean).length;
   const title = workspace === 'products' ? 'Products' : workspace === 'reviews' ? 'Issues' : 'Source library';
   const editorTabs: { id: EditorTab; name: string; disabled?: boolean }[] = [
     { id: 'overview', name: 'Overview' }, { id: 'ingredients', name: 'Ingredients' }, ...Object.entries(evidenceSections).filter(([id]) => id !== 'formula').map(([id, section]) => ({ id: id as EditorTab, name: section.label, disabled: !form.record })),
@@ -252,7 +251,6 @@ export default function CatalogWorkspace() {
           <div className="cms-filter-heading"><span><SlidersHorizontal size={13} /> FILTERS</span><button className="cms-text-button" disabled={editor} onClick={clearFilters}>Reset{filteredBy ? ' (' + filteredBy + ')' : ''}</button></div>
           {editor ? <p className="cms-rail-hint">Filters are preserved while you edit.</p> : null}
           <FilterSection title="Product type"><select aria-label="Product type" value={typeFilter} disabled={editor} onChange={(e) => setTypeFilter(e.target.value)}>{['all', 'topical', 'hair_scalp', 'cosmetic', 'device', 'supplement', 'accessory', 'unknown'].map((value) => <option key={value} value={value}>{value === 'all' ? 'All product types' : label(value)}</option>)}</select></FilterSection>
-          <FilterSection title="Ingredient completeness"><select aria-label="Ingredient completeness" value={formulaFilter} disabled={editor} onChange={(e) => setFormulaFilter(e.target.value)}>{['all', 'missing', 'partial', 'unresolved', 'complete', 'not_applicable'].map((value) => <option key={value} value={value}>{value === 'all' ? 'All ingredient statuses' : value === 'complete' ? 'Complete ingredient list' : label(value)}</option>)}</select></FilterSection>
           <FilterSection title="Availability">
             {[['all', 'All active', counts.active], ['published', 'Published', counts.published], ['unpublished', 'Unpublished', counts.unpublished], ['archived', 'Archived', counts.archived]].map(([id, name, count]) => <FilterOption key={id} name={String(name)} count={Number(count)} selected={availability === id} disabled={editor} onClick={() => setAvailability(String(id))} />)}
           </FilterSection>
