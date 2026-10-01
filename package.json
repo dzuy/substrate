@@ -36,6 +36,7 @@
     "@types/react": "~19.1.10",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~10.0.0",
+    "railway": "^3.12.0",
     "typescript": "~5.9.2"
   },
   "scripts": {
@@ -52,7 +53,12 @@
     "preprototype:face-scan": "npm run build:ingredient-engine",
     "pretest:face-scan": "npm run build:ingredient-engine",
     "tate:server": "node --env-file-if-exists=.env --env-file-if-exists=.env.local server/tate-dev.mjs",
-    "test:tate": "node --test server/ask-tate.test.mjs"
+    "test:tate": "node --test server/ask-tate.test.mjs",
+    "start:production": "node server/production.mjs",
+    "test:production": "node --test server/production.test.mjs"
   },
-  "private": true
+  "private": true,
+  "engines": {
+    "node": "22.x"
+  }
 }

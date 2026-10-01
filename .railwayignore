@@ -1,0 +1,13 @@
+.git/
+node_modules/
+.expo/
+.env
+.env.*
+dist/
+web-build/
+.npm-cache/
+data/
+outputs/
+supabase/.temp/
+ios/
+android/
