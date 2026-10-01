@@ -54,6 +54,7 @@ export default function CatalogWorkspace() {
   const [selectedProduct,setSelectedProduct] = useState<CatalogProduct|null>(null);
   const [baseline, setBaseline] = useState(JSON.stringify(emptyForm));
   const [ingredientQuery, setIngredientQuery] = useState('');
+  const [newIngredientName, setNewIngredientName] = useState('');
   const [editingIngredient, setEditingIngredient] = useState<string | null>(null);
   const [reviewContext, setReviewContext] = useState<string | null>(null);
   const [source, setSource] = useState<CatalogRecord | null>(null);
@@ -116,7 +117,7 @@ export default function CatalogWorkspace() {
       if (detail?.error || evidence?.error || expressions?.error) { setError(detail?.error?.message ?? evidence?.error?.message ?? expressions?.error?.message ?? 'Could not open product'); return; }
       const next = detail?.data ? toForm(detail.data, evidence?.data ?? undefined, expressions?.data ?? []) : { ...emptyForm };
       setSelectedProduct(detail?.data??null);
-      setReviewContext(reviewId ?? null); setForm(next); setBaseline(JSON.stringify(next)); setEditor(true); setTab('overview'); setIngredientQuery('');
+      setReviewContext(reviewId ?? null); setForm(next); setBaseline(JSON.stringify(next)); setEditor(true); setTab('overview'); setIngredientQuery(''); setNewIngredientName('');
     })().catch((e) => setError(e instanceof Error ? e.message : 'Could not open product')); });
   }
   function changeSort(next: typeof sort) { if (next === sort) setDescending(!descending); else { setSort(next); setDescending(false); } }
@@ -191,42 +192,18 @@ export default function CatalogWorkspace() {
     guard(() => setConfirm({ title: product.archived_at ? 'Restore this product?' : 'Archive this product?', detail: product.archived_at ? 'It will return to the catalog as unpublished and ready to edit.' : 'It will leave the active catalog. Existing wardrobe references will be preserved.', label: product.archived_at ? 'Restore product' : 'Archive product', action: () => { void archiveOrRestore(product); } }));
   }
   async function addIngredient() {
-    if (!ingredientQuery.trim() || saving) return;
+    if (!newIngredientName.trim() || saving) return;
     setSaving(true); setError('');
-    try { const result = await createIngredient(ingredientQuery); if (result.error || !result.data) throw new Error(result.error?.message ?? 'Could not create ingredient.'); setIngredients((current) => [...current.filter((i) => i.id !== result.data!.id), result.data!]); attachIngredient(result.data.id); }
+    try {
+      const matches = ingredients.filter((i) => [i.name, i.inci_name, ...i.aliases].filter(Boolean).some((name) => ingredientKey(name!) === ingredientKey(newIngredientName)));
+      if (matches.length > 1) throw new Error('This name matches multiple ingredients. Choose the correct entry from the search results.');
+      const result = matches.length ? { data: matches[0], error: null } : await createIngredient(newIngredientName); if (result.error || !result.data) throw new Error(result.error?.message ?? 'Could not create ingredient.'); setIngredients((current) => [...current.filter((i) => i.id !== result.data!.id), result.data!]); attachIngredient(result.data.id); setNewIngredientName(''); setNotice('Ingredient added. Save changes to keep the product link.'); }
     catch (e) { setError(e instanceof Error ? e.message : 'Could not create ingredient.'); }
     finally { setSaving(false); }
   }
   function attachIngredient(id: string) { if (form.ingredients.some((i) => i.ingredientId === id)) return; update({ ingredients: [...form.ingredients, { ingredientId: id, ingredientOrder: form.ingredients.length + 1 }] }); setIngredientQuery(''); }
   function updateIngredient(index: number, next: Partial<ProductIngredientInput>) { update({ ingredients: form.ingredients.map((i, position) => position === index ? { ...i, ...next } : i) }); }
 
-  async function parseFormula() {
-    if (saving) return;
-    const parsed = parseIngredients(form.record?.fields.ingredient_list ?? '');
-    if (parsed.reason) { setError(parsed.reason); return; }
-    const library = [...ingredients];
-    const ambiguous = parsed.items.filter((item) => library.filter((i) => [i.name, i.inci_name, ...i.aliases].filter(Boolean).some((name) => ingredientKey(name!) === ingredientKey(item.name))).length > 1);
-    if (ambiguous.length) { setError('Resolve duplicate ingredient matches in the library: ' + ambiguous.map((i) => i.name).join(', ')); return; }
-    setSaving(true); setError('');
-    try {
-      const matched: ProductIngredientInput[] = [];
-      let created = 0;
-      for (const item of parsed.items) {
-        let ingredient = library.find((i) => [i.name, i.inci_name, ...i.aliases].filter(Boolean).some((name) => ingredientKey(name!) === ingredientKey(item.name)));
-        if (!ingredient) {
-          const result = await createIngredient(item.name);
-          if (result.error || !result.data) throw new Error(result.error?.message ?? 'Could not add ingredient: ' + item.name);
-          ingredient = result.data; library.push(ingredient); created++;
-          setIngredients((current) => [...current.filter((i) => i.id !== ingredient!.id), ingredient!]);
-        }
-        if (matched.some((i) => i.ingredientId === ingredient.id)) continue;
-        matched.push({ ingredientId: ingredient.id, ingredientOrder: item.order, concentration: item.concentration, concentrationUnit: item.concentration === null ? null : '%', notes: 'Parsed from current CMS formula; source order is not concentration.' });
-      }
-      update({ ingredients: matched, engineExpressions: [], record: form.record ? { ...form.record, fields: { ...form.record.fields, formula_status: 'full_unverified' } } : null });
-      setNotice((created ? created + ' new ingredients added to the library. ' : '') + 'Ingredient links prepared. Save changes to keep these product links.');
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not parse ingredients.'); }
-    finally { setSaving(false); }
-  }
 
   if (!canManage) return <div className="cms cms-access"><Database size={30} color="#795365" /><h1>Catalog access required</h1><p>This workspace is available to catalog administrators.</p><a href="/profile">Return to your account</a></div>;
   const filteredBy = [availability !== 'all', brandFilter !== 'all', categoryFilter !== 'all', typeFilter !== 'all', batchFilter !== 'all'].filter(Boolean).length;
@@ -304,11 +281,8 @@ export default function CatalogWorkspace() {
             </div></div> : null}
             {tab in evidenceSections && form.record ? <EvidenceFields section={tab as keyof typeof evidenceSections} record={form.record} onChange={(record) => update({ record })} /> : null}
             {tab === 'formula' && form.id ? <SourceEvidence productId={form.id} /> : null}
-            {tab === 'ingredients' ? <><Section title="Formula" description="Enter the current full ingredient list, then parse it to create ingredient links.">
-              <Field name="Full ingredient list / INCI"><textarea rows={7} value={form.record?.fields.ingredient_list ?? ''} onChange={(e) => update({ record: form.record ? { ...form.record, fields: { ...form.record.fields, ingredient_list: e.target.value, formula_status: 'unresolved' } } : null })} /></Field>
-              <Field name="Ingredient completeness"><select value={['full_verified','full_unverified'].includes(form.record?.fields.formula_status ?? '') ? 'full_unverified' : form.record?.fields.formula_status ?? 'missing'} onChange={(e) => update({ record: form.record ? { ...form.record, fields: { ...form.record.fields, formula_status: e.target.value } } : null })}><option value="missing">Missing</option><option value="partial">Partial</option><option value="unresolved">Needs ingredient matching</option><option value="full_unverified">Complete ingredient list</option><option value="not_applicable">Not applicable</option></select></Field>
-              <button className="cms-button" disabled={saving} onClick={() => void parseFormula()}>Parse current ingredient list</button>
-            </Section><Section title="Ingredient library"><div className="cms-ingredient-search"><Field name="Find or create an ingredient"><input placeholder="Search the ingredient library…" value={ingredientQuery} onChange={(e) => setIngredientQuery(e.target.value)} /></Field>{ingredientQuery.trim() ? <><p className="cms-help">Search results — click to add</p><div className="cms-ingredient-options">{ingredients.filter((i) => !form.ingredients.some((f) => f.ingredientId === i.id) && i.name.toLowerCase().includes(ingredientQuery.trim().toLowerCase())).slice(0, 8).map((i) => <button key={i.id} className="cms-button compact" onClick={() => attachIngredient(i.id)}><Plus size={12} />{i.name}</button>)}{ingredientQuery.trim() ? <button className="cms-button compact" onClick={() => void addIngredient()}>Create “{ingredientQuery.trim()}”</button> : null}</div></> : null}</div>
+            {tab === 'ingredients' ? <><Section title="Ingredients"><div className="cms-ingredient-search"><Field name="Find an ingredient"><input placeholder="Search ingredients…" value={ingredientQuery} onChange={(e) => setIngredientQuery(e.target.value)} /></Field>{ingredientQuery.trim() ? <><p className="cms-help">Search results — click to add</p><div className="cms-ingredient-options">{ingredients.filter((i) => !form.ingredients.some((f) => f.ingredientId === i.id) && [i.name, i.inci_name, ...i.aliases].filter(Boolean).some((name) => name!.toLowerCase().includes(ingredientQuery.trim().toLowerCase()))).slice(0, 8).map((i) => <button key={i.id} className="cms-button compact" onClick={() => attachIngredient(i.id)}><Plus size={12} />{i.name}</button>)}</div></> : null}</div>
+              <div className="cms-ingredient-search"><Field name="New ingredient name"><input placeholder="Enter an ingredient name" value={newIngredientName} onChange={(e) => setNewIngredientName(e.target.value)} /></Field><button className="cms-button" disabled={saving || !newIngredientName.trim()} onClick={() => void addIngredient()}><Plus size={15} />Add new ingredient</button></div>
               <p className="cms-help">{form.ingredients.length} linked ingredients · Click a chip to edit its order, concentration, or notes.</p>
               <div className="cms-ingredient-chips" role="list" aria-label="Linked ingredients">{form.ingredients.map((i, index) => {
                 const name = ingredients.find((x) => x.id === i.ingredientId)?.name ?? 'Ingredient';
