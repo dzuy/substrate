@@ -1,3 +1,4 @@
+import { Link } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Archive, ArrowUpRight, Box, Check, ChevronLeft, ChevronRight, ClipboardList, Database, FileText, Layers, MessageCircle, Plus, RefreshCw, Save, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { isAppAdmin, isCatalogAdmin } from '@/lib/admin';
@@ -221,7 +222,7 @@ export default function CatalogWorkspace() {
       <aside className="cms-sidebar" aria-label="Catalog navigation and filters">
         <div className="cms-rail-heading">WORKSPACE</div>
         <nav className="cms-nav" aria-label="Admin workspace">
-          {isAppAdmin(user) ? <a className="cms-nav-item" href="/admin"><span>Users</span></a> : null}
+          {isAppAdmin(user) ? <Link href="/admin" asChild><a className="cms-nav-item"><span>Users</span></a></Link> : null}
           <button className={cx('cms-nav-item', workspace === 'products' && 'active')} onClick={() => navigate('products')}><Box size={17} /><span>Products</span><small>{counts.active}</small></button>
           <button className={cx('cms-nav-item', workspace === 'reviews' && 'active')} onClick={() => navigate('reviews')}><ClipboardList size={17} /><span>Issues</span><small>{openReviews}</small></button>
         </nav>

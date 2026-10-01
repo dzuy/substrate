@@ -73,7 +73,7 @@ Run `npm run prototype:face-scan` and open `http://localhost:4317/face-scan-prot
 - Environment snapshots.
 - Skin Wardrobe and Add Products flow.
 - Admin product catalog.
-- `/admin`: read-only user directory with names, emails, trusted app roles, verification, joined date, and last sign-in. Search and pagination run in Supabase through `list_admin_users`; only users with `admin` in trusted app metadata can access it. `catalog_admin` alone is insufficient. Apply `supabase/migrations/202610010001_admin_users.sql` and validate with `supabase/tests/admin_users.sql`. No service-role key is sent to the browser.
+- `/admin`: user directory with role assignment and permanent account deletion with names, emails, trusted app roles, verification, joined date, and last sign-in. Search and pagination run in Supabase through `list_admin_users`; only users with `admin` in trusted app metadata can access it. `catalog_admin` alone is insufficient. Apply `supabase/migrations/202610010001_admin_users.sql` and validate with `supabase/tests/admin_users.sql`. User management also requires `supabase/migrations/202610010002_admin_user_management.sql`; validate with `supabase/tests/admin_user_management.sql` (transaction rolls back all fixtures). Users can hold multiple roles: Admin includes catalog access, Catalog Admin manages the catalog, and User has regular access. Account deletion cascades to linked profile and personal app data. Administrators cannot demote or delete themselves. Catalog authorization reads current database roles; existing UI sessions may need a reload to show changed permissions. No service-role key is sent to the browser.
 
 Before changing Expo app code, read the exact versioned Expo docs referenced in `AGENTS.md`.
 

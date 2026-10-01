@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { isAppAdmin } from '@/lib/admin';
 import { supabase } from '@/lib/supabase';
-import { listAdminUsers, type AdminUser } from '@/services/admin-users';
+import { listAdminUsers, setAdminUserRoles, deleteAdminUser, type AppRole, type AdminUser } from '@/services/admin-users';
 
 export function useAdminUsers() {
   const { user } = useAuth();
+  const metadataAllowsAdmin = isAppAdmin(user);
   const [allowed, setAllowed] = useState(isAppAdmin(user));
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [query, setQuery] = useState('');
@@ -15,6 +16,23 @@ export function useAdminUsers() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [notice, setNotice] = useState('');
+  const actionInProgress = useRef(false);
+  async function manage(action: () => Promise<void>, message: string) {
+    if (actionInProgress.current) return false;
+    actionInProgress.current = true;
+    setSaving(true); setActionError(''); setNotice('');
+    try {
+      await action();
+      setNotice(message); setPage(1); setRevision(value => value + 1);
+      return true;
+    } catch (failure) {
+      setActionError(failure instanceof Error ? failure.message : 'Unable to update this account.');
+      return false;
+    } finally { actionInProgress.current = false; setSaving(false); }
+  }
   useEffect(() => {
     let active = true;
     setCheckingAccess(true);
@@ -22,7 +40,7 @@ export function useAdminUsers() {
       if (active) { setAllowed(!error && isAppAdmin(data.user)); setCheckingAccess(false); }
     }).catch(() => { if (active) { setAllowed(false); setCheckingAccess(false); } });
     return () => { active = false; };
-  }, [user?.id]);
+  }, [user?.id, metadataAllowsAdmin]);
   useEffect(() => {
     let active = true;
     setUsers([]);
@@ -43,7 +61,10 @@ export function useAdminUsers() {
     }, 250);
     return () => { active = false; clearTimeout(timer); };
   }, [allowed, user?.id, query, page, revision]);
-  return { allowed, checkingAccess, users, total, loading, error, query, page,
+  return { currentUserId: user?.id, saving, actionError, notice,
+    assignRoles: (id: string, roles: AppRole[]) => manage(() => setAdminUserRoles(id, roles), 'Roles updated.'),
+    deleteUser: (id: string) => manage(() => deleteAdminUser(id), 'User deleted.'),
+    clearActionError: () => setActionError(''), allowed, checkingAccess, users, total, loading, error, query, page,
     search: (value: string) => { setQuery(value); setPage(1); },
     setPage, refresh: () => setRevision(value => value + 1),
   };

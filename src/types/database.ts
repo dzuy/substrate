@@ -714,6 +714,8 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      set_admin_user_roles: { Args: { target_user_id: string; assigned_roles: string[] }; Returns: undefined };
+      delete_admin_user: { Args: { target_user_id: string }; Returns: undefined };
       list_admin_users: { Args: { page_index: number; page_size: number; search_query: string }; Returns: Json };
       search_catalog_products: { Args: { filters: Json; page_index: number; page_size: number }; Returns: Json };
       get_recommendation_catalog: { Args: Record<string, never>; Returns: Json };

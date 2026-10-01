@@ -19,6 +19,7 @@ export default function RootLayout() {
 function RootNavigator() {
   const { isLoading, session } = useAuth();
   const pathname = usePathname();
+  const isAppAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
 
   if (isLoading) {
     return (
@@ -32,7 +33,7 @@ function RootNavigator() {
   }
 
   if (!session) {
-    return <AuthScreen />;
+    return <AuthScreen admin={isAppAdminRoute} />;
   }
 
   const isResetPasswordRoute = pathname === '/reset-password';

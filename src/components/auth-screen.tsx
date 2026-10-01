@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link, type Href } from 'expo-router';
 import * as Linking from 'expo-linking';
 import {
   ActivityIndicator,
@@ -13,11 +14,13 @@ import {
 import { AppShell, BrandMark, Card, PrimaryButton, SubstrateText } from '@/components/substrate-ui';
 import { Colors, Fonts, Spacing } from '@/constants/theme';
 import { isSupabaseConfigured } from '@/lib/env';
+import { useAuth } from '@/lib/auth-context';
 import { sendPasswordResetEmail, signInWithEmailPassword, signUpWithEmailPassword } from '@/services/auth';
 
 type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password';
 
-export function AuthScreen() {
+export function AuthScreen({ admin = false }: { admin?: boolean }) {
+  const { user } = useAuth();
   const [mode, setMode] = useState<AuthMode>('sign-in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -80,6 +83,8 @@ export function AuthScreen() {
       return;
     }
 
+    if (admin) setPassword('');
+
     if (!isSignIn && !data.session) {
       setMessage('Check your email to confirm your account, then sign in.');
     }
@@ -116,16 +121,20 @@ export function AuthScreen() {
         <Card style={styles.card}>
           <View style={styles.header}>
             <SubstrateText variant="title">
-              {isForgotPassword ? 'Reset your password' : isSignIn ? 'Welcome back' : 'Create your account'}
+              {isForgotPassword ? 'Reset your password' : admin ? 'Administrator sign in' : isSignIn ? 'Welcome back' : 'Create your account'}
             </SubstrateText>
             <SubstrateText variant="body" color={Colors.light.textMuted}>
               {isForgotPassword
                 ? "Enter your email and we'll send a secure link to set a new password."
+                : admin
+                ? 'Sign in with an administrator account to manage Substrate.'
                 : isSignIn
                 ? 'Sign in to continue tracking your skin signals.'
                 : 'Start a private profile for your daily photos, check-ins, and plans.'}
             </SubstrateText>
           </View>
+
+          {admin && user ? <View style={styles.feedbackError}><SubstrateText variant="small" color={Colors.light.accentDeep}>Your current account{user.email ? ` (${user.email})` : ''} doesn’t have administrator access. Sign in with a different account, or ask an administrator to update your role.</SubstrateText></View> : null}
 
           <View style={styles.form}>
             <View style={styles.field}>
@@ -133,6 +142,7 @@ export function AuthScreen() {
                 Email
               </SubstrateText>
               <TextInput
+                accessibilityLabel="Email"
                 autoCapitalize="none"
                 autoComplete="email"
                 autoCorrect={false}
@@ -153,6 +163,7 @@ export function AuthScreen() {
                   Password
                 </SubstrateText>
                 <TextInput
+                  accessibilityLabel="Password"
                   autoCapitalize="none"
                   autoComplete={isSignIn ? 'current-password' : 'new-password'}
                   onChangeText={setPassword}
@@ -196,7 +207,7 @@ export function AuthScreen() {
             disabled={isSubmitting || !isSupabaseConfigured}
             onPress={handleSubmit}
             style={(isSubmitting || !isSupabaseConfigured) && styles.disabled}>
-            <PrimaryButton label={isForgotPassword ? 'Send Reset Link' : isSignIn ? 'Sign In' : 'Create Account'} />
+            <PrimaryButton label={isForgotPassword ? 'Send Reset Link' : admin ? 'Sign In as Administrator' : isSignIn ? 'Sign In' : 'Create Account'} />
           </Pressable>
 
           {isSignIn ? (
@@ -207,7 +218,7 @@ export function AuthScreen() {
             </Pressable>
           ) : null}
 
-          <Pressable accessibilityRole="button" onPress={toggleMode} style={styles.modeButton}>
+          {!admin || isForgotPassword ? <Pressable accessibilityRole="button" onPress={toggleMode} style={styles.modeButton}>
             <SubstrateText variant="small" color={Colors.light.accent}>
               {isForgotPassword
                 ? 'Remember your password? Sign in'
@@ -215,7 +226,9 @@ export function AuthScreen() {
                 ? 'Need an account? Create one'
                 : 'Already have an account? Sign in'}
             </SubstrateText>
-          </Pressable>
+          </Pressable> : null}
+
+          {admin && user ? <Link href={'/profile' as Href} asChild><Pressable accessibilityRole="link" style={styles.modeButton}><SubstrateText variant="small" color={Colors.light.accent}>Return to your account</SubstrateText></Pressable></Link> : null}
 
           {isSubmitting ? (
             <View style={styles.loading}>

@@ -13,7 +13,7 @@
 .admin-search input { min-width: 0; width: 100%; border: 0; outline: none; font: inherit; font-size: 12px; background: transparent; color: #493a44; }
 .admin-search:focus-within { outline: 2px solid #795365; outline-offset: 2px; }
 .admin-table-scroll { overflow-x: auto; }
-.admin-users-table { min-width: 780px; }
+.admin-users-table { min-width: 480px; }
 .admin-users-table td { padding: 20px 24px; vertical-align: middle; }
 .admin-users-table th { padding: 13px 24px; }
 .admin-users-table td:first-child strong, .admin-users-table td:first-child span, .admin-users-table td:first-child small { display: block; }
@@ -24,3 +24,22 @@
 .admin-message { padding: 40px 24px; text-align: center; color: #81717b; font-size: 14px; }
 .admin-message p { margin: 10px 0 20px; }
 @media (max-width: 760px) { .admin-content { padding: 24px 16px; } .admin-heading { align-items: flex-start; } .admin-toolbar { flex-direction: column; align-items: stretch; } .admin-search { width: auto; } }
+
+
+.admin-self { display: block; margin-top: 6px; color: #8d7e87; }
+.admin-delete { color: #a33442; border-color: #e7b9bf; }
+.admin-feedback { color: #493a44; font-size: 14px; }
+.admin-modal-backdrop { position: fixed; inset: 0; z-index: 1000; background: #342a3266; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.admin-confirm { background: white; border-radius: 12px; padding: 28px; width: 440px; max-width: 100%; color: #493a44; box-shadow: 0 20px 70px #342a3233; }
+.admin-confirm h2 { margin: 0 0 18px; font-size: 22px; }
+.admin-confirm p { font-size: 14px; line-height: 1.6; overflow-wrap: anywhere; }
+.admin-confirm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+.admin-users-table th:last-child, .admin-users-table td:last-child { width: 70px; text-align: right; }
+.admin-role-picker { position: relative; min-width: 180px; }
+.admin-role-picker summary { cursor: pointer; border: 1px solid #e7dfe4; border-radius: 6px; padding: 9px 12px; color: #493a44; font-size: 12px; }
+.admin-role-options { position: absolute; top: calc(100% + 6px); left: 0; z-index: 10; background: white; border: 1px solid #e7dfe4; border-radius: 8px; box-shadow: 0 8px 24px #342a3220; padding: 14px; min-width: 190px; display: flex; flex-direction: column; gap: 12px; }
+.admin-role-options label { display: flex; align-items: center; gap: 9px; font-size: 13px; cursor: pointer; }
+.admin-role-options input { accent-color: #795365; }
+.admin-role-options small { white-space: normal; color: #8d7e87; }
+.admin-user-panel:has(details[open]) { overflow: visible; }
+.admin-table-scroll:has(details[open]) { overflow: visible; }
