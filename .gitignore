@@ -60,3 +60,5 @@ data/catalog/brand-import-batches/
 data/catalog/brand-files-manifest.json
 data/catalog/brand-staging-report.json
 data/catalog/brand-import-report.json
+
+data/catalog/library-expansion-report.json

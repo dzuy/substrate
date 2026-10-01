@@ -202,19 +202,31 @@ export default function CatalogWorkspace() {
   function updateIngredient(index: number, next: Partial<ProductIngredientInput>) { update({ ingredients: form.ingredients.map((i, position) => position === index ? { ...i, ...next } : i) }); }
 
   async function parseFormula() {
+    if (saving) return;
     const parsed = parseIngredients(form.record?.fields.ingredient_list ?? '');
     if (parsed.reason) { setError(parsed.reason); return; }
-    const matched: ProductIngredientInput[] = [];
-    const unknown: string[] = [];
-    for (const item of parsed.items) {
-      const options = ingredients.filter((i) => [i.name, i.inci_name, ...i.aliases].filter(Boolean).some((name) => ingredientKey(name!) === ingredientKey(item.name)));
-      if (options.length !== 1) { unknown.push(item.name); continue; }
-      if (matched.some((i) => i.ingredientId === options[0].id)) continue;
-      matched.push({ ingredientId: options[0].id, ingredientOrder: item.order, concentration: item.concentration, concentrationUnit: item.concentration === null ? null : '%', notes: 'Parsed from current CMS formula; source order is not concentration.' });
-    }
-    if (unknown.length) { setError('Create or resolve these ingredient names in the library, then parse again: ' + unknown.join(', ')); return; }
-    update({ ingredients: matched, engineExpressions: [], record: form.record ? { ...form.record, fields: { ...form.record.fields, formula_status: 'full_unverified' } } : null });
-    setNotice('Ingredient links prepared. Check the formula and product matching ingredients, then publish when ready.');
+    const library = [...ingredients];
+    const ambiguous = parsed.items.filter((item) => library.filter((i) => [i.name, i.inci_name, ...i.aliases].filter(Boolean).some((name) => ingredientKey(name!) === ingredientKey(item.name))).length > 1);
+    if (ambiguous.length) { setError('Resolve duplicate ingredient matches in the library: ' + ambiguous.map((i) => i.name).join(', ')); return; }
+    setSaving(true); setError('');
+    try {
+      const matched: ProductIngredientInput[] = [];
+      let created = 0;
+      for (const item of parsed.items) {
+        let ingredient = library.find((i) => [i.name, i.inci_name, ...i.aliases].filter(Boolean).some((name) => ingredientKey(name!) === ingredientKey(item.name)));
+        if (!ingredient) {
+          const result = await createIngredient(item.name);
+          if (result.error || !result.data) throw new Error(result.error?.message ?? 'Could not add ingredient: ' + item.name);
+          ingredient = result.data; library.push(ingredient); created++;
+          setIngredients((current) => [...current.filter((i) => i.id !== ingredient!.id), ingredient!]);
+        }
+        if (matched.some((i) => i.ingredientId === ingredient.id)) continue;
+        matched.push({ ingredientId: ingredient.id, ingredientOrder: item.order, concentration: item.concentration, concentrationUnit: item.concentration === null ? null : '%', notes: 'Parsed from current CMS formula; source order is not concentration.' });
+      }
+      update({ ingredients: matched, engineExpressions: [], record: form.record ? { ...form.record, fields: { ...form.record.fields, formula_status: 'full_unverified' } } : null });
+      setNotice((created ? created + ' new ingredients added to the library. ' : '') + 'Ingredient links prepared. Save changes to keep these product links.');
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not parse ingredients.'); }
+    finally { setSaving(false); }
   }
 
   if (!canManage) return <div className="cms cms-access"><Database size={30} color="#795365" /><h1>Catalog access required</h1><p>This workspace is available to catalog administrators.</p><a href="/profile">Return to your account</a></div>;
