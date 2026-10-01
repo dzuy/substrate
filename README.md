@@ -73,6 +73,7 @@ Run `npm run prototype:face-scan` and open `http://localhost:4317/face-scan-prot
 - Environment snapshots.
 - Skin Wardrobe and Add Products flow.
 - Admin product catalog.
+- `/admin`: read-only user directory with names, emails, trusted app roles, verification, joined date, and last sign-in. Search and pagination run in Supabase through `list_admin_users`; only users with `admin` in trusted app metadata can access it. `catalog_admin` alone is insufficient. Apply `supabase/migrations/202610010001_admin_users.sql` and validate with `supabase/tests/admin_users.sql`. No service-role key is sent to the browser.
 
 Before changing Expo app code, read the exact versioned Expo docs referenced in `AGENTS.md`.
 

@@ -12,7 +12,7 @@ import {
   SubstrateText,
 } from '@/components/substrate-ui';
 import { Colors, Fonts, Spacing } from '@/constants/theme';
-import { isCatalogAdmin } from '@/lib/admin';
+import { isAppAdmin, isCatalogAdmin } from '@/lib/admin';
 import { useAuth } from '@/lib/auth-context';
 import { getProfile, saveProfileContext, saveProfileLocation, toProfileContext, toProfileLocation } from '@/services/profile';
 import type { ProfileContext, ProfileLocation } from '@/types/database';
@@ -153,6 +153,7 @@ export default function ProfileScreen() {
       <Card style={styles.card}>
         <SubstrateText variant="section">Account</SubstrateText>
         <SignalRow label="Email" detail={user?.email ?? 'Signed in'} />
+        {isAppAdmin(user) ? <Link href={'/admin' as Href} asChild><Pressable accessibilityRole="button" style={styles.secondaryButton}><SubstrateText variant="small" color={Colors.light.accentDeep}>Administration</SubstrateText></Pressable></Link> : null}
         {canManageCatalog ? (
           <Link href={'/admin-products' as Href} asChild>
             <Pressable accessibilityRole="button" style={styles.secondaryButton}>

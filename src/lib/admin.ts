@@ -1,5 +1,10 @@
 import type { User } from '@supabase/supabase-js';
 
+export function isAppAdmin(user: User | null | undefined) {
+  const metadata = user?.app_metadata;
+  return metadata?.role === 'admin' || (Array.isArray(metadata?.roles) && metadata.roles.includes('admin'));
+}
+
 export function isCatalogAdmin(user: User | null | undefined) {
   const appMetadata = user?.app_metadata;
   const role = typeof appMetadata?.role === 'string' ? appMetadata.role : '';

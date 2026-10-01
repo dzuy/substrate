@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Archive, ArrowUpRight, Box, Check, ChevronLeft, ChevronRight, ClipboardList, Database, FileText, Layers, MessageCircle, Plus, RefreshCw, Save, Search, SlidersHorizontal, X } from 'lucide-react-native';
-import { isCatalogAdmin } from '@/lib/admin';
+import { isAppAdmin, isCatalogAdmin } from '@/lib/admin';
 import { useAuth } from '@/lib/auth-context';
 import { archiveProduct, createBrand, createIngredient, getCatalogProduct, listBrands, listIngredients, productCategories, type CatalogBrand, type CatalogIngredient, type CatalogProduct, type ProductIngredientInput } from '@/services/catalog';
 import { getCatalogExpressions, getCatalogSources, type EngineExpression, getCatalogRecord, listCatalogImports, listCmsProductPage, listCatalogHistory, listCatalogRecords, listCatalogReviews, restoreProduct, saveCatalogReview, saveCmsProduct, type CatalogRecord, type CatalogReview } from '@/services/catalog-cms';
@@ -221,6 +221,7 @@ export default function CatalogWorkspace() {
       <aside className="cms-sidebar" aria-label="Catalog navigation and filters">
         <div className="cms-rail-heading">WORKSPACE</div>
         <nav className="cms-nav" aria-label="Admin workspace">
+          {isAppAdmin(user) ? <a className="cms-nav-item" href="/admin"><span>Users</span></a> : null}
           <button className={cx('cms-nav-item', workspace === 'products' && 'active')} onClick={() => navigate('products')}><Box size={17} /><span>Products</span><small>{counts.active}</small></button>
           <button className={cx('cms-nav-item', workspace === 'reviews' && 'active')} onClick={() => navigate('reviews')}><ClipboardList size={17} /><span>Issues</span><small>{openReviews}</small></button>
         </nav>
