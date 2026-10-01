@@ -59,3 +59,9 @@ Run `npm run prototype:face-scan` and open `http://localhost:4317/face-scan-prot
 - Admin product catalog.
 
 Before changing Expo app code, read the exact versioned Expo docs referenced in `AGENTS.md`.
+
+### Ask Tate (admin product chat)
+
+The web catalog's **Ask Tate** drawer queries current product, ingredient, and source records through the signed-in administrator's Supabase session. The server uses the existing `OPENAI_API_KEY` and optional `OPENAI_MODEL` environment variables; never expose the API key with an `EXPO_PUBLIC_` prefix. Vercel serves `/api/ask-tate` alongside the exported web app and needs the same existing Supabase public connection variables and OpenAI server secret.
+
+For local development, run `npm run tate:server` alongside `npm run web`. The chat server loads `.env` and `.env.local` and listens on loopback port 4318. If needed, set `EXPO_PUBLIC_TATE_API_URL` to another chat endpoint and `TATE_PORT` to change the server port. Run `npm run test:tate` for authorization, database retrieval, pagination, and provider failure tests.

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Archive, ArrowUpRight, Box, Check, ChevronLeft, ChevronRight, ClipboardList, Database, FileText, Layers, Plus, RefreshCw, Save, Search, SlidersHorizontal, X } from 'lucide-react-native';
+import { Archive, ArrowUpRight, Box, Check, ChevronLeft, ChevronRight, ClipboardList, Database, FileText, Layers, MessageCircle, Plus, RefreshCw, Save, Search, SlidersHorizontal, X } from 'lucide-react-native';
 import { isCatalogAdmin } from '@/lib/admin';
 import { useAuth } from '@/lib/auth-context';
 import { archiveProduct, createBrand, createIngredient, getCatalogProduct, listBrands, listIngredients, productCategories, type CatalogBrand, type CatalogIngredient, type CatalogProduct, type ProductIngredientInput } from '@/services/catalog';
@@ -7,6 +7,7 @@ import { getCatalogExpressions, getCatalogSources, type EngineExpression, getCat
 import type { Database as DatabaseTypes, ProductCategory, ProductStatus } from '@/types/database';
 import { evidenceSections, fieldLabel } from './catalog-fields';
 import './catalog-workspace.css';
+import AskTateDrawer from './ask-tate-drawer';
 import ResizableProductTable from './resizable-product-table';
 import { key as ingredientKey, parseIngredients } from '@/lib/inci-parser.mjs';
 import engineIngredients from '@/lib/catalog-engine-ingredients.json';
@@ -49,6 +50,7 @@ export default function CatalogWorkspace() {
   const [descending, setDescending] = useState(false);
   const [page, setPage] = useState(1);
   const [editor, setEditor] = useState(false);
+  const [tateOpen, setTateOpen] = useState(false);
   const [tab, setTab] = useState<EditorTab>('overview');
   const [form, setForm] = useState<Form>(emptyForm);
   const [selectedProduct,setSelectedProduct] = useState<CatalogProduct|null>(null);
@@ -173,10 +175,10 @@ export default function CatalogWorkspace() {
   useEffect(() => {
     const shortcut = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's' && editor) { event.preventDefault(); void save(); }
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k' && !editor) { event.preventDefault(); searchRef.current?.focus(); }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k' && !editor && !tateOpen) { event.preventDefault(); searchRef.current?.focus(); }
     };
     window.addEventListener('keydown', shortcut); return () => window.removeEventListener('keydown', shortcut);
-  }, [editor, save]);
+  }, [editor, save, tateOpen]);
 
   async function archiveOrRestore(product: CatalogProduct) {
     setSaving(true); setError('');
@@ -214,8 +216,8 @@ export default function CatalogWorkspace() {
   ];
 
   return <div className="cms">
-    <header className="cms-topbar" inert={editor || !!confirm}><div className="cms-wordmark"><div className="cms-mark"><Layers size={19} color="#fff" /></div><strong>substrate<span>/</span></strong><span className="cms-admin-label">ADMIN</span></div><div className="cms-environment"><span className="cms-live-dot" />Live catalog<div className="cms-top-divider" /><span className="cms-avatar">{(user?.email?.[0] ?? 'A').toUpperCase()}</span><span>Catalog admin</span></div></header>
-    <div className="cms-body" inert={editor || !!confirm}>
+    <header className="cms-topbar" inert={editor || !!confirm || tateOpen}><div className="cms-wordmark"><div className="cms-mark"><Layers size={19} color="#fff" /></div><strong>substrate<span>/</span></strong><span className="cms-admin-label">ADMIN</span></div><button className="cms-button cms-ask-tate" aria-haspopup="dialog" aria-expanded={tateOpen} onClick={() => setTateOpen(true)}><MessageCircle size={16} />Ask Tate</button></header>
+    <div className="cms-body" inert={editor || !!confirm || tateOpen}>
       <aside className="cms-sidebar" aria-label="Catalog navigation and filters">
         <div className="cms-rail-heading">WORKSPACE</div>
         <nav className="cms-nav" aria-label="Admin workspace">
@@ -254,6 +256,7 @@ export default function CatalogWorkspace() {
 
       </main>
     </div>
+    <AskTateDrawer open={tateOpen} onClose={() => setTateOpen(false)} onProduct={(id) => openProduct({ id })} />
     {editor ? <ProductDrawer suspended={!!confirm} onClose={() => guard(() => setEditor(false))}>
         <div className="cms-page-heading">
           <div><div className="cms-title-line"><h1 id="cms-drawer-title">{form.name || 'New product'}</h1></div>{!form.id ? <p>Create a product in the shared catalog.</p> : null}</div>

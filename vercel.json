@@ -7,9 +7,16 @@
   "functions": {
     "api/face-scan-prototype.mjs": {
       "maxDuration": 180
+    },
+    "api/ask-tate.mjs": {
+      "maxDuration": 180
     }
   },
   "rewrites": [
+    {
+      "source": "/api/ask-tate",
+      "destination": "/api/ask-tate"
+    },
     {
       "source": "/api/face-scan-prototype",
       "destination": "/api/face-scan-prototype"
