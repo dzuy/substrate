@@ -1,324 +1,227 @@
-import { useState } from 'react';
-import { Link, type Href } from 'expo-router';
-import * as Linking from 'expo-linking';
+import { useState } from "react";
+import * as Linking from "expo-linking";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  StyleSheet,
   TextInput,
   View,
-} from 'react-native';
+} from "react-native";
+import { isSupabaseConfigured } from "@/lib/env";
+import { useAuth } from "@/lib/auth-context";
+import {
+  sendPasswordResetEmail,
+  signInWithEmailPassword,
+  signUpWithEmailPassword,
+} from "@/services/auth";
+import {
+  Copy,
+  Notice,
+  Panel,
+  ReportButton,
+  ReportFrame,
+  Spiral,
+} from "@/report/ui";
+import { fontFamily, useReportTheme } from "@/report/theme";
 
-import { AppShell, BrandMark, Card, PrimaryButton, SubstrateText } from '@/components/substrate-ui';
-import { Colors, Fonts, Spacing } from '@/constants/theme';
-import { isSupabaseConfigured } from '@/lib/env';
-import { useAuth } from '@/lib/auth-context';
-import { sendPasswordResetEmail, signInWithEmailPassword, signUpWithEmailPassword } from '@/services/auth';
-
-type AuthMode = 'sign-in' | 'sign-up' | 'forgot-password';
-
+type AuthMode = "sign-in" | "sign-up" | "forgot-password";
 export function AuthScreen({ admin = false }: { admin?: boolean }) {
   const { user } = useAuth();
-  const [mode, setMode] = useState<AuthMode>('sign-in');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-
-  const isSignIn = mode === 'sign-in';
-  const isForgotPassword = mode === 'forgot-password';
-
-  async function handleSubmit() {
-    const trimmedEmail = email.trim();
-    setMessage('');
-    setError('');
-
-    if (!isSupabaseConfigured) {
-      setError('Supabase is not configured for this deployment.');
+  const { theme: t } = useReportTheme();
+  const [mode, setMode] = useState<AuthMode>("sign-in");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const signIn = mode === "sign-in",
+    forgot = mode === "forgot-password";
+  const changeMode = (mode: AuthMode) => {
+    setMode(mode);
+    setError("");
+    setMessage("");
+  };
+  async function submit() {
+    if (busy) return;
+    setError("");
+    setMessage("");
+    if (!email.trim() || (!forgot && password.length < 6)) {
+      setError(
+        forgot
+          ? "Enter your email address."
+          : "Enter your email and a password of at least 6 characters.",
+      );
       return;
     }
-
-    if (isForgotPassword) {
-      if (!trimmedEmail) {
-        setError('Enter your email address.');
-        return;
+    setBusy(true);
+    try {
+      if (forgot) {
+        const url =
+          Platform.OS === "web" && typeof window !== "undefined"
+            ? `${window.location.origin}/reset-password`
+            : Linking.createURL("reset-password");
+        const result = await sendPasswordResetEmail(email.trim(), url);
+        if (result.error) throw result.error;
+        setMessage("If that email is registered, a reset link is on its way.");
+      } else {
+        const result = await (
+          signIn ? signInWithEmailPassword : signUpWithEmailPassword
+        )(email.trim(), password);
+        if (result.error) throw result.error;
+        if (!signIn && !result.data.session)
+          setMessage("Check your email to confirm your account, then sign in.");
+        setPassword("");
       }
-
-      setIsSubmitting(true);
-      const { error: resetError } = await sendPasswordResetEmail(trimmedEmail, getPasswordResetUrl());
-      setIsSubmitting(false);
-
-      if (resetError) {
-        setError(resetError.message);
-        return;
-      }
-
-      setMessage('If that email is registered, a reset link is on its way.');
-      return;
-    }
-
-    if (!trimmedEmail || !password) {
-      setError('Enter your email and password.');
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    const { data, error: authError } = isSignIn
-      ? await signInWithEmailPassword(trimmedEmail, password)
-      : await signUpWithEmailPassword(trimmedEmail, password);
-
-    setIsSubmitting(false);
-
-    if (authError) {
-      setError(authError.message);
-      return;
-    }
-
-    if (admin) setPassword('');
-
-    if (!isSignIn && !data.session) {
-      setMessage('Check your email to confirm your account, then sign in.');
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Unable to sign in. Try again.",
+      );
+    } finally {
+      setBusy(false);
     }
   }
-
-  function toggleMode() {
-    setMode(isSignIn ? 'sign-up' : 'sign-in');
-    setMessage('');
-    setError('');
-  }
-
-  function showForgotPassword() {
-    setMode('forgot-password');
-    setPassword('');
-    setMessage('');
-    setError('');
-  }
-
+  const input = {
+    borderWidth: 1,
+    borderColor: t.line,
+    borderRadius: 12,
+    padding: 16,
+    color: t.ink,
+    fontFamily: fontFamily(t.bodyFont),
+    fontSize: 16,
+    backgroundColor: t.surface,
+  };
   return (
-    <AppShell contentStyle={styles.content}>
+    <ReportFrame wide>
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardView}>
-        <View style={styles.hero}>
-          <BrandMark size={86} />
-          <View style={styles.brandBlock}>
-            <SubstrateText variant="brand">SUBSTRATE</SubstrateText>
-            <SubstrateText variant="body" color={Colors.light.textMuted} style={styles.center}>
-              Every beautiful outcome begins beneath the surface
-            </SubstrateText>
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View
+          style={{
+            flexDirection: "row",
+            flexWrap: "wrap",
+            gap: 40,
+            alignItems: "center",
+          }}
+        >
+          <View style={{ flexGrow: 1, flexBasis: 280, gap: 22 }}>
+            <Copy kind="eyebrow" style={{ color: t.gold }}>
+              SCIENCE FOR HEALTHIER SKIN
+            </Copy>
+            <Copy kind="title" style={{ fontSize: 56 * t.scale }}>
+              Understand your skin.{"\n"}Find your direction.
+            </Copy>
+            <Copy style={{ color: t.muted, maxWidth: 470 }}>
+              Your photo. Your context. A personal skin intelligence report
+              connecting what you see to the ingredients and products that
+              matter.
+            </Copy>
+            <Spiral size={190} />
+            <Copy kind="small" style={{ color: t.muted }}>
+              Preview your report, then unlock the full picture for $79. We’re
+              testing the experience—no payment is collected.
+            </Copy>
           </View>
-        </View>
-
-        <Card style={styles.card}>
-          <View style={styles.header}>
-            <SubstrateText variant="title">
-              {isForgotPassword ? 'Reset your password' : admin ? 'Administrator sign in' : isSignIn ? 'Welcome back' : 'Create your account'}
-            </SubstrateText>
-            <SubstrateText variant="body" color={Colors.light.textMuted}>
-              {isForgotPassword
-                ? "Enter your email and we'll send a secure link to set a new password."
-                : admin
-                ? 'Sign in with an administrator account to manage Substrate.'
-                : isSignIn
-                ? 'Sign in to continue tracking your skin signals.'
-                : 'Start a private profile for your daily photos, check-ins, and plans.'}
-            </SubstrateText>
-          </View>
-
-          {admin && user ? <View style={styles.feedbackError}><SubstrateText variant="small" color={Colors.light.accentDeep}>Your current account{user.email ? ` (${user.email})` : ''} doesn’t have administrator access. Sign in with a different account, or ask an administrator to update your role.</SubstrateText></View> : null}
-
-          <View style={styles.form}>
-            <View style={styles.field}>
-              <SubstrateText variant="small" color={Colors.light.textMuted}>
-                Email
-              </SubstrateText>
+          <Panel style={{ flexGrow: 1, flexBasis: 280, gap: 22 }}>
+            <Copy kind="eyebrow" style={{ color: t.gold }}>
+              {admin ? "ADMINISTRATOR ACCESS" : "YOUR PRIVATE SKIN PROFILE"}
+            </Copy>
+            <Copy kind="heading">
+              {forgot
+                ? "Reset your password"
+                : signIn
+                  ? "Welcome back."
+                  : "Start with you."}
+            </Copy>
+            <Copy kind="small" style={{ color: t.muted }}>
+              {forgot
+                ? "We’ll email you a secure reset link."
+                : signIn
+                  ? "Sign in to create or revisit your personal report."
+                  : "Create an account to keep your assessment and reports together."}
+            </Copy>
+            {admin && user ? (
+              <Notice>
+                Your current account does not have administrator access. Sign in
+                with an administrator account.
+              </Notice>
+            ) : null}
+            <View style={{ gap: 8 }}>
+              <Copy kind="small">Email</Copy>
               <TextInput
                 accessibilityLabel="Email"
                 autoCapitalize="none"
-                autoComplete="email"
                 autoCorrect={false}
-                inputMode="email"
+                autoComplete="email"
                 keyboardType="email-address"
+                value={email}
                 onChangeText={setEmail}
                 placeholder="you@example.com"
-                placeholderTextColor={Colors.light.textMuted}
-                style={styles.input}
-                textContentType="emailAddress"
-                value={email}
+                placeholderTextColor={t.muted}
+                style={input}
               />
             </View>
-
-            {!isForgotPassword ? (
-              <View style={styles.field}>
-                <SubstrateText variant="small" color={Colors.light.textMuted}>
-                  Password
-                </SubstrateText>
+            {!forgot ? (
+              <View style={{ gap: 8 }}>
+                <Copy kind="small">Password</Copy>
                 <TextInput
                   accessibilityLabel="Password"
                   autoCapitalize="none"
-                  autoComplete={isSignIn ? 'current-password' : 'new-password'}
+                  autoComplete={signIn ? "current-password" : "new-password"}
+                  secureTextEntry
+                  value={password}
                   onChangeText={setPassword}
                   placeholder="At least 6 characters"
-                  placeholderTextColor={Colors.light.textMuted}
-                  secureTextEntry
-                  style={styles.input}
-                  textContentType={isSignIn ? 'password' : 'newPassword'}
-                  value={password}
+                  placeholderTextColor={t.muted}
+                  onSubmitEditing={() => void submit()}
+                  style={input}
                 />
               </View>
             ) : null}
-          </View>
-
-          {error ? (
-            <View style={styles.feedbackError}>
-              <SubstrateText variant="small" color={Colors.light.accentDeep}>
-                {error}
-              </SubstrateText>
-            </View>
-          ) : null}
-
-          {message ? (
-            <View style={styles.feedbackSuccess}>
-              <SubstrateText variant="small" color={Colors.light.textMuted}>
-                {message}
-              </SubstrateText>
-            </View>
-          ) : null}
-
-          {!isSupabaseConfigured ? (
-            <View style={styles.feedbackError}>
-              <SubstrateText variant="small" color={Colors.light.accentDeep}>
-                Supabase environment variables are missing from this deployment.
-              </SubstrateText>
-            </View>
-          ) : null}
-
-          <Pressable
-            accessibilityRole="button"
-            disabled={isSubmitting || !isSupabaseConfigured}
-            onPress={handleSubmit}
-            style={(isSubmitting || !isSupabaseConfigured) && styles.disabled}>
-            <PrimaryButton label={isForgotPassword ? 'Send Reset Link' : admin ? 'Sign In as Administrator' : isSignIn ? 'Sign In' : 'Create Account'} />
-          </Pressable>
-
-          {isSignIn ? (
-            <Pressable accessibilityRole="button" onPress={showForgotPassword} style={styles.modeButton}>
-              <SubstrateText variant="small" color={Colors.light.accent}>
-                Forgot password?
-              </SubstrateText>
+            {error ? <Notice>{error}</Notice> : null}
+            {message ? <Notice>{message}</Notice> : null}
+            {!isSupabaseConfigured ? (
+              <Notice>
+                Account services are not configured for this deployment.
+              </Notice>
+            ) : null}
+            <ReportButton
+              label={
+                forgot
+                  ? "Send reset link"
+                  : signIn
+                    ? "Sign in"
+                    : "Create my account"
+              }
+              busy={busy}
+              disabled={!isSupabaseConfigured}
+              onPress={() => void submit()}
+            />
+            {signIn ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => changeMode("forgot-password")}
+              >
+                <Copy
+                  kind="small"
+                  style={{ color: t.muted, textAlign: "center" }}
+                >
+                  Forgot password?
+                </Copy>
+              </Pressable>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => changeMode(signIn ? "sign-up" : "sign-in")}
+            >
+              <Copy kind="small" style={{ textAlign: "center" }}>
+                {signIn
+                  ? "New to Substrate? Create an account"
+                  : "Already have an account? Sign in"}
+              </Copy>
             </Pressable>
-          ) : null}
-
-          {!admin || isForgotPassword ? <Pressable accessibilityRole="button" onPress={toggleMode} style={styles.modeButton}>
-            <SubstrateText variant="small" color={Colors.light.accent}>
-              {isForgotPassword
-                ? 'Remember your password? Sign in'
-                : isSignIn
-                ? 'Need an account? Create one'
-                : 'Already have an account? Sign in'}
-            </SubstrateText>
-          </Pressable> : null}
-
-          {admin && user ? <Link href={'/profile' as Href} asChild><Pressable accessibilityRole="link" style={styles.modeButton}><SubstrateText variant="small" color={Colors.light.accent}>Return to your account</SubstrateText></Pressable></Link> : null}
-
-          {isSubmitting ? (
-            <View style={styles.loading}>
-              <ActivityIndicator color={Colors.light.accent} />
-            </View>
-          ) : null}
-        </Card>
+          </Panel>
+        </View>
       </KeyboardAvoidingView>
-    </AppShell>
+    </ReportFrame>
   );
 }
-
-function getPasswordResetUrl() {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    return `${window.location.origin}/reset-password`;
-  }
-
-  return Linking.createURL('reset-password');
-}
-
-const styles = StyleSheet.create({
-  content: {
-    justifyContent: 'center',
-    minHeight: '100%',
-    paddingBottom: Spacing.four,
-  },
-  keyboardView: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: Spacing.three,
-  },
-  hero: {
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingTop: Spacing.two,
-  },
-  brandBlock: {
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  center: {
-    maxWidth: 260,
-    textAlign: 'center',
-  },
-  card: {
-    gap: Spacing.three,
-    padding: Spacing.three,
-  },
-  header: {
-    gap: Spacing.one,
-  },
-  form: {
-    gap: Spacing.three,
-  },
-  field: {
-    gap: Spacing.one,
-  },
-  input: {
-    minHeight: 46,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    backgroundColor: '#FBF8F6',
-    color: Colors.light.text,
-    fontFamily: Fonts.sans,
-    fontSize: 15,
-    fontWeight: '400',
-    paddingHorizontal: Spacing.three,
-  },
-  feedbackError: {
-    borderRadius: 12,
-    backgroundColor: Colors.light.blush,
-    padding: Spacing.two,
-  },
-  feedbackSuccess: {
-    borderRadius: 12,
-    backgroundColor: Colors.light.successSoft,
-    padding: Spacing.two,
-  },
-  disabled: {
-    opacity: 0.65,
-  },
-  modeButton: {
-    minHeight: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loading: {
-    position: 'absolute',
-    right: Spacing.three,
-    bottom: Spacing.three,
-  },
-});

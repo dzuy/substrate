@@ -39,7 +39,7 @@ export default function AskTateDrawer({ open, onClose, onProduct }: { open: bool
       const session = await supabase.auth.getSession();
       if (session.error || !session.data.session) throw new Error('Sign in again to ask Tate.');
       // Keep complete recent turns within the server's conversation limit.
-      const endpoint = process.env.EXPO_PUBLIC_TATE_API_URL ?? (['localhost', '127.0.0.1'].includes(window.location.hostname) ? `http://${window.location.hostname}:4318/api/ask-tate` : '/api/ask-tate');
+      const endpoint = process.env.EXPO_PUBLIC_TATE_API_URL ?? (__DEV__ && ['localhost', '127.0.0.1'].includes(window.location.hostname) ? `http://${window.location.hostname}:4318/api/ask-tate` : '/api/ask-tate');
       const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.data.session.access_token}` }, body: JSON.stringify({ messages: history }), signal: request.signal });
       const result = await response.json().catch(() => null);
       if (!response.ok || typeof result?.answer !== 'string') throw new Error(result?.error ?? 'Tate is unavailable. Check that the chat server is running, then try again.');

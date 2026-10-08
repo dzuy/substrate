@@ -1,17 +1,21 @@
-import { Stack, usePathname } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { Stack, usePathname } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { ActivityIndicator, StyleSheet, View } from "react-native";
 
-import { AuthScreen } from '@/components/auth-screen';
-import { BottomNav, SubstrateText } from '@/components/substrate-ui';
-import { Colors } from '@/constants/theme';
-import { AuthProvider, useAuth } from '@/lib/auth-context';
+import { AppHeader, ProfilePanelProvider } from "@/components/app-header";
+import { ReportThemeProvider } from "@/report/theme";
+import { AuthScreen } from "@/components/auth-screen";
+import { BottomNav, SubstrateText } from "@/components/substrate-ui";
+import { Colors } from "@/constants/theme";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
 
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <StatusBar style="dark" />
-      <RootNavigator />
+      <ReportThemeProvider>
+        <StatusBar style="dark" />
+        <RootNavigator />
+      </ReportThemeProvider>
     </AuthProvider>
   );
 }
@@ -19,7 +23,8 @@ export default function RootLayout() {
 function RootNavigator() {
   const { isLoading, session } = useAuth();
   const pathname = usePathname();
-  const isAppAdminRoute = pathname === '/admin' || pathname.startsWith('/admin/');
+  const isAppAdminRoute =
+    pathname === "/admin" || pathname.startsWith("/admin/");
 
   if (isLoading) {
     return (
@@ -32,37 +37,58 @@ function RootNavigator() {
     );
   }
 
-  if (!session) {
+  if (!session && pathname !== "/style-guide") {
     return <AuthScreen admin={isAppAdminRoute} />;
   }
 
-  const isResetPasswordRoute = pathname === '/reset-password';
-  const isAdminRoute = pathname === '/admin' || pathname === '/admin-products' || pathname.startsWith('/admin/');
+  const isStyleGuideRoute = pathname === "/style-guide";
+  const isResetPasswordRoute = pathname === "/reset-password";
+  const isAdminRoute =
+    pathname === "/admin" ||
+    pathname === "/admin-products" ||
+    pathname.startsWith("/admin/");
 
   return (
-    <View style={styles.appFrame}>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: Colors.light.background },
-        }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="photo" />
-        <Stack.Screen name="check-in" />
-        <Stack.Screen name="environment" />
-        <Stack.Screen name="skin-story" />
-        <Stack.Screen name="daily-plan" />
-        <Stack.Screen name="skin-wardrobe" />
-        <Stack.Screen name="skin-wardrobe/add-products" />
-        <Stack.Screen name="progress" />
-        <Stack.Screen name="progress-history" />
-        <Stack.Screen name="profile" />
-        <Stack.Screen name="admin-products" />
-        <Stack.Screen name="admin" />
-        <Stack.Screen name="reset-password" />
-      </Stack>
-      {!isResetPasswordRoute && !isAdminRoute ? <BottomNav /> : null}
-    </View>
+    <ProfilePanelProvider key={session?.user.id || "guest"}>
+      <View style={styles.appFrame}>
+        {session &&
+        !isAdminRoute &&
+        !isStyleGuideRoute &&
+        !isResetPasswordRoute ? (
+          <AppHeader />
+        ) : null}
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: Colors.light.background },
+          }}
+        >
+          <Stack.Screen name="index" />
+          <Stack.Screen name="ask-tate" />
+          <Stack.Screen name="assessment" />
+          <Stack.Screen name="past-reports" />
+          <Stack.Screen name="report" />
+          <Stack.Screen name="style-guide" />
+          <Stack.Screen name="daily" />
+          <Stack.Screen name="photo" />
+          <Stack.Screen name="check-in" />
+          <Stack.Screen name="environment" />
+          <Stack.Screen name="skin-story" />
+          <Stack.Screen name="daily-plan" />
+          <Stack.Screen name="skin-wardrobe" />
+          <Stack.Screen name="skin-wardrobe/add-products" />
+          <Stack.Screen name="progress" />
+          <Stack.Screen name="progress-history" />
+          <Stack.Screen name="profile" />
+          <Stack.Screen name="admin-products" />
+          <Stack.Screen name="admin" />
+          <Stack.Screen name="reset-password" />
+        </Stack>
+        {!isResetPasswordRoute && !isAdminRoute && !isStyleGuideRoute ? (
+          <BottomNav />
+        ) : null}
+      </View>
+    </ProfilePanelProvider>
   );
 }
 
@@ -73,8 +99,8 @@ const styles = StyleSheet.create({
   },
   loadingScreen: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 12,
     backgroundColor: Colors.light.background,
   },

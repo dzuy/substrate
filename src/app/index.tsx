@@ -1,124 +1,120 @@
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useRouter, type Href } from "expo-router";
+import { Camera, ScanFace, Sparkles, ShieldCheck } from "lucide-react-native";
+import { Image } from "expo-image";
+import { View, useWindowDimensions } from "react-native";
+import { Copy, Panel, ReportButton, ReportFrame } from "@/report/ui";
+import { useReportTheme } from "@/report/theme";
 
-import {
-  AppShell,
-  PrimaryButton,
-  ScreenHeader,
-  SubstrateText,
-} from '@/components/substrate-ui';
-import { Colors, Spacing } from '@/constants/theme';
-import { useAuth } from '@/lib/auth-context';
-import { formatDisplayDate, getActiveEntryDate, getActiveOrNextEntryDate } from '@/services/daily-entries';
+const benefits = [
+  {
+    icon: ScanFace,
+    title: "Understand your skin",
+    body: "Connect the visible signs in your photo with your skin history, lifestyle, and goals.",
+  },
+  {
+    icon: Sparkles,
+    title: "Find your next step",
+    body: "Get personal insights and product guidance that give your routine a clearer direction.",
+  },
+  {
+    icon: Camera,
+    title: "Build your skin story",
+    body: "Save your report and revisit your insights as you learn what works for you.",
+  },
+];
 
-export default function WelcomeScreen() {
+export default function ReportHome() {
+  const { theme: t } = useReportTheme();
   const router = useRouter();
-  const { user } = useAuth();
-  const [entryDate, setEntryDate] = useState<string | null>(null);
-  const [isStarting, setIsStarting] = useState(false);
-
-  useFocusEffect(
-    useCallback(() => {
-      let isMounted = true;
-
-      async function loadActiveDate() {
-        if (!user) {
-          return;
-        }
-
-        const activeDate = await getActiveEntryDate(user.id);
-
-        if (isMounted) {
-          setEntryDate(activeDate);
-        }
-      }
-
-      loadActiveDate();
-
-      return () => {
-        isMounted = false;
-      };
-    }, [user])
-  );
-
-  async function startTestDay() {
-    if (!user) {
-      return;
-    }
-
-    setIsStarting(true);
-    const activeDate = await getActiveOrNextEntryDate(user.id);
-    setIsStarting(false);
-
-    if (activeDate.data) {
-      setEntryDate(activeDate.data);
-    }
-
-    router.push('/photo');
-  }
+  const { width } = useWindowDimensions();
+  const compact = width < 700;
+  const startReport = () => router.navigate("/assessment" as Href);
 
   return (
-    <AppShell contentStyle={styles.content}>
-      <View style={styles.hero}>
-        <View style={styles.brandBlock}>
-          <SubstrateText variant="brand">SUBSTRATE</SubstrateText>
-          <SubstrateText variant="body" color={Colors.light.textMuted} style={styles.center}>
-            Every beautiful outcome begins beneath the surface
-          </SubstrateText>
-          {user?.email ? (
-            <SubstrateText variant="small" color={Colors.light.textMuted} style={styles.center}>
-              Signed in as {user.email}
-            </SubstrateText>
-          ) : null}
+    <ReportFrame wide showStyleGuide={false}>
+      <View
+        style={{
+          flexDirection: compact ? "column" : "row",
+          gap: compact ? 28 : 48,
+          alignItems: "center",
+        }}
+      >
+        <View
+          style={{
+            gap: 22,
+            flex: compact ? undefined : 1,
+            width: compact ? "100%" : undefined,
+            paddingVertical: compact ? 12 : 36,
+          }}
+        >
+          <Copy kind="eyebrow" style={{ color: t.gold }}>
+            SCIENCE FOR HEALTHIER SKIN
+          </Copy>
+          <Copy
+            kind="title"
+            style={{ fontSize: (compact ? 42 : 56) * t.scale }}
+          >
+            Your skin.{"\n"}A clearer direction.
+          </Copy>
+          <Copy style={{ color: t.muted, maxWidth: 520 }}>
+            Meet your Skin Intelligence Report. Personal insights connecting
+            your photo, your life, and the products you use—so you can take your
+            next step with clarity.
+          </Copy>
+          <View style={{ alignSelf: compact ? "stretch" : "flex-start" }}>
+            <ReportButton
+              label="Get my Skin Intelligence Report"
+              onPress={startReport}
+            />
+          </View>
+          <Copy kind="small" style={{ color: t.muted }}>
+            A photo. A few questions. A clearer picture of your skin.
+          </Copy>
         </View>
-      </View>
-
-      <View style={styles.copy}>
-        <ScreenHeader
-          eyebrow="Daily skin intelligence"
-          title={entryDate ? `Test day ${formatDisplayDate(entryDate)}` : 'Every beautiful outcome begins beneath the surface.'}
-          body="Capture a simulated day, generate a plan, then advance to the next test day to build progress history."
+        <Image
+          source={require("@/assets/images/skin-hero-v1.png")}
+          accessibilityLabel="Close-up portrait with natural, clear skin in soft daylight"
+          contentFit="cover"
+          style={{
+            width: compact ? "100%" : "43%",
+            aspectRatio: compact ? 1.15 : 0.8,
+            borderRadius: t.radius,
+            backgroundColor: t.surface,
+          }}
         />
       </View>
-
-      <View style={styles.actions}>
-        <Pressable accessibilityRole="button" disabled={isStarting} onPress={startTestDay} style={isStarting && styles.disabled}>
-          <PrimaryButton label={isStarting ? 'Preparing Test Day' : 'Start Today'} />
-        </Pressable>
-
+      <View style={{ gap: 20 }}>
+        <Copy kind="heading">Less guesswork. More understanding.</Copy>
+        <View style={{ flexDirection: compact ? "column" : "row", gap: 16 }}>
+          {benefits.map(({ icon: Icon, title, body }) => (
+            <Panel key={title} style={{ flex: compact ? undefined : 1 }}>
+              <Icon size={26} color={t.gold} />
+              <Copy kind="heading" style={{ fontSize: 23 * t.scale }}>
+                {title}
+              </Copy>
+              <Copy style={{ color: t.muted }}>{body}</Copy>
+            </Panel>
+          ))}
+        </View>
       </View>
-    </AppShell>
+      <Panel style={{ gap: 22 }}>
+        <Copy kind="eyebrow" style={{ color: t.gold }}>
+          YOUR REPORT STARTS HERE
+        </Copy>
+        <Copy kind="heading">Make sense of what your skin is telling you.</Copy>
+        <Copy style={{ color: t.muted }}>
+          Share a clear photo, tell us about your skin, and explore your
+          personalized report. Your next chapter starts with understanding.
+        </Copy>
+        <ReportButton label="Start my report" onPress={startReport} />
+      </Panel>
+      <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+        <ShieldCheck size={20} color={t.gold} />
+        <Copy kind="small" style={{ flex: 1, color: t.muted }}>
+          Your report is private to your account. Share a PDF only when you
+          choose.
+        </Copy>
+      </View>
+    </ReportFrame>
   );
 }
-
-const styles = StyleSheet.create({
-  content: {
-    justifyContent: 'space-between',
-    minHeight: '100%',
-  },
-  hero: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.four,
-    paddingTop: Spacing.four,
-  },
-  brandBlock: {
-    alignItems: 'center',
-    gap: Spacing.two,
-  },
-  center: {
-    textAlign: 'center',
-    maxWidth: 260,
-  },
-  copy: {
-    paddingBottom: Spacing.three,
-  },
-  actions: {
-    gap: Spacing.two,
-  },
-  disabled: {
-    opacity: 0.65,
-  },
-});

@@ -1,6 +1,6 @@
 import { Link, usePathname, useRouter, type Href } from 'expo-router';
 import { Image } from 'expo-image';
-import { ChartNoAxesColumnIncreasing, ChevronLeft, CircleUserRound, ShoppingBag, Sparkles } from 'lucide-react-native';
+import { ChevronLeft, MessageCircle, House, FilePlus2, Files, ShoppingBag } from 'lucide-react-native';
 import {
   Pressable,
   ScrollView,
@@ -12,6 +12,8 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { useReportTheme } from '@/report/theme';
 
 import { Colors, Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 
@@ -245,10 +247,11 @@ export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
   const activeItem = getActiveNavItem(pathname);
+  const { theme: t } = useReportTheme();
 
   return (
-    <SafeAreaView edges={['bottom']} style={styles.navWrap}>
-      <View style={styles.navBar}>
+    <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.navWrap, { backgroundColor: t.paper }]}>
+      <View accessibilityRole="tablist" style={[styles.navBar, { backgroundColor: t.surface, borderColor: t.line }]}>
         {navItems.map((item) => {
           const isActive = activeItem === item.key;
           const Icon = item.icon;
@@ -256,16 +259,17 @@ export function BottomNav() {
           return (
             <Pressable
               key={item.key}
-              accessibilityRole="button"
+              accessibilityRole="tab"
+              accessibilityLabel={item.label}
               accessibilityState={{ selected: isActive }}
-              onPress={() => router.push(item.href)}
-              style={[styles.navItem, isActive && styles.navItemActive]}>
+              onPress={() => { if (pathname !== item.href) router.navigate(item.href); }}
+              style={({ pressed }) => [styles.navItem, { backgroundColor: isActive ? t.ink : "transparent", opacity: pressed ? 0.7 : 1 }]}>
               <Icon
                 size={19}
                 strokeWidth={2.2}
-                color={isActive ? Colors.light.accentDeep : Colors.light.textMuted}
+                color={isActive ? t.paper : t.muted}
               />
-              <Text style={[styles.navLabel, isActive && styles.navLabelActive]}>{item.label}</Text>
+              <Text style={[styles.navLabel, { color: isActive ? t.paper : t.muted, fontWeight: isActive ? "600" : "400" }]}>{item.label}</Text>
             </Pressable>
           );
         })}
@@ -275,23 +279,20 @@ export function BottomNav() {
 }
 
 const navItems = [
-  { key: 'today', label: 'Today', href: '/' as Href, icon: Sparkles },
-  { key: 'wardrobe', label: 'Skin Closet', href: '/skin-wardrobe' as Href, icon: ShoppingBag },
-  { key: 'progress', label: 'Progress', href: '/progress' as Href, icon: ChartNoAxesColumnIncreasing },
-  { key: 'profile', label: 'Profile', href: '/profile' as Href, icon: CircleUserRound },
+  { key: 'home', label: 'Home', href: '/' as Href, icon: House },
+  { key: 'new', label: 'New Report', href: '/assessment' as Href, icon: FilePlus2 },
+  { key: 'past', label: 'Reports', href: '/past-reports' as Href, icon: Files },
+  { key: 'wardrobe', label: 'Wardrobe', href: '/skin-wardrobe' as Href, icon: ShoppingBag },
+  { key: 'tate', label: 'Tate', href: '/ask-tate' as Href, icon: MessageCircle },
 ] as const;
 
 function getActiveNavItem(pathname: string) {
-  if (pathname === '/progress') {
-    return 'progress';
-  }
-  if (pathname === '/skin-wardrobe') {
-    return 'wardrobe';
-  }
-  if (pathname === '/profile') {
-    return 'profile';
-  }
-  return 'today';
+  if (pathname === '/ask-tate') return 'tate';
+  if (pathname === '/assessment') return 'new';
+  if (pathname === '/past-reports' || pathname === '/report') return 'past';
+  if (pathname === '/skin-wardrobe' || pathname.startsWith('/skin-wardrobe/')) return 'wardrobe';
+  if (pathname === '/') return 'home';
+  return undefined;
 }
 
 const styles = StyleSheet.create({
@@ -531,24 +532,22 @@ const styles = StyleSheet.create({
   },
   navItem: {
     flex: 1,
-    minHeight: 50,
+    minHeight: 54,
+    minWidth: 0,
+    paddingVertical: 6,
+    paddingHorizontal: 2,
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
   },
-  navItemActive: {
-    backgroundColor: Colors.light.backgroundSelected,
-  },
   navLabel: {
     color: Colors.light.textMuted,
     fontFamily: Fonts.sans,
     fontSize: 11,
+    textAlign: 'center',
     lineHeight: 15,
     fontWeight: '400',
-  },
-  navLabelActive: {
-    color: Colors.light.accentDeep,
   },
 });
 

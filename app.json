@@ -28,8 +28,8 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "Substrate uses the camera to capture your daily skin photo.",
-          "photosPermission": "Substrate can access photos you choose for daily skin tracking.",
+          "cameraPermission": "Substrate uses the camera to capture a photo for your skin intelligence report.",
+          "photosPermission": "Substrate can access photos you choose for your skin intelligence report.",
           "microphonePermission": false
         }
       ],

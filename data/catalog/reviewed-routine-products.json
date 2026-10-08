@@ -1,0 +1,41 @@
+[
+  {
+    "id": "2e39d8b9-e77f-5a08-aa24-6a5403d2ef28",
+    "brand": "Doctor Rogers",
+    "name": "Squalane + Niacinamide Barrier Support Face Cream",
+    "role": "Moisturizer",
+    "ingredientIds": [
+      "I_GLY"
+    ],
+    "sourceUrl": "https://www.doctorrogers.com/products/face-cream",
+    "verifiedAt": "2026-10-07",
+    "formula": "Aqua/Water/Eau, Squalane, Butyrospermum Parkii (Shea) Butter, Niacinamide, Glycerin, Cetearyl Olivate, Sorbitan Olivate, Cetearyl Alcohol, Centella Asiatica Extract, Behenyl Alcohol, Jojoba Esters, Leuconostoc/Radish Root Ferment Filtrate, Adenosine, Allantoin, Lactobacillus, Cocos Nucifera (Coconut) Fruit Extract, Xanthan Gum, Citric Acid",
+    "review": "Complete INCI checked against the official product page. Cosmetic routine support only; no finished-product clinical efficacy approval."
+  },
+  {
+    "id": "4b3e17d2-3ef0-5957-a111-19e9ce12a9cb",
+    "brand": "Experiment",
+    "name": "Plasma Wash Moisture Depositing Gel Cream Cleanser",
+    "role": "Cleanser",
+    "ingredientIds": [
+      "I_GLY"
+    ],
+    "sourceUrl": "https://experimentbeauty.com/products/plasma-wash",
+    "verifiedAt": "2026-10-07",
+    "formula": "Water, Glycerin, Cocamidopropyl Hydroxysultaine, Acrylates Crosspolymer-4, Sodium Cocoyl Glycinate, Sodium Lauroamphoacetate, Stearic Acid, Simmondsia Chinensis (Jojoba) Seed Oil, Sodium Chloride, Castoryl Maleate, Phenoxyethanol, Citric Acid, Stearyl Alcohol, Lauric Acid, Disodium EDTA, Methylparaben, Palmitic Acid, Ethylparaben, Malachite Extract, Oleic Acid, Propylene Glycol, Cetyl Alcohol, Sodium Hydroxide, Cyanocobalamin.",
+    "review": "Complete INCI checked against the official product page. Cosmetic routine support only; no finished-product clinical efficacy approval."
+  },
+  {
+    "id": "c001f3e1-8973-5e4a-a3fa-4dd45966e81e",
+    "brand": "Experiment",
+    "name": "Buffer Jelly Intensive Barrier Treatment Oil-Gel",
+    "role": "Barrier oil",
+    "ingredientIds": [
+      "I_CER"
+    ],
+    "sourceUrl": "https://experimentbeauty.com/products/buffer-jelly",
+    "verifiedAt": "2026-10-07",
+    "formula": "Carthamus Tinctorius (Safflower) Seed Oil, Simmondsia Chinensis (Jojoba) Seed Oil, Squalane, C13-15 Alkane, Dextrin Palmitate/Ethylhexanoate, Petrolatum, Jojoba Esters, Avena Sativa (Oat) Kernel Oil, Euphorbia Cerifera (Candelilla) Wax, Tocopherol, Panthenyl Triacetate, Ceramide NP, Euterpe Oleracea (Acai) Sterols, Ethyl Linoleate, Camellia Sinensis Leaf Wax, Naringenin, Linoleic Acid, Oleic Acid, Linolenic Acid.",
+    "review": "Complete INCI checked against the official product page. Cosmetic routine support only; no finished-product clinical efficacy approval."
+  }
+]

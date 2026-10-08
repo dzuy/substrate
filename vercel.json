@@ -10,9 +10,16 @@
     },
     "api/ask-tate.mjs": {
       "maxDuration": 180
+    },
+    "api/skin-report.mjs": {
+      "maxDuration": 180
     }
   },
   "rewrites": [
+    {
+      "source": "/api/skin-report",
+      "destination": "/api/skin-report"
+    },
     {
       "source": "/api/ask-tate",
       "destination": "/api/ask-tate"

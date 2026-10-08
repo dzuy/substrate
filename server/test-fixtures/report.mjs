@@ -1,0 +1,63 @@
+// Synthetic observations only. Never used by application code.
+export const fixtureAnswers = {
+  name: "Test member",
+  ageBand: "30–49",
+  goal: "Breakouts",
+  feel: "Comfortable",
+  duration: "Recurring",
+  blemishes: "Both clogged pores and pimples",
+  treatments: ["None"],
+  change: "No changes",
+  sensitivity: "Usually tolerates products",
+  allergy: "None known",
+  reproductive: "None / not applicable",
+  photo: ["None"],
+  routine: "Not enough",
+  oil: "Usually balanced",
+  sleep: "Okay",
+  stress: "Medium",
+  activity: "Often outdoors",
+  country: "US",
+  budget: "Mid-range",
+};
+export const fixtureScan = {
+  model: "test-provider",
+  promptVersion: "test-v1",
+  imageHash: "fixture",
+  analysis: {
+    faceDetected: true,
+    lighting: 90,
+    sharpness: 90,
+    framing: 90,
+    confidence: 90,
+    retakeReasons: [],
+    summary: "Synthetic test fixture. Visible blemishes in this test image.",
+    photoLimitations: ["Synthetic test only"],
+    detailedFindings: [
+      "redness",
+      "acne",
+      "texture",
+      "pore",
+      "pigmentation",
+      "flaking",
+      "fine_lines",
+      "residual_marks",
+    ].map((concern) => ({
+      concern,
+      assessment: concern === "acne" ? "visible" : "not_visible",
+      evidence:
+        concern === "acne"
+          ? "Test blemish evidence."
+          : "No visible finding in this fixture.",
+      uncertainty: "Synthetic fixture, not a person.",
+    })),
+    acne: 35,
+    redness: 0,
+    texture: 0,
+    pore: 0,
+    pigmentation: 0,
+    flaking: 0,
+    fine_lines: 0,
+    residual_marks: 0,
+  },
+};

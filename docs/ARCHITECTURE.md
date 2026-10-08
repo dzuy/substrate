@@ -1,6 +1,8 @@
 # Substrate Technical Architecture
 
-Last updated: September 23, 2026
+Last updated: October 7, 2026
+
+The primary consumer journey is now report-first. See [REPORT_FLOW.md](REPORT_FLOW.md) for the current entry points, API, persistence, design tokens, and simulated unlock. The daily-loop architecture below remains available at `/daily` and supporting legacy routes.
 
 This document is for future agents and engineers working on Substrate. It explains the current architecture, the product strategy behind it, and the main extension points.
 

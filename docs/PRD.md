@@ -1,6 +1,8 @@
 # Substrate V1 Product Requirements Document
 
-Last updated: August 3, 2026
+Historical daily-loop requirements: August 3, 2026.
+
+The October 7, 2026 report-first direction supersedes the primary journey in this document. See [REPORT_FLOW.md](REPORT_FLOW.md).
 
 ## 1. Purpose
 

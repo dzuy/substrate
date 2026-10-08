@@ -1,6 +1,8 @@
 # Substrate
 
-Substrate is a mobile-first skincare intelligence app built with Expo, React Native, TypeScript, Supabase, and OpenAI-backed Edge Functions.
+Substrate is a mobile-first skincare intelligence app centered on a personalized $79 report (simulated purchase). It connects an OpenAI face scan, a contextual questionnaire, the ingredient engine, and published products. Built with Expo, React Native, TypeScript, Supabase, and server-side OpenAI analysis.
+
+Start with [the report experience](docs/REPORT_FLOW.md) for the new journey, cloud-storage migration, PDF sharing, and `/style-guide` design controls.
 
 ## Technical Docs
 

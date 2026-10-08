@@ -1,9 +1,17 @@
-import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { Trash2 } from 'lucide-react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Image } from "expo-image";
+import * as ImagePicker from "expo-image-picker";
+import { useFocusEffect, useRouter } from "expo-router";
+import { ChevronRight, Trash2 } from "lucide-react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
 
 import {
   AppShell,
@@ -11,9 +19,10 @@ import {
   PrimaryButton,
   ScreenHeader,
   SubstrateText,
-} from '@/components/substrate-ui';
-import { Colors, Fonts, Spacing } from '@/constants/theme';
-import { useAuth } from '@/lib/auth-context';
+} from "@/report/account-ui";
+import { Spacing } from "@/constants/theme";
+import { fontFamily, useReportTheme, type ReportTheme } from "@/report/theme";
+import { useAuth } from "@/lib/auth-context";
 import {
   addProductToWardrobe,
   createBrand,
@@ -29,29 +38,21 @@ import {
   type WardrobeMetadataInput,
   wardrobeRoutineRoles,
   wardrobeRoutineTimings,
-} from '@/services/catalog';
+} from "@/services/catalog";
 import {
   openAiProductRecognitionService,
   saveProductDetections,
   updateProductDetectionStatus,
   type ProductDetectionCandidate,
-} from '@/services/product-recognition';
+} from "@/services/product-recognition";
 import type {
   WardrobeFrequency,
   WardrobeItemStatus,
   WardrobeRoutineRole,
   WardrobeRoutineTiming,
-} from '@/types/database';
+} from "@/types/database";
 
-const wardrobeStatuses: WardrobeItemStatus[] = ['active', 'paused', 'finished'];
-const ingredientChipPalette = [
-  { backgroundColor: '#F8E7EC', borderColor: '#EDC7D4', color: '#682246' },
-  { backgroundColor: '#EAF3EA', borderColor: '#C9E2CB', color: '#315C36' },
-  { backgroundColor: '#FFF3E7', borderColor: '#F1D2AF', color: '#7A4B18' },
-  { backgroundColor: '#E8EEF8', borderColor: '#C8D6EA', color: '#294B73' },
-  { backgroundColor: '#EFE4EF', borderColor: '#DAC5DE', color: '#57365C' },
-  { backgroundColor: '#F3EDE4', borderColor: '#DDD0C0', color: '#60482F' },
-];
+const wardrobeStatuses: WardrobeItemStatus[] = ["active", "paused", "finished"];
 
 type SelectedProductImage = {
   uri: string;
@@ -63,18 +64,27 @@ type ProductReviewDraft = {
   description: string;
   ingredients: string[];
   productName: string;
-  metadata: Required<Pick<WardrobeMetadataInput, 'avoidWhenIrritated' | 'frequency' | 'routineRole' | 'routineTiming'>>;
+  metadata: Required<
+    Pick<
+      WardrobeMetadataInput,
+      "avoidWhenIrritated" | "frequency" | "routineRole" | "routineTiming"
+    >
+  >;
 };
 
 export default function SkinWardrobeScreen() {
+  const { theme: t } = useReportTheme();
+  const styles = makeStyles(t);
   const { user } = useAuth();
   const router = useRouter();
   const [wardrobeItems, setWardrobeItems] = useState<UserWardrobeItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [selectedWardrobeItemId, setSelectedWardrobeItemId] = useState<string | null>(null);
+  const [message, setMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [selectedWardrobeItemId, setSelectedWardrobeItemId] = useState<
+    string | null
+  >(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -87,7 +97,7 @@ export default function SkinWardrobeScreen() {
         }
 
         setIsLoading(true);
-        setErrorMessage('');
+        setErrorMessage("");
 
         const wardrobeResult = await listUserWardrobe(user.id);
 
@@ -96,7 +106,10 @@ export default function SkinWardrobeScreen() {
         }
 
         if (wardrobeResult.error) {
-          setErrorMessage(wardrobeResult.error.message ?? 'Skin Wardrobe could not be loaded.');
+          setErrorMessage(
+            wardrobeResult.error.message ??
+              "Skin Wardrobe could not be loaded.",
+          );
         } else {
           setWardrobeItems(wardrobeResult.data ?? []);
         }
@@ -109,13 +122,16 @@ export default function SkinWardrobeScreen() {
       return () => {
         isMounted = false;
       };
-    }, [user])
+    }, [user]),
   );
 
-  async function saveWardrobeItem(item: UserWardrobeItem, updates: WardrobeMetadataInput) {
+  async function saveWardrobeItem(
+    item: UserWardrobeItem,
+    updates: WardrobeMetadataInput,
+  ) {
     setIsSaving(true);
-    setMessage('');
-    setErrorMessage('');
+    setMessage("");
+    setErrorMessage("");
 
     const saved = await updateWardrobeItem(item.id, updates);
     setIsSaving(false);
@@ -132,17 +148,22 @@ export default function SkinWardrobeScreen() {
               ...currentItem,
               status: updates.status ?? currentItem.status,
               notes: updates.notes ?? currentItem.notes,
-              routine_timing: updates.routineTiming ?? currentItem.routine_timing,
+              routine_timing:
+                updates.routineTiming ?? currentItem.routine_timing,
               frequency: updates.frequency ?? currentItem.frequency,
               routine_role: updates.routineRole ?? currentItem.routine_role,
-              avoid_when_irritated: updates.avoidWhenIrritated ?? currentItem.avoid_when_irritated,
+              avoid_when_irritated:
+                updates.avoidWhenIrritated ?? currentItem.avoid_when_irritated,
             }
-          : currentItem
-      )
+          : currentItem,
+      ),
     );
   }
 
-  async function addIngredientToProduct(item: UserWardrobeItem, ingredientName: string) {
+  async function addIngredientToProduct(
+    item: UserWardrobeItem,
+    ingredientName: string,
+  ) {
     const product = item.product;
     const normalizedIngredient = ingredientName.trim();
 
@@ -152,7 +173,9 @@ export default function SkinWardrobeScreen() {
 
     const existingIngredients = product.ingredients ?? [];
     const alreadyAdded = existingIngredients.some(
-      (productIngredient) => productIngredient.ingredient?.name.toLowerCase() === normalizedIngredient.toLowerCase()
+      (productIngredient) =>
+        productIngredient.ingredient?.name.toLowerCase() ===
+        normalizedIngredient.toLowerCase(),
     );
 
     if (alreadyAdded) {
@@ -161,14 +184,16 @@ export default function SkinWardrobeScreen() {
     }
 
     setIsSaving(true);
-    setMessage('');
-    setErrorMessage('');
+    setMessage("");
+    setErrorMessage("");
 
     const ingredient = await createIngredient(normalizedIngredient);
 
     if (ingredient.error || !ingredient.data) {
       setIsSaving(false);
-      setErrorMessage(ingredient.error?.message ?? 'Ingredient could not be saved.');
+      setErrorMessage(
+        ingredient.error?.message ?? "Ingredient could not be saved.",
+      );
       return false;
     }
 
@@ -200,7 +225,10 @@ export default function SkinWardrobeScreen() {
     setIsSaving(false);
 
     if (savedProduct.error || !savedProduct.data) {
-      setErrorMessage(savedProduct.error?.message ?? 'Product ingredients could not be saved.');
+      setErrorMessage(
+        savedProduct.error?.message ??
+          "Product ingredients could not be saved.",
+      );
       return false;
     }
 
@@ -211,8 +239,8 @@ export default function SkinWardrobeScreen() {
               ...currentItem,
               product: savedProduct.data,
             }
-          : currentItem
-      )
+          : currentItem,
+      ),
     );
     setMessage(`${normalizedIngredient} added to ${product.name}.`);
     return true;
@@ -220,8 +248,8 @@ export default function SkinWardrobeScreen() {
 
   async function removeItem(item: UserWardrobeItem) {
     setIsSaving(true);
-    setMessage('');
-    setErrorMessage('');
+    setMessage("");
+    setErrorMessage("");
 
     const removed = await removeWardrobeItem(item.id);
     setIsSaving(false);
@@ -231,9 +259,11 @@ export default function SkinWardrobeScreen() {
       return;
     }
 
-    setWardrobeItems((current) => current.filter((currentItem) => currentItem.id !== item.id));
+    setWardrobeItems((current) =>
+      current.filter((currentItem) => currentItem.id !== item.id),
+    );
     setSelectedWardrobeItemId(null);
-    setMessage(`${item.product?.name ?? 'Product'} removed.`);
+    setMessage(`${item.product?.name ?? "Product"} removed.`);
   }
 
   const selectedWardrobeItem =
@@ -241,12 +271,16 @@ export default function SkinWardrobeScreen() {
 
   return (
     <AppShell>
-      <ScreenHeader eyebrow="Skin Wardrobe" title="My products" />
+      <ScreenHeader
+        eyebrow="Your Wardrobe"
+        title="A routine that’s yours."
+        body="The products you use, all in one place. Open a product to review its ingredients and how it fits your day."
+      />
 
       {isLoading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color={Colors.light.accent} />
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
+          <ActivityIndicator color={t.gold} />
+          <SubstrateText variant="small" color={t.muted}>
             Loading wardrobe
           </SubstrateText>
         </View>
@@ -254,7 +288,7 @@ export default function SkinWardrobeScreen() {
 
       {message ? (
         <Card style={styles.noticeCard}>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
+          <SubstrateText variant="small" color={t.muted}>
             {message}
           </SubstrateText>
         </Card>
@@ -262,8 +296,10 @@ export default function SkinWardrobeScreen() {
 
       {errorMessage ? (
         <Card style={styles.errorCard}>
-          <SubstrateText variant="section">Wardrobe needs attention</SubstrateText>
-          <SubstrateText variant="small" color={Colors.light.accentDeep}>
+          <SubstrateText variant="section">
+            Wardrobe needs attention
+          </SubstrateText>
+          <SubstrateText variant="small" color={t.ink}>
             {errorMessage}
           </SubstrateText>
         </Card>
@@ -273,8 +309,9 @@ export default function SkinWardrobeScreen() {
         <View style={styles.sectionHeader}>
           <View>
             <SubstrateText variant="section">All products</SubstrateText>
-            <SubstrateText variant="small" color={Colors.light.textMuted}>
-              {wardrobeItems.length} saved product{wardrobeItems.length === 1 ? '' : 's'}
+            <SubstrateText variant="small" color={t.muted}>
+              {wardrobeItems.length} saved product
+              {wardrobeItems.length === 1 ? "" : "s"}
             </SubstrateText>
           </View>
         </View>
@@ -292,7 +329,7 @@ export default function SkinWardrobeScreen() {
         ) : (
           <View style={styles.emptyState}>
             <SubstrateText variant="section">No products yet</SubstrateText>
-            <SubstrateText variant="small" color={Colors.light.textMuted}>
+            <SubstrateText variant="small" color={t.muted}>
               Add your first product to start building your Skin Wardrobe.
             </SubstrateText>
           </View>
@@ -301,8 +338,9 @@ export default function SkinWardrobeScreen() {
 
       <Pressable
         accessibilityRole="button"
-        onPress={() => router.push('/skin-wardrobe/add-products')}
-        style={styles.footerButton}>
+        onPress={() => router.push("/skin-wardrobe/add-products")}
+        style={styles.footerButton}
+      >
         <PrimaryButton label="Add Products" />
       </Pressable>
 
@@ -333,25 +371,32 @@ export default function SkinWardrobeScreen() {
 }
 
 export function AddProductsScreen() {
+  const { theme: t } = useReportTheme();
+  const styles = makeStyles(t);
   const { user } = useAuth();
   const router = useRouter();
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
-  const [selectedImage, setSelectedImage] = useState<SelectedProductImage | null>(null);
+  const [selectedImage, setSelectedImage] =
+    useState<SelectedProductImage | null>(null);
   const [detections, setDetections] = useState<ProductDetectionCandidate[]>([]);
-  const [manualBrand, setManualBrand] = useState('');
-  const [manualProductName, setManualProductName] = useState('');
-  const [manualDescription, setManualDescription] = useState('');
+  const [manualBrand, setManualBrand] = useState("");
+  const [manualProductName, setManualProductName] = useState("");
+  const [manualDescription, setManualDescription] = useState("");
   const [manualIngredients, setManualIngredients] = useState<string[]>([]);
-  const [manualIngredientDraft, setManualIngredientDraft] = useState('');
-  const [manualRoutineTiming, setManualRoutineTiming] = useState<WardrobeRoutineTiming>('either');
-  const [manualFrequency, setManualFrequency] = useState<WardrobeFrequency>('daily');
-  const [manualRoutineRole, setManualRoutineRole] = useState<WardrobeRoutineRole>('other');
-  const [manualAvoidWhenIrritated, setManualAvoidWhenIrritated] = useState(false);
+  const [manualIngredientDraft, setManualIngredientDraft] = useState("");
+  const [manualRoutineTiming, setManualRoutineTiming] =
+    useState<WardrobeRoutineTiming>("either");
+  const [manualFrequency, setManualFrequency] =
+    useState<WardrobeFrequency>("daily");
+  const [manualRoutineRole, setManualRoutineRole] =
+    useState<WardrobeRoutineRole>("other");
+  const [manualAvoidWhenIrritated, setManualAvoidWhenIrritated] =
+    useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [message, setMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [message, setMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   useFocusEffect(
     useCallback(() => {
@@ -364,7 +409,7 @@ export function AddProductsScreen() {
         }
 
         setIsLoading(true);
-        setErrorMessage('');
+        setErrorMessage("");
 
         const catalogResult = await listCatalogProducts();
 
@@ -373,7 +418,10 @@ export function AddProductsScreen() {
         }
 
         if (catalogResult.error) {
-          setErrorMessage(catalogResult.error.message ?? 'Product catalog could not be loaded.');
+          setErrorMessage(
+            catalogResult.error.message ??
+              "Product catalog could not be loaded.",
+          );
         } else {
           setCatalogProducts(catalogResult.data ?? []);
         }
@@ -386,21 +434,23 @@ export function AddProductsScreen() {
       return () => {
         isMounted = false;
       };
-    }, [user])
+    }, [user]),
   );
 
   async function chooseImage() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (!permission.granted) {
-      setErrorMessage('Photo library permission is needed to choose a product image.');
+      setErrorMessage(
+        "Photo library permission is needed to choose a product image.",
+      );
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: false,
       base64: true,
-      mediaTypes: ['images'],
+      mediaTypes: ["images"],
       quality: 1,
     });
 
@@ -408,14 +458,14 @@ export function AddProductsScreen() {
       const selected = toSelectedProductImage(result.assets[0]);
 
       if (!selected) {
-        setErrorMessage('This image could not be prepared for analysis.');
+        setErrorMessage("This image could not be prepared for analysis.");
         return;
       }
 
       setSelectedImage(selected);
       setDetections([]);
-      setMessage('');
-      setErrorMessage('');
+      setMessage("");
+      setErrorMessage("");
     }
   }
 
@@ -423,7 +473,7 @@ export function AddProductsScreen() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
     if (!permission.granted) {
-      setErrorMessage('Camera permission is needed to take a product photo.');
+      setErrorMessage("Camera permission is needed to take a product photo.");
       return;
     }
 
@@ -437,14 +487,14 @@ export function AddProductsScreen() {
       const selected = toSelectedProductImage(result.assets[0]);
 
       if (!selected) {
-        setErrorMessage('This image could not be prepared for analysis.');
+        setErrorMessage("This image could not be prepared for analysis.");
         return;
       }
 
       setSelectedImage(selected);
       setDetections([]);
-      setMessage('');
-      setErrorMessage('');
+      setMessage("");
+      setErrorMessage("");
     }
   }
 
@@ -454,8 +504,8 @@ export function AddProductsScreen() {
     }
 
     setIsAnalyzing(true);
-    setMessage('');
-    setErrorMessage('');
+    setMessage("");
+    setErrorMessage("");
 
     try {
       const candidates = await openAiProductRecognitionService.analyzeImage({
@@ -467,57 +517,69 @@ export function AddProductsScreen() {
       setIsAnalyzing(false);
 
       if (saved.error || !saved.data) {
-        setErrorMessage(saved.error?.message ?? 'Product candidates could not be saved.');
+        setErrorMessage(
+          saved.error?.message ?? "Product candidates could not be saved.",
+        );
         return;
       }
 
       setDetections(saved.data);
-      setMessage('OpenAI returned product candidates for confirmation.');
+      setMessage("OpenAI returned product candidates for confirmation.");
     } catch (error) {
       setIsAnalyzing(false);
-      setErrorMessage(error instanceof Error ? error.message : 'OpenAI product analysis failed.');
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "OpenAI product analysis failed.",
+      );
       return;
     }
   }
 
   async function confirmDetection(
     detection: ProductDetectionCandidate,
-    reviewDraft: ProductReviewDraft
+    reviewDraft: ProductReviewDraft,
   ) {
     let matchedProductId = detection.matchedProductId;
-    let product = catalogProducts.find((catalogProduct) => catalogProduct.id === matchedProductId);
+    let product = catalogProducts.find(
+      (catalogProduct) => catalogProduct.id === matchedProductId,
+    );
 
     if (!user) {
       return;
     }
 
     if (!reviewDraft.brand.trim() || !reviewDraft.productName.trim()) {
-      setErrorMessage('Brand and product are required before accepting.');
+      setErrorMessage("Brand and product are required before accepting.");
       return;
     }
 
     setIsSaving(true);
-    setMessage('');
-    setErrorMessage('');
+    setMessage("");
+    setErrorMessage("");
 
     if (!product) {
       const createdProduct = await createCatalogProductFromReview(reviewDraft);
 
       if (createdProduct.error || !createdProduct.data) {
         setIsSaving(false);
-        setErrorMessage(createdProduct.error?.message ?? 'Product could not be created.');
+        setErrorMessage(
+          createdProduct.error?.message ?? "Product could not be created.",
+        );
         return;
       }
 
       const savedProduct = createdProduct.data;
       product = savedProduct;
       matchedProductId = savedProduct.id;
-      setCatalogProducts((current) => upsertCatalogProduct(current, savedProduct));
+      setCatalogProducts((current) =>
+        upsertCatalogProduct(current, savedProduct),
+      );
     }
 
     if (!matchedProductId) {
       setIsSaving(false);
-      setErrorMessage('Product could not be accepted.');
+      setErrorMessage("Product could not be accepted.");
       return;
     }
 
@@ -531,14 +593,18 @@ export function AddProductsScreen() {
           reviewedDescription: reviewDraft.description,
           reviewedIngredients: reviewDraft.ingredients,
         },
-        status: 'confirmed',
+        status: "confirmed",
       }),
       addProductToWardrobe(user.id, matchedProductId, reviewDraft.metadata),
     ]);
 
     if (updatedDetection.error || added.error) {
       setIsSaving(false);
-      setErrorMessage(updatedDetection.error?.message ?? added.error?.message ?? 'Product could not be confirmed.');
+      setErrorMessage(
+        updatedDetection.error?.message ??
+          added.error?.message ??
+          "Product could not be confirmed.",
+      );
       return;
     }
 
@@ -549,37 +615,46 @@ export function AddProductsScreen() {
         currentDetection.id === detection.id
           ? {
               ...currentDetection,
-              detectedBrand: reviewDraft.brand || currentDetection.detectedBrand,
-              detectedProductName: reviewDraft.productName || currentDetection.detectedProductName,
+              detectedBrand:
+                reviewDraft.brand || currentDetection.detectedBrand,
+              detectedProductName:
+                reviewDraft.productName || currentDetection.detectedProductName,
               matchedProductId,
-              status: 'confirmed',
+              status: "confirmed",
             }
-          : currentDetection
-      )
+          : currentDetection,
+      ),
     );
-    setMessage(`${product.brand?.name ? `${product.brand.name} ` : ''}${product.name} confirmed and added.`);
+    setMessage(
+      `${product.brand?.name ? `${product.brand.name} ` : ""}${product.name} confirmed and added.`,
+    );
   }
 
   async function createCatalogProductFromReview(reviewDraft: {
     brand: string;
     description: string;
     ingredients: string[];
-    metadata?: ProductReviewDraft['metadata'];
+    metadata?: ProductReviewDraft["metadata"];
     productName: string;
   }) {
     const brand = await createBrand(reviewDraft.brand);
 
     if (brand.error || !brand.data) {
-      return { data: null, error: brand.error ?? { message: 'Brand could not be created.' } };
+      return {
+        data: null,
+        error: brand.error ?? { message: "Brand could not be created." },
+      };
     }
 
     const ingredientResults = await Promise.all(
       reviewDraft.ingredients
         .map((ingredient) => ingredient.trim())
         .filter(Boolean)
-        .map((ingredient) => createIngredient(ingredient))
+        .map((ingredient) => createIngredient(ingredient)),
     );
-    const ingredientError = ingredientResults.find((result) => result.error)?.error;
+    const ingredientError = ingredientResults.find(
+      (result) => result.error,
+    )?.error;
 
     if (ingredientError) {
       return { data: null, error: ingredientError };
@@ -591,7 +666,7 @@ export function AddProductsScreen() {
       category: toProductCategory(reviewDraft.metadata),
       description: reviewDraft.description,
       aliases: [],
-      status: 'verified',
+      status: "verified",
       ingredients: ingredientResults
         .map((result, index) =>
           result.data
@@ -599,20 +674,25 @@ export function AddProductsScreen() {
                 ingredientId: result.data.id,
                 ingredientOrder: index + 1,
               }
-            : null
+            : null,
         )
-        .filter((ingredient): ingredient is { ingredientId: string; ingredientOrder: number } => Boolean(ingredient)),
+        .filter(
+          (
+            ingredient,
+          ): ingredient is { ingredientId: string; ingredientOrder: number } =>
+            Boolean(ingredient),
+        ),
     });
   }
 
   async function rejectDetection(detection: ProductDetectionCandidate) {
     setIsSaving(true);
-    setMessage('');
-    setErrorMessage('');
+    setMessage("");
+    setErrorMessage("");
 
     const updated = await updateProductDetectionStatus(detection.id, {
       matchedProductId: detection.matchedProductId ?? null,
-      status: 'rejected',
+      status: "rejected",
     });
     setIsSaving(false);
 
@@ -623,8 +703,10 @@ export function AddProductsScreen() {
 
     setDetections((current) =>
       current.map((currentDetection) =>
-        currentDetection.id === detection.id ? { ...currentDetection, status: 'rejected' } : currentDetection
-      )
+        currentDetection.id === detection.id
+          ? { ...currentDetection, status: "rejected" }
+          : currentDetection,
+      ),
     );
   }
 
@@ -636,11 +718,14 @@ export function AddProductsScreen() {
     }
 
     setManualIngredients((current) =>
-      current.some((ingredient) => ingredient.toLowerCase() === normalizedIngredient.toLowerCase())
+      current.some(
+        (ingredient) =>
+          ingredient.toLowerCase() === normalizedIngredient.toLowerCase(),
+      )
         ? current
-        : [...current, normalizedIngredient]
+        : [...current, normalizedIngredient],
     );
-    setManualIngredientDraft('');
+    setManualIngredientDraft("");
   }
 
   async function saveManualProduct() {
@@ -664,25 +749,37 @@ export function AddProductsScreen() {
       },
     };
 
-    if (!reviewDraft.brand.trim() || !reviewDraft.productName.trim() || !reviewDraft.description.trim()) {
-      setErrorMessage('Brand, product, and description are required before adding.');
+    if (
+      !reviewDraft.brand.trim() ||
+      !reviewDraft.productName.trim() ||
+      !reviewDraft.description.trim()
+    ) {
+      setErrorMessage(
+        "Brand, product, and description are required before adding.",
+      );
       return;
     }
 
     setIsSaving(true);
-    setMessage('');
-    setErrorMessage('');
+    setMessage("");
+    setErrorMessage("");
 
     const createdProduct = await createCatalogProductFromReview(reviewDraft);
 
     if (createdProduct.error || !createdProduct.data) {
       setIsSaving(false);
-      setErrorMessage(createdProduct.error?.message ?? 'Product could not be created.');
+      setErrorMessage(
+        createdProduct.error?.message ?? "Product could not be created.",
+      );
       return;
     }
 
     const savedProduct = createdProduct.data;
-    const added = await addProductToWardrobe(user.id, savedProduct.id, reviewDraft.metadata);
+    const added = await addProductToWardrobe(
+      user.id,
+      savedProduct.id,
+      reviewDraft.metadata,
+    );
     setIsSaving(false);
 
     if (added.error) {
@@ -690,17 +787,21 @@ export function AddProductsScreen() {
       return;
     }
 
-    setCatalogProducts((current) => upsertCatalogProduct(current, savedProduct));
-    setManualBrand('');
-    setManualProductName('');
-    setManualDescription('');
+    setCatalogProducts((current) =>
+      upsertCatalogProduct(current, savedProduct),
+    );
+    setManualBrand("");
+    setManualProductName("");
+    setManualDescription("");
     setManualIngredients([]);
-    setManualIngredientDraft('');
-    setManualRoutineTiming('either');
-    setManualFrequency('daily');
-    setManualRoutineRole('other');
+    setManualIngredientDraft("");
+    setManualRoutineTiming("either");
+    setManualFrequency("daily");
+    setManualRoutineRole("other");
     setManualAvoidWhenIrritated(false);
-    setMessage(`${savedProduct.brand?.name ? `${savedProduct.brand.name} ` : ''}${savedProduct.name} added.`);
+    setMessage(
+      `${savedProduct.brand?.name ? `${savedProduct.brand.name} ` : ""}${savedProduct.name} added.`,
+    );
   }
 
   const canSaveManualProduct =
@@ -711,8 +812,12 @@ export function AddProductsScreen() {
 
   return (
     <AppShell>
-      <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.backButton}>
-        <SubstrateText variant="small" color={Colors.light.accentDeep}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => router.back()}
+        style={styles.backButton}
+      >
+        <SubstrateText variant="small" color={t.ink}>
           Back to Wardrobe
         </SubstrateText>
       </Pressable>
@@ -724,8 +829,8 @@ export function AddProductsScreen() {
 
       {isLoading ? (
         <View style={styles.loading}>
-          <ActivityIndicator color={Colors.light.accent} />
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
+          <ActivityIndicator color={t.gold} />
+          <SubstrateText variant="small" color={t.muted}>
             Loading product tools
           </SubstrateText>
         </View>
@@ -733,7 +838,7 @@ export function AddProductsScreen() {
 
       {message ? (
         <Card style={styles.noticeCard}>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
+          <SubstrateText variant="small" color={t.muted}>
             {message}
           </SubstrateText>
         </Card>
@@ -741,8 +846,10 @@ export function AddProductsScreen() {
 
       {errorMessage ? (
         <Card style={styles.errorCard}>
-          <SubstrateText variant="section">Wardrobe needs attention</SubstrateText>
-          <SubstrateText variant="small" color={Colors.light.accentDeep}>
+          <SubstrateText variant="section">
+            Wardrobe needs attention
+          </SubstrateText>
+          <SubstrateText variant="small" color={t.ink}>
             {errorMessage}
           </SubstrateText>
         </Card>
@@ -751,14 +858,14 @@ export function AddProductsScreen() {
       <Card style={styles.card}>
         <View>
           <SubstrateText variant="section">Add one product</SubstrateText>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
+          <SubstrateText variant="small" color={t.muted}>
             Fill in the basics, then add it directly to your Skin Wardrobe.
           </SubstrateText>
         </View>
 
         <View style={styles.candidateFields}>
           <View style={[styles.fieldGroup, styles.editableFieldGroup]}>
-            <SubstrateText variant="small" color={Colors.light.textMuted}>
+            <SubstrateText variant="small" color={t.muted}>
               Brand
             </SubstrateText>
             <TextInput
@@ -767,14 +874,14 @@ export function AddProductsScreen() {
               editable={!isSaving}
               onChangeText={setManualBrand}
               placeholder="Brand"
-              placeholderTextColor={Colors.light.textMuted}
+              placeholderTextColor={t.muted}
               style={[styles.input, styles.candidateInput]}
               value={manualBrand}
             />
           </View>
 
           <View style={[styles.fieldGroup, styles.editableFieldGroup]}>
-            <SubstrateText variant="small" color={Colors.light.textMuted}>
+            <SubstrateText variant="small" color={t.muted}>
               Product
             </SubstrateText>
             <TextInput
@@ -783,7 +890,7 @@ export function AddProductsScreen() {
               editable={!isSaving}
               onChangeText={setManualProductName}
               placeholder="Product name"
-              placeholderTextColor={Colors.light.textMuted}
+              placeholderTextColor={t.muted}
               style={[styles.input, styles.candidateInput]}
               value={manualProductName}
             />
@@ -791,7 +898,7 @@ export function AddProductsScreen() {
         </View>
 
         <View style={styles.fieldGroup}>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
+          <SubstrateText variant="small" color={t.muted}>
             Description
           </SubstrateText>
           <TextInput
@@ -801,7 +908,7 @@ export function AddProductsScreen() {
             multiline
             onChangeText={setManualDescription}
             placeholder="What is it?"
-            placeholderTextColor={Colors.light.textMuted}
+            placeholderTextColor={t.muted}
             style={[styles.input, styles.noteInput, styles.candidateInput]}
             textAlignVertical="top"
             value={manualDescription}
@@ -809,13 +916,13 @@ export function AddProductsScreen() {
         </View>
 
         <View style={styles.fieldGroup}>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
+          <SubstrateText variant="small" color={t.muted}>
             Ingredients
           </SubstrateText>
           {manualIngredients.length ? (
             <View style={styles.ingredientChipGroup}>
               {manualIngredients.map((ingredient, index) => {
-                const chipStyle = getIngredientChipStyle(ingredient, index);
+                const chipStyle = getIngredientChipStyle(t);
 
                 return (
                   <Pressable
@@ -824,14 +931,20 @@ export function AddProductsScreen() {
                     disabled={isSaving}
                     onPress={() =>
                       setManualIngredients((current) =>
-                        current.filter((_, currentIndex) => currentIndex !== index)
+                        current.filter(
+                          (_, currentIndex) => currentIndex !== index,
+                        ),
                       )
                     }
                     style={[
                       styles.editableIngredientChip,
-                      { backgroundColor: chipStyle.backgroundColor, borderColor: chipStyle.borderColor },
+                      {
+                        backgroundColor: chipStyle.backgroundColor,
+                        borderColor: chipStyle.borderColor,
+                      },
                       isSaving && styles.disabled,
-                    ]}>
+                    ]}
+                  >
                     <SubstrateText variant="small" color={chipStyle.color}>
                       {ingredient} x
                     </SubstrateText>
@@ -840,7 +953,7 @@ export function AddProductsScreen() {
               })}
             </View>
           ) : (
-            <SubstrateText variant="small" color={Colors.light.textMuted}>
+            <SubstrateText variant="small" color={t.muted}>
               No ingredients yet.
             </SubstrateText>
           )}
@@ -852,7 +965,7 @@ export function AddProductsScreen() {
               onChangeText={setManualIngredientDraft}
               onSubmitEditing={addManualIngredient}
               placeholder="Add ingredient"
-              placeholderTextColor={Colors.light.textMuted}
+              placeholderTextColor={t.muted}
               returnKeyType="done"
               style={[styles.input, styles.addIngredientInput]}
               value={manualIngredientDraft}
@@ -861,8 +974,9 @@ export function AddProductsScreen() {
               accessibilityRole="button"
               disabled={isSaving}
               onPress={addManualIngredient}
-              style={[styles.smallButton, isSaving && styles.disabled]}>
-              <SubstrateText variant="small" color={Colors.light.accentDeep}>
+              style={[styles.smallButton, isSaving && styles.disabled]}
+            >
+              <SubstrateText variant="small" color={t.ink}>
                 Add
               </SubstrateText>
             </Pressable>
@@ -895,8 +1009,12 @@ export function AddProductsScreen() {
           accessibilityRole="button"
           disabled={!canSaveManualProduct}
           onPress={saveManualProduct}
-          style={[styles.acceptButton, !canSaveManualProduct && styles.disabled]}>
-          <SubstrateText variant="small" color="#FFFFFF">
+          style={[
+            styles.acceptButton,
+            !canSaveManualProduct && styles.disabled,
+          ]}
+        >
+          <SubstrateText variant="small" color={t.paper}>
             Add to Wardrobe
           </SubstrateText>
         </Pressable>
@@ -904,20 +1022,33 @@ export function AddProductsScreen() {
 
       <Card style={styles.card}>
         <View>
-          <SubstrateText variant="section">Identify products from photo</SubstrateText>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
-            Upload or take a product photo, review possible matches, then confirm before anything is added.
+          <SubstrateText variant="section">
+            Identify products from photo
+          </SubstrateText>
+          <SubstrateText variant="small" color={t.muted}>
+            Upload or take a product photo, review possible matches, then
+            confirm before anything is added.
           </SubstrateText>
         </View>
 
         <View style={styles.photoActions}>
-          <Pressable accessibilityRole="button" disabled={isSaving || isAnalyzing} onPress={chooseImage} style={styles.secondaryButton}>
-            <SubstrateText variant="small" color={Colors.light.accentDeep}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={isSaving || isAnalyzing}
+            onPress={chooseImage}
+            style={styles.secondaryButton}
+          >
+            <SubstrateText variant="small" color={t.ink}>
               Choose Image
             </SubstrateText>
           </Pressable>
-          <Pressable accessibilityRole="button" disabled={isSaving || isAnalyzing} onPress={takePhoto} style={styles.secondaryButton}>
-            <SubstrateText variant="small" color={Colors.light.accentDeep}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={isSaving || isAnalyzing}
+            onPress={takePhoto}
+            style={styles.secondaryButton}
+          >
+            <SubstrateText variant="small" color={t.ink}>
               Take Photo
             </SubstrateText>
           </Pressable>
@@ -925,13 +1056,25 @@ export function AddProductsScreen() {
 
         {selectedImage ? (
           <View style={styles.previewWrap}>
-            <Image source={{ uri: selectedImage.uri }} style={styles.previewImage} contentFit="cover" />
+            <Image
+              source={{ uri: selectedImage.uri }}
+              style={styles.previewImage}
+              contentFit="cover"
+            />
             <Pressable
               accessibilityRole="button"
               disabled={isAnalyzing || isSaving}
               onPress={analyzeSelectedImage}
-              style={[styles.analyzeButton, (isAnalyzing || isSaving) && styles.disabled]}>
-              {isAnalyzing ? <LoadingPrimaryButton label="Finding Products" /> : <PrimaryButton label="Find Products" />}
+              style={[
+                styles.analyzeButton,
+                (isAnalyzing || isSaving) && styles.disabled,
+              ]}
+            >
+              {isAnalyzing ? (
+                <LoadingPrimaryButton label="Finding Products" />
+              ) : (
+                <PrimaryButton label="Find Products" />
+              )}
             </Pressable>
           </View>
         ) : null}
@@ -945,7 +1088,9 @@ export function AddProductsScreen() {
                 catalogProducts={catalogProducts}
                 detection={detection}
                 disabled={isSaving}
-                onConfirm={(reviewDraft) => confirmDetection(detection, reviewDraft)}
+                onConfirm={(reviewDraft) =>
+                  confirmDetection(detection, reviewDraft)
+                }
                 onReject={() => rejectDetection(detection)}
               />
             ))}
@@ -969,27 +1114,36 @@ function DetectionCard({
   onConfirm: (reviewDraft: ProductReviewDraft) => void;
   onReject: () => void;
 }) {
-  const matchedProduct = catalogProducts.find((product) => product.id === detection.matchedProductId);
-  const isResolved = detection.status === 'confirmed' || detection.status === 'rejected';
-  const initialBrand = matchedProduct?.brand?.name ?? detection.detectedBrand ?? '';
-  const initialProductName = matchedProduct?.name ?? detection.detectedProductName ?? '';
-  const initialDescription = matchedProduct?.description ?? '';
+  const { theme: t } = useReportTheme();
+  const styles = makeStyles(t);
+  const matchedProduct = catalogProducts.find(
+    (product) => product.id === detection.matchedProductId,
+  );
+  const isResolved =
+    detection.status === "confirmed" || detection.status === "rejected";
+  const initialBrand =
+    matchedProduct?.brand?.name ?? detection.detectedBrand ?? "";
+  const initialProductName =
+    matchedProduct?.name ?? detection.detectedProductName ?? "";
+  const initialDescription = matchedProduct?.description ?? "";
   const initialIngredients = useMemo(
     () =>
       matchedProduct?.ingredients
         .map((ingredient) => ingredient.ingredient?.name)
-        .filter((ingredient): ingredient is string => Boolean(ingredient)) ?? [],
-    [matchedProduct?.ingredients]
+        .filter((ingredient): ingredient is string => Boolean(ingredient)) ??
+      [],
+    [matchedProduct?.ingredients],
   );
   const [brandDraft, setBrandDraft] = useState(initialBrand);
   const [productNameDraft, setProductNameDraft] = useState(initialProductName);
   const [descriptionDraft, setDescriptionDraft] = useState(initialDescription);
   const [ingredientDrafts, setIngredientDrafts] = useState(initialIngredients);
-  const [newIngredientDraft, setNewIngredientDraft] = useState('');
-  const [routineTiming, setRoutineTiming] = useState<WardrobeRoutineTiming>('either');
-  const [frequency, setFrequency] = useState<WardrobeFrequency>('daily');
+  const [newIngredientDraft, setNewIngredientDraft] = useState("");
+  const [routineTiming, setRoutineTiming] =
+    useState<WardrobeRoutineTiming>("either");
+  const [frequency, setFrequency] = useState<WardrobeFrequency>("daily");
   const [routineRole, setRoutineRole] = useState<WardrobeRoutineRole>(
-    toWardrobeRoutineRole(matchedProduct?.category)
+    toWardrobeRoutineRole(matchedProduct?.category),
   );
   const [avoidWhenIrritated, setAvoidWhenIrritated] = useState(false);
 
@@ -999,7 +1153,13 @@ function DetectionCard({
     setDescriptionDraft(initialDescription);
     setIngredientDrafts(initialIngredients);
     setRoutineRole(toWardrobeRoutineRole(matchedProduct?.category));
-  }, [initialBrand, initialDescription, initialIngredients, initialProductName, matchedProduct?.category]);
+  }, [
+    initialBrand,
+    initialDescription,
+    initialIngredients,
+    initialProductName,
+    matchedProduct?.category,
+  ]);
 
   function addIngredientDraft() {
     const normalizedIngredient = newIngredientDraft.trim();
@@ -1009,11 +1169,14 @@ function DetectionCard({
     }
 
     setIngredientDrafts((current) =>
-      current.some((ingredient) => ingredient.toLowerCase() === normalizedIngredient.toLowerCase())
+      current.some(
+        (ingredient) =>
+          ingredient.toLowerCase() === normalizedIngredient.toLowerCase(),
+      )
         ? current
-        : [...current, normalizedIngredient]
+        : [...current, normalizedIngredient],
     );
-    setNewIngredientDraft('');
+    setNewIngredientDraft("");
   }
 
   const reviewIngredients = newIngredientDraft.trim()
@@ -1026,24 +1189,28 @@ function DetectionCard({
     !isResolved;
 
   return (
-    <View style={[styles.detectionCard, isResolved && styles.resolvedDetectionCard]}>
+    <View
+      style={[styles.detectionCard, isResolved && styles.resolvedDetectionCard]}
+    >
       <View style={styles.candidateHeader}>
         <View style={styles.candidateHeading}>
-          <SubstrateText variant="title">{brandDraft || 'Unknown brand'}</SubstrateText>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
-            {productNameDraft || 'Unknown product'}
+          <SubstrateText variant="title">
+            {brandDraft || "Unknown brand"}
+          </SubstrateText>
+          <SubstrateText variant="small" color={t.muted}>
+            {productNameDraft || "Unknown product"}
           </SubstrateText>
         </View>
         <View style={styles.confidenceChip}>
-          <SubstrateText variant="small" color={Colors.light.accentDeep}>
-            Confidence {formatConfidence(detection.confidence) ?? 'N/A'}
+          <SubstrateText variant="small" color={t.ink}>
+            Confidence {formatConfidence(detection.confidence) ?? "N/A"}
           </SubstrateText>
         </View>
       </View>
 
       <View style={styles.candidateFields}>
         <View style={[styles.fieldGroup, styles.editableFieldGroup]}>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
+          <SubstrateText variant="small" color={t.muted}>
             Brand
           </SubstrateText>
           <TextInput
@@ -1052,14 +1219,14 @@ function DetectionCard({
             editable={!disabled && !isResolved}
             onChangeText={setBrandDraft}
             placeholder="Brand"
-            placeholderTextColor={Colors.light.textMuted}
+            placeholderTextColor={t.muted}
             style={[styles.input, styles.candidateInput]}
             value={brandDraft}
           />
         </View>
 
         <View style={[styles.fieldGroup, styles.editableFieldGroup]}>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
+          <SubstrateText variant="small" color={t.muted}>
             Product
           </SubstrateText>
           <TextInput
@@ -1068,7 +1235,7 @@ function DetectionCard({
             editable={!disabled && !isResolved}
             onChangeText={setProductNameDraft}
             placeholder="Product"
-            placeholderTextColor={Colors.light.textMuted}
+            placeholderTextColor={t.muted}
             style={[styles.input, styles.candidateInput]}
             value={productNameDraft}
           />
@@ -1077,7 +1244,7 @@ function DetectionCard({
 
       <View style={styles.candidateDetails}>
         <View style={styles.fieldGroup}>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
+          <SubstrateText variant="small" color={t.muted}>
             Description
           </SubstrateText>
           <TextInput
@@ -1087,7 +1254,7 @@ function DetectionCard({
             multiline
             onChangeText={setDescriptionDraft}
             placeholder="Add a short product description"
-            placeholderTextColor={Colors.light.textMuted}
+            placeholderTextColor={t.muted}
             style={[styles.input, styles.noteInput, styles.candidateInput]}
             textAlignVertical="top"
             value={descriptionDraft}
@@ -1095,13 +1262,13 @@ function DetectionCard({
         </View>
 
         <View style={styles.fieldGroup}>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
+          <SubstrateText variant="small" color={t.muted}>
             Ingredients
           </SubstrateText>
           {ingredientDrafts.length ? (
             <View style={styles.ingredientChipGroup}>
               {ingredientDrafts.map((ingredient, index) => {
-                const chipStyle = getIngredientChipStyle(ingredient, index);
+                const chipStyle = getIngredientChipStyle(t);
 
                 return (
                   <Pressable
@@ -1110,14 +1277,20 @@ function DetectionCard({
                     disabled={disabled || isResolved}
                     onPress={() =>
                       setIngredientDrafts((current) =>
-                        current.filter((_, currentIndex) => currentIndex !== index)
+                        current.filter(
+                          (_, currentIndex) => currentIndex !== index,
+                        ),
                       )
                     }
                     style={[
                       styles.editableIngredientChip,
-                      { backgroundColor: chipStyle.backgroundColor, borderColor: chipStyle.borderColor },
+                      {
+                        backgroundColor: chipStyle.backgroundColor,
+                        borderColor: chipStyle.borderColor,
+                      },
                       (disabled || isResolved) && styles.disabled,
-                    ]}>
+                    ]}
+                  >
                     <SubstrateText variant="small" color={chipStyle.color}>
                       {ingredient} x
                     </SubstrateText>
@@ -1126,7 +1299,7 @@ function DetectionCard({
               })}
             </View>
           ) : (
-            <SubstrateText variant="small" color={Colors.light.textMuted}>
+            <SubstrateText variant="small" color={t.muted}>
               No ingredients yet.
             </SubstrateText>
           )}
@@ -1138,7 +1311,7 @@ function DetectionCard({
               onChangeText={setNewIngredientDraft}
               onSubmitEditing={addIngredientDraft}
               placeholder="Add ingredient"
-              placeholderTextColor={Colors.light.textMuted}
+              placeholderTextColor={t.muted}
               returnKeyType="done"
               style={[styles.input, styles.addIngredientInput]}
               value={newIngredientDraft}
@@ -1147,8 +1320,12 @@ function DetectionCard({
               accessibilityRole="button"
               disabled={disabled || isResolved}
               onPress={addIngredientDraft}
-              style={[styles.smallButton, (disabled || isResolved) && styles.disabled]}>
-              <SubstrateText variant="small" color={Colors.light.accentDeep}>
+              style={[
+                styles.smallButton,
+                (disabled || isResolved) && styles.disabled,
+              ]}
+            >
+              <SubstrateText variant="small" color={t.ink}>
                 Add
               </SubstrateText>
             </Pressable>
@@ -1179,8 +1356,13 @@ function DetectionCard({
       />
 
       <View style={styles.candidateActions}>
-        <Pressable accessibilityRole="button" disabled={disabled || isResolved} onPress={onReject} style={styles.secondaryButton}>
-          <SubstrateText variant="small" color={Colors.light.accentDeep}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={disabled || isResolved}
+          onPress={onReject}
+          style={styles.secondaryButton}
+        >
+          <SubstrateText variant="small" color={t.ink}>
             Reject
           </SubstrateText>
         </Pressable>
@@ -1201,8 +1383,9 @@ function DetectionCard({
               productName: productNameDraft,
             })
           }
-          style={[styles.acceptButton, !canAccept && styles.disabled]}>
-          <SubstrateText variant="small" color="#FFFFFF">
+          style={[styles.acceptButton, !canAccept && styles.disabled]}
+        >
+          <SubstrateText variant="small" color={t.paper}>
             Accept
           </SubstrateText>
         </Pressable>
@@ -1212,10 +1395,12 @@ function DetectionCard({
 }
 
 function LoadingPrimaryButton({ label }: { label: string }) {
+  const { theme: t } = useReportTheme();
+  const styles = makeStyles(t);
   return (
     <View style={styles.loadingPrimaryButton}>
-      <ActivityIndicator color="#FFFFFF" size="small" />
-      <SubstrateText variant="small" color="#FFFFFF">
+      <ActivityIndicator color={t.paper} size="small" />
+      <SubstrateText variant="small" color={t.paper}>
         {label}
       </SubstrateText>
     </View>
@@ -1239,8 +1424,15 @@ function WardrobeMetadataControls({
   routineRole: WardrobeRoutineRole;
   routineTiming: WardrobeRoutineTiming;
 }) {
+  const { theme: t } = useReportTheme();
+  const styles = makeStyles(t);
   return (
-    <View style={[styles.metadataControls, compact && styles.metadataControlsCompact]}>
+    <View
+      style={[
+        styles.metadataControls,
+        compact && styles.metadataControlsCompact,
+      ]}
+    >
       <MetadataPillGroup
         disabled={disabled}
         label="Timing"
@@ -1263,7 +1455,7 @@ function WardrobeMetadataControls({
         onSelect={(nextRole) => onChange({ routineRole: nextRole })}
       />
       <View style={styles.metadataGroup}>
-        <SubstrateText variant="small" color={Colors.light.textMuted}>
+        <SubstrateText variant="small" color={t.muted}>
           Caution
         </SubstrateText>
         <Pressable
@@ -1275,10 +1467,12 @@ function WardrobeMetadataControls({
             styles.metadataPill,
             avoidWhenIrritated && styles.metadataPillSelected,
             disabled && styles.disabled,
-          ]}>
+          ]}
+        >
           <SubstrateText
             variant="small"
-            color={avoidWhenIrritated ? Colors.light.accentDeep : Colors.light.textMuted}>
+            color={avoidWhenIrritated ? t.ink : t.muted}
+          >
             Avoid when irritated
           </SubstrateText>
         </Pressable>
@@ -1300,9 +1494,11 @@ function MetadataPillGroup<T extends string>({
   options: T[];
   selected: T;
 }) {
+  const { theme: t } = useReportTheme();
+  const styles = makeStyles(t);
   return (
     <View style={styles.metadataGroup}>
-      <SubstrateText variant="small" color={Colors.light.textMuted}>
+      <SubstrateText variant="small" color={t.muted}>
         {label}
       </SubstrateText>
       <View style={styles.metadataPillRow}>
@@ -1316,8 +1512,16 @@ function MetadataPillGroup<T extends string>({
               accessibilityState={{ selected: isSelected }}
               disabled={disabled}
               onPress={() => onSelect(option)}
-              style={[styles.metadataPill, isSelected && styles.metadataPillSelected, disabled && styles.disabled]}>
-              <SubstrateText variant="small" color={isSelected ? Colors.light.accentDeep : Colors.light.textMuted}>
+              style={[
+                styles.metadataPill,
+                isSelected && styles.metadataPillSelected,
+                disabled && styles.disabled,
+              ]}
+            >
+              <SubstrateText
+                variant="small"
+                color={isSelected ? t.ink : t.muted}
+              >
                 {formatCatalogLabel(option)}
               </SubstrateText>
             </Pressable>
@@ -1335,23 +1539,37 @@ function WardrobeCard({
   item: UserWardrobeItem;
   onPress: () => void;
 }) {
+  const { theme: t } = useReportTheme();
+  const styles = makeStyles(t);
   const product = item.product;
 
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} style={styles.productCard}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={styles.productCard}
+    >
       <View style={styles.productHeader}>
         <View style={styles.productTitle}>
-          <SubstrateText variant="title">{product?.brand?.name ?? 'Catalog brand'}</SubstrateText>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
-            {product?.name ?? 'Catalog product'}
+          <SubstrateText variant="small" color={t.gold}>
+            {product?.brand?.name ?? "Catalog brand"}
+          </SubstrateText>
+          <SubstrateText variant="section">
+            {product?.name ?? "Catalog product"}
           </SubstrateText>
         </View>
         <View style={styles.statusSummaryPill}>
-          <SubstrateText variant="small" color={Colors.light.accentDeep}>
+          <SubstrateText variant="small" color={t.ink}>
             {formatCatalogLabel(item.status)}
           </SubstrateText>
         </View>
+        <ChevronRight size={20} color={t.muted} />
       </View>
+      <SubstrateText variant="small" color={t.muted}>
+        {formatCatalogLabel(item.routine_role)} ·{" "}
+        {formatCatalogLabel(item.routine_timing)} ·{" "}
+        {formatCatalogLabel(item.frequency)}
+      </SubstrateText>
     </Pressable>
   );
 }
@@ -1371,11 +1589,13 @@ function WardrobeDetailsDrawer({
   onRemove: () => void;
   onSave: (updates: WardrobeMetadataInput) => void;
 }) {
+  const { theme: t } = useReportTheme();
+  const styles = makeStyles(t);
   const product = item?.product;
-  const [ingredientDraft, setIngredientDraft] = useState('');
+  const [ingredientDraft, setIngredientDraft] = useState("");
 
   useEffect(() => {
-    setIngredientDraft('');
+    setIngredientDraft("");
   }, [item?.id]);
 
   if (!item) {
@@ -1386,25 +1606,45 @@ function WardrobeDetailsDrawer({
     const saved = await onAddIngredient(ingredientDraft);
 
     if (saved) {
-      setIngredientDraft('');
+      setIngredientDraft("");
     }
   }
 
   return (
-    <Modal animationType="slide" transparent visible={Boolean(item)} onRequestClose={onClose}>
+    <Modal
+      animationType="slide"
+      transparent
+      visible={Boolean(item)}
+      onRequestClose={onClose}
+    >
       <View style={styles.drawerOverlay}>
-        <Pressable accessibilityLabel="Close product details" style={styles.drawerBackdrop} onPress={onClose} />
+        <Pressable
+          accessibilityLabel="Close product details"
+          style={styles.drawerBackdrop}
+          onPress={onClose}
+        />
         <ScrollView
           style={styles.drawerSheet}
           contentContainerStyle={styles.drawerPanel}
           keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}>
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.drawerHandle} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Close product details"
+            onPress={onClose}
+            style={styles.backButton}
+          >
+            <SubstrateText variant="small">Done</SubstrateText>
+          </Pressable>
           <View style={styles.productHeader}>
             <View style={styles.productTitle}>
-              <SubstrateText variant="title">{product?.brand?.name ?? 'Catalog brand'}</SubstrateText>
-              <SubstrateText variant="small" color={Colors.light.textMuted}>
-                {product?.name ?? 'Catalog product'}
+              <SubstrateText variant="title">
+                {product?.brand?.name ?? "Catalog brand"}
+              </SubstrateText>
+              <SubstrateText variant="small" color={t.muted}>
+                {product?.name ?? "Catalog product"}
               </SubstrateText>
             </View>
             <Pressable
@@ -1412,8 +1652,9 @@ function WardrobeDetailsDrawer({
               accessibilityRole="button"
               disabled={disabled}
               onPress={onRemove}
-              style={[styles.iconButton, disabled && styles.disabled]}>
-              <Trash2 color={Colors.light.textMuted} size={14} strokeWidth={2} />
+              style={[styles.iconButton, disabled && styles.disabled]}
+            >
+              <Trash2 color={t.muted} size={14} strokeWidth={2} />
             </Pressable>
           </View>
 
@@ -1428,15 +1669,19 @@ function WardrobeDetailsDrawer({
                     return null;
                   }
 
-                  const chipStyle = getIngredientChipStyle(ingredientName, index);
+                  const chipStyle = getIngredientChipStyle(t);
 
                   return (
                     <View
                       key={`${productIngredient.ingredient_id}-${index}`}
                       style={[
                         styles.editableIngredientChip,
-                        { backgroundColor: chipStyle.backgroundColor, borderColor: chipStyle.borderColor },
-                      ]}>
+                        {
+                          backgroundColor: chipStyle.backgroundColor,
+                          borderColor: chipStyle.borderColor,
+                        },
+                      ]}
+                    >
                       <SubstrateText variant="tag" color={chipStyle.color}>
                         {ingredientName}
                       </SubstrateText>
@@ -1445,7 +1690,7 @@ function WardrobeDetailsDrawer({
                 })}
               </View>
             ) : (
-              <SubstrateText variant="small" color={Colors.light.textMuted}>
+              <SubstrateText variant="small" color={t.muted}>
                 No ingredients yet.
               </SubstrateText>
             )}
@@ -1456,7 +1701,7 @@ function WardrobeDetailsDrawer({
                 onChangeText={setIngredientDraft}
                 onSubmitEditing={addIngredient}
                 placeholder="Add ingredient"
-                placeholderTextColor={Colors.light.textMuted}
+                placeholderTextColor={t.muted}
                 returnKeyType="done"
                 style={[styles.input, styles.addIngredientInput]}
                 value={ingredientDraft}
@@ -1465,8 +1710,13 @@ function WardrobeDetailsDrawer({
                 accessibilityRole="button"
                 disabled={disabled || !ingredientDraft.trim()}
                 onPress={addIngredient}
-                style={[styles.smallButton, styles.addButton, (disabled || !ingredientDraft.trim()) && styles.disabled]}>
-                <SubstrateText variant="small" color={Colors.light.accentDeep}>
+                style={[
+                  styles.smallButton,
+                  styles.addButton,
+                  (disabled || !ingredientDraft.trim()) && styles.disabled,
+                ]}
+              >
+                <SubstrateText variant="small" color={t.ink}>
                   Add
                 </SubstrateText>
               </Pressable>
@@ -1483,10 +1733,15 @@ function WardrobeDetailsDrawer({
                   accessibilityState={{ selected: item.status === status }}
                   disabled={disabled}
                   onPress={() => onSave({ status })}
-                  style={[styles.statusPill, item.status === status && styles.statusPillSelected]}>
+                  style={[
+                    styles.statusPill,
+                    item.status === status && styles.statusPillSelected,
+                  ]}
+                >
                   <SubstrateText
                     variant="small"
-                    color={item.status === status ? Colors.light.accentDeep : Colors.light.textMuted}>
+                    color={item.status === status ? t.ink : t.muted}
+                  >
                     {formatCatalogLabel(status)}
                   </SubstrateText>
                 </Pressable>
@@ -1510,73 +1765,87 @@ function WardrobeDetailsDrawer({
 }
 
 function formatCatalogLabel(value: string) {
-  if (value === 'am') {
-    return 'AM';
+  if (value === "am") {
+    return "AM";
   }
-  if (value === 'pm') {
-    return 'PM';
+  if (value === "pm") {
+    return "PM";
   }
-  if (value === 'spf') {
-    return 'SPF';
+  if (value === "spf") {
+    return "SPF";
   }
 
   return value
-    .split('_')
+    .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
+    .join(" ");
 }
 
 function formatConfidence(confidence?: number) {
-  return typeof confidence === 'number' ? `${Math.round(confidence * 100)}%` : undefined;
+  return typeof confidence === "number"
+    ? `${Math.round(confidence * 100)}%`
+    : undefined;
 }
 
-function toProductCategory(metadata?: ProductReviewDraft['metadata']): CatalogProduct['category'] {
-  return metadata?.routineRole ?? 'other';
+function toProductCategory(
+  metadata?: ProductReviewDraft["metadata"],
+): CatalogProduct["category"] {
+  return metadata?.routineRole ?? "other";
 }
 
-function toWardrobeRoutineRole(category?: CatalogProduct['category']): WardrobeRoutineRole {
+function toWardrobeRoutineRole(
+  category?: CatalogProduct["category"],
+): WardrobeRoutineRole {
   if (
-    category === 'cleanser' ||
-    category === 'serum' ||
-    category === 'moisturizer' ||
-    category === 'spf' ||
-    category === 'treatment' ||
-    category === 'device'
+    category === "cleanser" ||
+    category === "serum" ||
+    category === "moisturizer" ||
+    category === "spf" ||
+    category === "treatment" ||
+    category === "device"
   ) {
     return category;
   }
 
-  return 'other';
+  return "other";
 }
 
-function getIngredientChipStyle(ingredient: string, index: number) {
-  const paletteIndex =
-    Array.from(ingredient).reduce((total, character) => total + character.charCodeAt(0), index) %
-    ingredientChipPalette.length;
-
-  return ingredientChipPalette[paletteIndex];
+function getIngredientChipStyle(t: ReportTheme) {
+  return { backgroundColor: t.paper, borderColor: t.line, color: t.ink };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function upsertCatalogProduct(products: CatalogProduct[], nextProduct: CatalogProduct) {
-  const existingIndex = products.findIndex((product) => product.id === nextProduct.id);
+function upsertCatalogProduct(
+  products: CatalogProduct[],
+  nextProduct: CatalogProduct,
+) {
+  const existingIndex = products.findIndex(
+    (product) => product.id === nextProduct.id,
+  );
 
   if (existingIndex === -1) {
-    return [...products, nextProduct].sort((a, b) => a.name.localeCompare(b.name));
+    return [...products, nextProduct].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
   }
 
-  return products.map((product) => (product.id === nextProduct.id ? nextProduct : product));
+  return products.map((product) =>
+    product.id === nextProduct.id ? nextProduct : product,
+  );
 }
 
-function toSelectedProductImage(asset: ImagePicker.ImagePickerAsset): SelectedProductImage | null {
+function toSelectedProductImage(
+  asset: ImagePicker.ImagePickerAsset,
+): SelectedProductImage | null {
   if (!asset.base64) {
     return null;
   }
 
-  const mimeType = asset.mimeType ?? inferImageMimeType(asset.fileName, asset.uri);
+  const mimeType =
+    asset.mimeType ?? inferImageMimeType(asset.fileName, asset.uri);
 
   return {
     uri: asset.uri,
@@ -1585,357 +1854,360 @@ function toSelectedProductImage(asset: ImagePicker.ImagePickerAsset): SelectedPr
 }
 
 function inferImageMimeType(fileName: string | null | undefined, uri: string) {
-  const source = `${fileName ?? ''} ${uri}`.toLowerCase();
+  const source = `${fileName ?? ""} ${uri}`.toLowerCase();
 
-  if (source.includes('.png')) {
-    return 'image/png';
+  if (source.includes(".png")) {
+    return "image/png";
   }
-  if (source.includes('.webp')) {
-    return 'image/webp';
+  if (source.includes(".webp")) {
+    return "image/webp";
   }
-  if (source.includes('.heic')) {
-    return 'image/heic';
+  if (source.includes(".heic")) {
+    return "image/heic";
   }
-  if (source.includes('.heif')) {
-    return 'image/heif';
+  if (source.includes(".heif")) {
+    return "image/heif";
   }
 
-  return 'image/jpeg';
+  return "image/jpeg";
 }
 
-const styles = StyleSheet.create({
-  loading: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.one,
-  },
-  card: {
-    gap: Spacing.three,
-  },
-  footerButton: {
-    alignSelf: 'stretch',
-  },
-  backButton: {
-    alignSelf: 'flex-start',
-    minHeight: 32,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: Spacing.two,
-  },
-  noticeCard: {
-    backgroundColor: Colors.light.successSoft,
-  },
-  errorCard: {
-    gap: Spacing.one,
-    backgroundColor: Colors.light.blush,
-  },
-  photoActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  secondaryButton: {
-    minHeight: 42,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexGrow: 1,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: Spacing.two,
-  },
-  previewWrap: {
-    gap: Spacing.two,
-  },
-  previewImage: {
-    width: '100%',
-    aspectRatio: 4 / 3,
-    borderRadius: 12,
-    backgroundColor: Colors.light.backgroundSelected,
-    overflow: 'hidden',
-  },
-  analyzeButton: {
-    alignSelf: 'stretch',
-  },
-  loadingPrimaryButton: {
-    minHeight: 44,
-    borderRadius: 12,
-    backgroundColor: Colors.light.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: Spacing.two,
-    paddingHorizontal: Spacing.four,
-  },
-  detectionCard: {
-    gap: Spacing.three,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.light.accentSoft,
-    backgroundColor: '#FFFDFB',
-    padding: Spacing.three,
-  },
-  resolvedDetectionCard: {
-    borderColor: Colors.light.border,
-    backgroundColor: Colors.light.backgroundSelected,
-  },
-  candidateHeader: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: Spacing.three,
-  },
-  candidateHeading: {
-    flex: 1,
-    gap: Spacing.half,
-  },
-  confidenceChip: {
-    minHeight: 34,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.light.accentSoft,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.light.backgroundSelected,
-    paddingHorizontal: Spacing.two,
-    flexShrink: 0,
-  },
-  candidateFields: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  fieldGroup: {
-    gap: Spacing.one,
-  },
-  editableFieldGroup: {
-    flexBasis: 240,
-    flexGrow: 1,
-  },
-  candidateInput: {
-    minHeight: 48,
-    backgroundColor: '#FFFFFF',
-  },
-  candidateDetails: {
-    gap: Spacing.three,
-    borderRadius: 12,
-    backgroundColor: '#FBF8F6',
-    padding: Spacing.three,
-  },
-  ingredientChipGroup: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.one,
-  },
-  editableIngredientChip: {
-    minHeight: 30,
-    borderRadius: 999,
-    borderWidth: 1,
-    justifyContent: 'center',
-    paddingHorizontal: Spacing.two,
-  },
-  addIngredientRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: Spacing.two,
-  },
-  addIngredientInput: {
-    flex: 1,
-    minHeight: 42,
-    backgroundColor: '#FFFFFF',
-  },
-  candidateActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  metadataControls: {
-    gap: Spacing.three,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    backgroundColor: '#FFFDFB',
-    padding: Spacing.three,
-  },
-  metadataControlsCompact: {
-    gap: Spacing.two,
-    backgroundColor: '#FBF8F6',
-    padding: Spacing.two,
-  },
-  metadataGroup: {
-    gap: Spacing.one,
-  },
-  metadataPillRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.one,
-  },
-  metadataPill: {
-    minHeight: 28,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: Spacing.two,
-  },
-  metadataPillSelected: {
-    borderColor: Colors.light.accentSoft,
-    backgroundColor: Colors.light.backgroundSelected,
-  },
-  acceptButton: {
-    minHeight: 42,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexGrow: 1,
-    backgroundColor: Colors.light.accentDeep,
-    paddingHorizontal: Spacing.two,
-  },
-  sectionHeader: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
-  },
-  input: {
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    backgroundColor: '#FBF8F6',
-    color: Colors.light.text,
-    fontFamily: Fonts.sans,
-    fontSize: 14,
-    fontWeight: '400',
-    paddingHorizontal: Spacing.three,
-  },
-  noteInput: {
-    minHeight: 80,
-    paddingTop: Spacing.two,
-    paddingBottom: Spacing.two,
-  },
-  emptyState: {
-    gap: Spacing.one,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    backgroundColor: '#FFFDFB',
-    padding: Spacing.three,
-  },
-  productList: {
-    gap: Spacing.two,
-  },
-  productCard: {
-    gap: Spacing.two,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    backgroundColor: '#FFFDFB',
-    padding: Spacing.three,
-  },
-  productHeader: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: Spacing.two,
-  },
-  productTitle: {
-    flex: 1,
-    gap: Spacing.half,
-  },
-  pillGroup: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.one,
-  },
-  readOnlyPill: {
-    minHeight: 28,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: Spacing.two,
-  },
-  statusSummaryPill: {
-    minHeight: 26,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.light.accentSoft,
-    justifyContent: 'center',
-    backgroundColor: Colors.light.backgroundSelected,
-    paddingHorizontal: Spacing.two,
-  },
-  drawerOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  drawerBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(38, 24, 32, 0.22)',
-  },
-  drawerSheet: {
-    width: '100%',
-    maxHeight: '72%',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    backgroundColor: Colors.light.background,
-  },
-  drawerPanel: {
-    gap: Spacing.three,
-    padding: Spacing.four,
-    paddingBottom: Spacing.five,
-  },
-  drawerHandle: {
-    alignSelf: 'center',
-    width: 42,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: Colors.light.border,
-  },
-  drawerSection: {
-    gap: Spacing.two,
-  },
-  statusPill: {
-    minHeight: 26,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    backgroundColor: '#FBF8F6',
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-  },
-  statusPillSelected: {
-    borderColor: Colors.light.accentSoft,
-    backgroundColor: Colors.light.backgroundSelected,
-  },
-  smallButton: {
-    minHeight: 32,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: Spacing.two,
-  },
-  iconButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addButton: {
-    minWidth: 88,
-  },
-  disabled: {
-    opacity: 0.64,
-  },
-});
+const makeStyles = (t: ReportTheme) =>
+  StyleSheet.create({
+    loading: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: Spacing.two,
+      paddingHorizontal: Spacing.one,
+    },
+    card: {
+      gap: Spacing.three,
+    },
+    footerButton: {
+      alignSelf: "stretch",
+    },
+    backButton: {
+      alignSelf: "flex-start",
+      minHeight: 32,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: t.line,
+      justifyContent: "center",
+      backgroundColor: t.surface,
+      paddingHorizontal: Spacing.two,
+    },
+    noticeCard: {
+      backgroundColor: t.paper,
+    },
+    errorCard: {
+      gap: Spacing.one,
+      backgroundColor: t.paper,
+    },
+    photoActions: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: Spacing.two,
+    },
+    secondaryButton: {
+      minHeight: 42,
+      borderRadius: t.radius,
+      borderWidth: 1,
+      borderColor: t.line,
+      alignItems: "center",
+      justifyContent: "center",
+      flexGrow: 1,
+      backgroundColor: t.surface,
+      paddingHorizontal: Spacing.two,
+    },
+    previewWrap: {
+      gap: Spacing.two,
+    },
+    previewImage: {
+      width: "100%",
+      aspectRatio: 4 / 3,
+      borderRadius: t.radius,
+      backgroundColor: t.paper,
+      overflow: "hidden",
+    },
+    analyzeButton: {
+      alignSelf: "stretch",
+    },
+    loadingPrimaryButton: {
+      minHeight: 44,
+      borderRadius: t.radius,
+      backgroundColor: t.ink,
+      alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "row",
+      gap: Spacing.two,
+      paddingHorizontal: Spacing.four,
+    },
+    detectionCard: {
+      gap: Spacing.three,
+      borderRadius: t.radius,
+      borderWidth: 1,
+      borderColor: t.line,
+      backgroundColor: t.surface,
+      padding: Spacing.three,
+    },
+    resolvedDetectionCard: {
+      borderColor: t.line,
+      backgroundColor: t.paper,
+    },
+    candidateHeader: {
+      alignItems: "flex-start",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: Spacing.three,
+    },
+    candidateHeading: {
+      flex: 1,
+      gap: Spacing.half,
+    },
+    confidenceChip: {
+      minHeight: 34,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: t.line,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: t.paper,
+      paddingHorizontal: Spacing.two,
+      flexShrink: 0,
+    },
+    candidateFields: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: Spacing.two,
+    },
+    fieldGroup: {
+      gap: Spacing.one,
+    },
+    editableFieldGroup: {
+      flexBasis: 240,
+      flexGrow: 1,
+    },
+    candidateInput: {
+      minHeight: 48,
+      backgroundColor: t.surface,
+    },
+    candidateDetails: {
+      gap: Spacing.three,
+      borderRadius: t.radius,
+      backgroundColor: t.paper,
+      padding: Spacing.three,
+    },
+    ingredientChipGroup: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: Spacing.one,
+    },
+    editableIngredientChip: {
+      minHeight: 30,
+      borderRadius: 999,
+      borderWidth: 1,
+      justifyContent: "center",
+      paddingHorizontal: Spacing.two,
+    },
+    addIngredientRow: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: Spacing.two,
+    },
+    addIngredientInput: {
+      flex: 1,
+      minHeight: 42,
+      backgroundColor: t.surface,
+    },
+    candidateActions: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: Spacing.two,
+    },
+    metadataControls: {
+      gap: Spacing.three,
+      borderRadius: t.radius,
+      borderWidth: 1,
+      borderColor: t.line,
+      backgroundColor: t.surface,
+      padding: Spacing.three,
+    },
+    metadataControlsCompact: {
+      gap: Spacing.two,
+      backgroundColor: t.paper,
+      padding: Spacing.two,
+    },
+    metadataGroup: {
+      gap: Spacing.one,
+    },
+    metadataPillRow: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: Spacing.one,
+    },
+    metadataPill: {
+      minHeight: 28,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: t.line,
+      justifyContent: "center",
+      backgroundColor: t.surface,
+      paddingHorizontal: Spacing.two,
+    },
+    metadataPillSelected: {
+      borderColor: t.line,
+      backgroundColor: t.paper,
+    },
+    acceptButton: {
+      minHeight: 42,
+      borderRadius: t.radius,
+      alignItems: "center",
+      justifyContent: "center",
+      flexGrow: 1,
+      backgroundColor: t.ink,
+      paddingHorizontal: Spacing.two,
+    },
+    sectionHeader: {
+      alignItems: "flex-start",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: Spacing.two,
+    },
+    input: {
+      minHeight: 44,
+      borderRadius: t.radius,
+      borderWidth: 1,
+      borderColor: t.line,
+      backgroundColor: t.paper,
+      color: t.ink,
+      fontFamily: fontFamily(t.bodyFont),
+      fontSize: 14 * t.scale,
+      fontWeight: "400",
+      paddingHorizontal: Spacing.three,
+    },
+    noteInput: {
+      minHeight: 80,
+      paddingTop: Spacing.two,
+      paddingBottom: Spacing.two,
+    },
+    emptyState: {
+      gap: Spacing.one,
+      borderRadius: t.radius,
+      borderWidth: 1,
+      borderColor: t.line,
+      backgroundColor: t.surface,
+      padding: Spacing.three,
+    },
+    productList: {
+      gap: Spacing.two,
+    },
+    productCard: {
+      gap: Spacing.two,
+      borderRadius: t.radius,
+      borderWidth: 1,
+      borderColor: t.line,
+      backgroundColor: t.surface,
+      padding: Spacing.three,
+    },
+    productHeader: {
+      alignItems: "flex-start",
+      flexDirection: "row",
+      justifyContent: "space-between",
+      gap: Spacing.two,
+    },
+    productTitle: {
+      flex: 1,
+      gap: Spacing.half,
+    },
+    pillGroup: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: Spacing.one,
+    },
+    readOnlyPill: {
+      minHeight: 28,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: t.line,
+      justifyContent: "center",
+      backgroundColor: t.surface,
+      paddingHorizontal: Spacing.two,
+    },
+    statusSummaryPill: {
+      minHeight: 26,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: t.line,
+      justifyContent: "center",
+      backgroundColor: t.paper,
+      paddingHorizontal: Spacing.two,
+    },
+    drawerOverlay: {
+      flex: 1,
+      justifyContent: "flex-end",
+    },
+    drawerBackdrop: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: "rgba(38, 24, 32, 0.22)",
+    },
+    drawerSheet: {
+      width: "100%",
+      maxWidth: 740,
+      alignSelf: "center",
+      maxHeight: "85%",
+      borderTopLeftRadius: t.radius,
+      borderTopRightRadius: t.radius,
+      backgroundColor: t.paper,
+    },
+    drawerPanel: {
+      gap: Spacing.three,
+      padding: Spacing.four,
+      paddingBottom: Spacing.five,
+    },
+    drawerHandle: {
+      alignSelf: "center",
+      width: 42,
+      height: 4,
+      borderRadius: 999,
+      backgroundColor: t.line,
+    },
+    drawerSection: {
+      gap: Spacing.two,
+    },
+    statusPill: {
+      minHeight: 26,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: t.line,
+      backgroundColor: t.paper,
+      justifyContent: "center",
+      paddingHorizontal: 10,
+    },
+    statusPillSelected: {
+      borderColor: t.line,
+      backgroundColor: t.paper,
+    },
+    smallButton: {
+      minHeight: 32,
+      borderRadius: t.radius,
+      borderWidth: 1,
+      borderColor: t.line,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: t.surface,
+      paddingHorizontal: Spacing.two,
+    },
+    iconButton: {
+      width: 24,
+      height: 24,
+      borderRadius: t.radius,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    addButton: {
+      minWidth: 88,
+    },
+    disabled: {
+      opacity: 0.64,
+    },
+  });
