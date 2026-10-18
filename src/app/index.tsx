@@ -1,14 +1,11 @@
-import { Link, type Href } from "expo-router";
 import Head from "expo-router/head";
 import { ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Copy, Spiral } from "@/report/ui";
 import { fontFamily, useReportTheme } from "@/report/theme";
-import { useAuth } from "@/lib/auth-context";
 
 export default function LandingPage() {
   const { theme: t } = useReportTheme();
-  const { session } = useAuth();
   const { width } = useWindowDimensions();
   const compact = width < 700;
 
@@ -22,9 +19,6 @@ export default function LandingPage() {
         <View style={{ flexGrow: 1, flexShrink: 0, width: "100%", maxWidth: 1440, alignSelf: "center", paddingHorizontal: compact ? 24 : 64 }}>
           <View style={{ paddingVertical: compact ? 24 : 32, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 1, borderColor: t.line }}>
             <Copy kind="brand" style={{ fontSize: compact ? 28 : 32 }}>Substrate<Copy kind="small">™</Copy></Copy>
-            <Link href={"/home" as Href} style={{ color: t.muted, fontFamily: fontFamily(t.bodyFont), fontSize: 13, paddingVertical: 14, paddingLeft: 20 }}>
-              {session ? "Enter Substrate ↗" : "Sign in ↗"}
-            </Link>
           </View>
           <View style={{ flexGrow: 1, flexShrink: 0, alignItems: "center", justifyContent: "center", paddingVertical: compact ? 48 : 60, gap: 26 }}>
             <View accessible={false} importantForAccessibility="no-hide-descendants">
