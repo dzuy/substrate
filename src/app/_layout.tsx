@@ -23,23 +23,9 @@ export default function RootLayout() {
 function RootNavigator() {
   const { isLoading, session } = useAuth();
   const pathname = usePathname();
+  const isLandingRoute = pathname === "/";
   const isAppAdminRoute =
     pathname === "/admin" || pathname.startsWith("/admin/");
-
-  if (isLoading) {
-    return (
-      <View style={styles.loadingScreen}>
-        <ActivityIndicator color={Colors.light.accent} />
-        <SubstrateText variant="small" color={Colors.light.textMuted}>
-          Loading your profile
-        </SubstrateText>
-      </View>
-    );
-  }
-
-  if (!session && pathname !== "/style-guide") {
-    return <AuthScreen admin={isAppAdminRoute} />;
-  }
 
   const isStyleGuideRoute = pathname === "/style-guide";
   const isResetPasswordRoute = pathname === "/reset-password";
@@ -51,19 +37,34 @@ function RootNavigator() {
   return (
     <ProfilePanelProvider key={session?.user.id || "guest"}>
       <View style={styles.appFrame}>
-        {session &&
+        {session && !isLoading &&
+        !isLandingRoute &&
         !isAdminRoute &&
         !isStyleGuideRoute &&
         !isResetPasswordRoute ? (
           <AppHeader />
         ) : null}
         <Stack
+          screenLayout={({ children }) => {
+            if (isLandingRoute) return children;
+            if (isLoading) return (
+              <View style={styles.loadingScreen}>
+                <ActivityIndicator color={Colors.light.accent} />
+                <SubstrateText variant="small" color={Colors.light.textMuted}>
+                  Loading your profile
+                </SubstrateText>
+              </View>
+            );
+            if (!session && !isStyleGuideRoute) return <AuthScreen admin={isAppAdminRoute} />;
+            return children;
+          }}
           screenOptions={{
             headerShown: false,
             contentStyle: { backgroundColor: Colors.light.background },
           }}
         >
           <Stack.Screen name="index" />
+          <Stack.Screen name="home" />
           <Stack.Screen name="ask-tate" />
           <Stack.Screen name="assessment" />
           <Stack.Screen name="past-reports" />
@@ -84,7 +85,7 @@ function RootNavigator() {
           <Stack.Screen name="admin" />
           <Stack.Screen name="reset-password" />
         </Stack>
-        {!isResetPasswordRoute && !isAdminRoute && !isStyleGuideRoute ? (
+        {session && !isLoading && !isLandingRoute && !isResetPasswordRoute && !isAdminRoute && !isStyleGuideRoute ? (
           <BottomNav />
         ) : null}
       </View>

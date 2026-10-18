@@ -279,7 +279,7 @@ export function BottomNav() {
 }
 
 const navItems = [
-  { key: 'home', label: 'Home', href: '/' as Href, icon: House },
+  { key: 'home', label: 'Home', href: '/home' as Href, icon: House },
   { key: 'new', label: 'New Report', href: '/assessment' as Href, icon: FilePlus2 },
   { key: 'past', label: 'Reports', href: '/past-reports' as Href, icon: Files },
   { key: 'wardrobe', label: 'Wardrobe', href: '/skin-wardrobe' as Href, icon: ShoppingBag },
@@ -291,7 +291,7 @@ function getActiveNavItem(pathname: string) {
   if (pathname === '/assessment') return 'new';
   if (pathname === '/past-reports' || pathname === '/report') return 'past';
   if (pathname === '/skin-wardrobe' || pathname.startsWith('/skin-wardrobe/')) return 'wardrobe';
-  if (pathname === '/') return 'home';
+  if (pathname === '/home') return 'home';
   return undefined;
 }
 

@@ -126,7 +126,7 @@ export function AppHeader() {
           justifyContent: "space-between",
         }}
       >
-        <Link href={"/" as Href} accessibilityLabel="Substrate home">
+        <Link href={"/home" as Href} accessibilityLabel="Substrate home">
           <Copy kind="brand">
             Substrate<Copy kind="small">™</Copy>
           </Copy>
