@@ -21,5 +21,18 @@ export function cleanDailyDraft(input) {
             throw Error('Invalid activity');
         out.movementPlan = [...new Set(input.movementPlan)];
     }
+    if (input.dailyActivities != null) {
+        if (!Array.isArray(input.dailyActivities) || input.dailyActivities.length > 20 || input.dailyActivities.some(value => typeof value !== 'string' || value.length > 300))
+            throw Error('Invalid daily activities');
+        out.dailyActivities = [...new Set(input.dailyActivities.map(value => value.trim()).filter(Boolean))];
+    }
     return out;
+}
+
+// Older check-ins retain their reviewed activity note without inventing a schedule.
+export function savedDailyActivities(checkIn = {}) {
+    const activities = checkIn.dailyActivities?.filter(value => typeof value === 'string' && value.trim()).map(value => value.trim());
+    if (activities?.length) return activities;
+    if (checkIn.movementPlanNote?.trim()) return checkIn.movementPlanNote.split(/\n|;/).map(value => value.trim()).filter(Boolean);
+    return checkIn.movementPlan || [];
 }

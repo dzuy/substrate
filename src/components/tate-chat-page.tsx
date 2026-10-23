@@ -228,8 +228,17 @@ export function TateChatPage({ initialPrompt = "" }: { initialPrompt?: string })
               accessibilityLabel="Ask Tate a question"
               placeholder="Ask Tate…"
               placeholderTextColor={t.muted}
-              multiline={false}
+              multiline
               returnKeyType="send"
+              submitBehavior={Platform.OS === 'web' ? undefined : 'submit'}
+              onKeyPress={event => {
+                if (Platform.OS !== 'web') return;
+                const key = event.nativeEvent as typeof event.nativeEvent & { shiftKey?: boolean; isComposing?: boolean; keyCode?: number };
+                if (key.key === 'Enter' && !key.shiftKey && !key.isComposing && key.keyCode !== 229) {
+                  event.preventDefault();
+                  void send();
+                }
+              }}
               onSubmitEditing={() => void send()}
               maxLength={4000}
               editable={!busy}
@@ -238,7 +247,9 @@ export function TateChatPage({ initialPrompt = "" }: { initialPrompt?: string })
               style={{
                 flex: 1,
                 minWidth: 0,
-                height: 48,
+                minHeight: 48,
+                maxHeight: 120,
+                paddingVertical: 12,
                 borderWidth: 1,
                 borderColor: t.line,
                 borderRadius: t.radius,
@@ -257,7 +268,9 @@ export function TateChatPage({ initialPrompt = "" }: { initialPrompt?: string })
               onPress={() => void send()}
               style={({ pressed }) => ({
                 width: 48,
-                height: 48,
+                minHeight: 48,
+                maxHeight: 120,
+                paddingVertical: 12,
                 borderRadius: 24,
                 backgroundColor: t.ink,
                 alignItems: "center",

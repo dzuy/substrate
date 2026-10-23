@@ -25,10 +25,10 @@ import {
 import { fontFamily, useReportTheme } from "@/report/theme";
 
 type AuthMode = "sign-in" | "sign-up" | "forgot-password";
-export function AuthScreen({ admin = false }: { admin?: boolean }) {
+export function AuthScreen({ admin = false, embedded = false, initialMode = "sign-in" }: { admin?: boolean; embedded?: boolean; initialMode?: AuthMode }) {
   const { user } = useAuth();
   const { theme: t } = useReportTheme();
-  const [mode, setMode] = useState<AuthMode>("sign-in");
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -90,8 +90,9 @@ export function AuthScreen({ admin = false }: { admin?: boolean }) {
     fontSize: 16,
     backgroundColor: t.surface,
   };
+  const Frame = embedded ? View : ReportFrame;
   return (
-    <ReportFrame wide>
+    <Frame {...(!embedded ? { wide: true } : {})}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
@@ -103,7 +104,7 @@ export function AuthScreen({ admin = false }: { admin?: boolean }) {
             alignItems: "center",
           }}
         >
-          <View style={{ flexGrow: 1, flexBasis: 280, gap: 22 }}>
+          {!embedded ? <View style={{ flexGrow: 1, flexBasis: 280, gap: 22 }}>
             <Copy kind="eyebrow" style={{ color: t.gold }}>
               SCIENCE FOR HEALTHIER SKIN
             </Copy>
@@ -120,24 +121,21 @@ export function AuthScreen({ admin = false }: { admin?: boolean }) {
               Explore your personal skin summary and daily routine. The proposed
               $19.99/month subscription is simulated; no payment is collected.
             </Copy>
-          </View>
+          </View> : null}
           <Panel style={{ flexGrow: 1, flexBasis: 280, gap: 22 }}>
-            <Copy kind="eyebrow" style={{ color: t.gold }}>
-              {admin ? "ADMINISTRATOR ACCESS" : "YOUR PRIVATE SKIN PROFILE"}
-            </Copy>
-            <Copy kind="heading">
-              {forgot
-                ? "Reset your password"
-                : signIn
-                  ? "Welcome back."
-                  : "Start with you."}
-            </Copy>
+            {embedded && !forgot ? <View style={{ flexDirection: 'row', gap: 8 }}>
+              {([{ value: 'sign-up', label: 'Create an Account' }, { value: 'sign-in', label: 'Sign In' }] as const).map(option => <Pressable key={option.value} accessibilityRole="tab" accessibilityState={{ selected: mode === option.value }} disabled={busy} onPress={() => changeMode(option.value)} style={{ flex: 1, paddingVertical: 12, borderBottomWidth: 2, borderColor: mode === option.value ? t.gold : t.line }}><Copy kind="small" style={{ textAlign: 'center', fontWeight: '600' }}>{option.label}</Copy></Pressable>)}
+            </View> : null}
+            {admin ? <Copy kind="eyebrow" style={{ color: t.gold }}>ADMINISTRATOR ACCESS</Copy> : null}
+            {forgot || signIn ? <Copy kind="heading">
+              {forgot ? "Reset your password" : "Welcome back."}
+            </Copy> : null}
             <Copy kind="small" style={{ color: t.muted }}>
               {forgot
                 ? "We’ll email you a secure reset link."
                 : signIn
-                  ? "Sign in to create or revisit your personal report."
-                  : "Create an account to keep your assessment and reports together."}
+                  ? embedded ? "Sign in to continue setting up your Substrate profile." : "Sign in to create or revisit your personal report."
+                  : "Create an account to get started."}
             </Copy>
             {admin && user ? (
               <Notice>
@@ -222,6 +220,6 @@ export function AuthScreen({ admin = false }: { admin?: boolean }) {
           </Panel>
         </View>
       </KeyboardAvoidingView>
-    </ReportFrame>
+    </Frame>
   );
 }

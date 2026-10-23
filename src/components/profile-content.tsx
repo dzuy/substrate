@@ -180,7 +180,7 @@ export function ProfileContent({ onNavigate, sections, onSaved }: { onNavigate: 
         body="Your background, your habits, your goals. Keep your details up to date as your skin story evolves."
       /> : null}
 
-      <Card style={styles.card}>
+      {!sections ? <Card style={styles.card}>
         <SubstrateText variant="section">Account</SubstrateText>
         <SignalRow label="Email" detail={user?.email ?? "Signed in"} />
         {isAppAdmin(user) ? (
@@ -207,7 +207,7 @@ export function ProfileContent({ onNavigate, sections, onSaved }: { onNavigate: 
             </Pressable>
           </Link>
         ) : null}
-      </Card>
+      </Card> : null}
 
       <ProfileSection title="Basic Information" loading={isLoadingProfile}>
         <ProfileInput
@@ -543,7 +543,7 @@ export function ProfileContent({ onNavigate, sections, onSaved }: { onNavigate: 
         />
       </Pressable>
 
-      <Card style={styles.card}>
+      {(!sections || sections.includes("Lifestyle")) ? <Card style={styles.card}>
         <SubstrateText variant="section">Environment location</SubstrateText>
         {location ? (
           <SignalRow
@@ -591,10 +591,10 @@ export function ProfileContent({ onNavigate, sections, onSaved }: { onNavigate: 
             {statusMessage}
           </SubstrateText>
         ) : null}
-      </Card>
+      </Card> : <>{errorMessage ? <SubstrateText>{errorMessage}</SubstrateText> : null}{statusMessage ? <SubstrateText>{statusMessage}</SubstrateText> : null}</>}
 
       <Pressable accessibilityRole="button" onPress={async()=>{if(!user)return;const latest=await getProfile(user.id);if(latest.error){setErrorMessage('Saved profile unavailable. Draft kept.');return;}await AsyncStorage.removeItem(`substrate:profile-draft:${user.id}`).catch(()=>{});setProfileContext(toProfileContext(latest.data));setProfileVersion(latest.data?.updated_at);setErrorMessage('');setStatusMessage('Loaded saved details. Unsaved profile draft discarded.');}}><SubstrateText variant="small">Discard unsaved draft & reload saved details</SubstrateText></Pressable>
-      <View style={styles.actions}>
+      {!sections ? <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"
           onPress={signOut}
@@ -604,7 +604,7 @@ export function ProfileContent({ onNavigate, sections, onSaved }: { onNavigate: 
             Sign Out
           </SubstrateText>
         </Pressable>
-      </View>
+      </View> : null}
     </View></ProfileSections.Provider>
   );
 }
@@ -740,7 +740,7 @@ function ProfileOption({
       onPress={onPress}
       style={[styles.profileOption, selected && styles.profileOptionSelected]}
     >
-      <SubstrateText variant="small" color={selected ? t.paper : t.ink}>
+      <SubstrateText variant="small" color={selected ? t.paper : t.ink} style={{ textAlign: "center", flexShrink: 1 }}>
         {label}
       </SubstrateText>
     </Pressable>
@@ -874,18 +874,22 @@ const makeStyles = (t: ReportTheme) =>
     pillGroup: {
       flexDirection: "row",
       flexWrap: "wrap",
-      gap: Spacing.one,
+      gap: Spacing.two,
+      alignItems: "flex-start",
     },
     profileOption: {
-      minHeight: 42,
+      minHeight: 44,
+      minWidth: 64,
+      maxWidth: "100%",
+      alignItems: "center",
       borderRadius: 999,
       borderWidth: 1,
       borderColor: t.line,
       backgroundColor: t.paper,
       justifyContent: "center",
       flexShrink: 0,
-      marginBottom: 2,
-      paddingHorizontal: Spacing.two,
+      paddingVertical: 10,
+      paddingHorizontal: Spacing.three,
     },
     profileOptionSelected: {
       borderColor: t.line,

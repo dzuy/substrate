@@ -283,7 +283,7 @@ export function BottomNav() {
 }
 
 const navItems = [
- {key:'day',label:'Your Day',href:'/home' as Href,icon:House},
+ {key:'day',label:'Your Day',href:'/your-day' as Href,icon:House},
  {key:'explore',label:'Explore',href:'/explore' as Href,icon:Compass},
  {key:'plan',label:'Routine',href:'/routine' as Href,icon:ListChecks},
  {key:'shop',label:'Shop',href:'/shop' as Href,icon:Store},

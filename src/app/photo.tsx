@@ -1,28 +1,19 @@
-import { AppShell } from '@/report/account-ui';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { type Href, useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-
-import {
-  BackLink,
-  Card,
-  PrimaryButton,
-  ScreenHeader,
-  StepProgress,
-  SubstrateText,
-} from '@/components/substrate-ui';
-import { Colors, Spacing } from '@/constants/theme';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { ArrowLeft, Camera, Sun, ScanFace, Check } from 'lucide-react-native';
+import { Copy, Notice, Panel, ReportButton, ReportFrame } from '@/report/ui';
+import { useReportTheme } from '@/report/theme';
 import { useAuth } from '@/lib/auth-context';
 import { formatDisplayDate, getActiveEntryDate, getOrCreateDailyEntry } from '@/services/daily-entries';
 import { analyzeDailyPhoto, getLatestDailyPhoto, toPhotoAnalysis, uploadDailyPhoto } from '@/services/photos';
 import type { PhotoAnalysis } from '@/types/database';
 
-const guidance = ['Face the camera directly.', 'Keep the angle consistent.', 'Avoid harsh shadows.'];
-
 export default function PhotoScreen() {
   const router = useRouter();
+  const { theme: t } = useReportTheme();
   const { user } = useAuth();
   const [entryId, setEntryId] = useState<string | null>(null);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
@@ -186,267 +177,35 @@ export default function PhotoScreen() {
         setPhotoAnalysis(analyzed.data);
         setStatusMessage('Photo saved and analyzed.');
       } else {
-        setStatusMessage('Photo saved. Analysis will run later if configured.');
+        setStatusMessage('Photo saved. Your skin insights will update when analysis is available.');
       }
     } else {
-      setStatusMessage('Photo saved to Supabase.');
+      setStatusMessage('Photo saved.');
     }
   }
 
   const hasPhoto = Boolean(photoUri);
   const isBusy = isLoading || isUploading || isAnalyzing;
-  const title = hasPhoto ? 'Photo saved' : 'Take your photo';
-  const body = entryDate ? formatDisplayDate(entryDate) : undefined;
+  return <ReportFrame compact dark footer={false} showStyleGuide={false}>
+    <View style={{width:'100%',maxWidth:390,alignSelf:'center',gap:14}}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Back to Your Day" onPress={()=>router.replace('/your-day')} style={{flexDirection:'row',gap:7,alignItems:'center',minHeight:44}}><ArrowLeft size={18} color={t.paper}/><Copy kind="small">Your Day</Copy></Pressable>
+      <View style={{gap:7,paddingHorizontal:8}}><Copy kind="title">Your daily photo</Copy><Copy kind="small" style={{color:'#D2DCE1'}}>A moment for your skin. Track its changes over time.</Copy>{entryDate?<Copy kind="small" style={{color:t.gold}}>{formatDisplayDate(entryDate)}</Copy>:null}</View>
+      <Panel style={{padding:10,borderRadius:22,gap:14}}>
+        <View style={{height:300,borderRadius:16,overflow:'hidden',backgroundColor:'#E5DFD3'}}>
+          <Image source={photoUri?{uri:photoUri}:require('@/assets/images/daily-photo-example-front-v1.png')} accessibilityLabel={photoUri?'Your daily skin photo':'Example: face forward with eyes open and hair pulled back'} contentFit={photoUri?"cover":"contain"} style={{width:'100%',height:'100%'}}/>
 
-  return (
-    <AppShell>
-      <BackLink href={"/daily-check-in" as Href} />
-      <StepProgress currentStep={1} totalSteps={5} currentLabel="Photo" nextLabel="Check-in" />
-      <ScreenHeader
-        title={hasPhoto ? title : "Take Today's Photo"}
-        body={body}
-      />
-
-      <View style={[styles.photoFrame, hasPhoto && styles.photoFrameFilled]}>
-        {photoUri ? (
-          <Image source={{ uri: photoUri }} style={styles.photoPreview} contentFit="cover" />
-        ) : (
-          <Image
-            source={require('@/assets/images/photo-placeholder-woman.png')}
-            style={styles.photoPlaceholder}
-            contentFit="contain"
-          />
-        )}
-        {isBusy ? (
-          <View style={styles.photoOverlay}>
-            <ActivityIndicator color={Colors.light.accent} />
-          </View>
-        ) : null}
-      </View>
-
-      {(errorMessage || statusMessage || isUploading || isAnalyzing || hasPhoto) ? (
-        <View style={styles.summary}>
-          {errorMessage ? (
-            <SubstrateText variant="small" color={Colors.light.accentDeep}>
-              {errorMessage}
-            </SubstrateText>
-          ) : (
-            <SubstrateText variant="small" color={Colors.light.textMuted}>
-              {getStatusCopy(statusMessage, isUploading, isAnalyzing, hasPhoto)}
-            </SubstrateText>
-          )}
+          {isBusy?<View style={{position:'absolute',inset:0,backgroundColor:'#03172399',alignItems:'center',justifyContent:'center',gap:12}}><ActivityIndicator color={t.gold}/><Copy style={{color:t.paper}}>{isUploading?'Saving your photo…':isAnalyzing?'Reading your skin…':'Loading your photo…'}</Copy></View>:null}
         </View>
-      ) : null}
-
-      {photoAnalysis ? (
-        <Card style={styles.card}>
-          <SubstrateText variant="section">Photo quality</SubstrateText>
-          <View style={styles.qualityGrid}>
-            <QualityMetric label="Face" value={photoAnalysis.faceDetected ? 'Detected' : 'Retake'} />
-            <QualityMetric label="Light" value={formatScore(photoAnalysis.lighting)} />
-            <QualityMetric label="Sharpness" value={formatScore(photoAnalysis.sharpness)} />
-            <QualityMetric label="Framing" value={formatScore(photoAnalysis.framing)} />
-          </View>
-          {photoAnalysis.summary ? (
-            <SubstrateText variant="small" color={Colors.light.textMuted}>
-              {photoAnalysis.summary}
-            </SubstrateText>
-          ) : null}
-        </Card>
-      ) : (
-        <Card style={styles.card}>
-          <SubstrateText variant="section">For best results</SubstrateText>
-          <SubstrateText variant="small" color={Colors.light.textMuted}>
-            Use soft, even lighting and keep your face centered.
-          </SubstrateText>
-          <View style={styles.guidanceList}>
-            {guidance.map((item) => (
-              <View key={item} style={styles.guidanceItem}>
-                <View style={styles.dot} />
-                <SubstrateText variant="small" color={Colors.light.textMuted}>
-                  {item}
-                </SubstrateText>
-              </View>
-            ))}
-          </View>
-        </Card>
-      )}
-
-      <View style={styles.actions}>
-        {hasPhoto ? (
-          <>
-            <Pressable
-              accessibilityRole="button"
-              disabled={isBusy}
-              onPress={() => router.push('/daily-check-in' as Href)}
-              style={[styles.fullWidth, isBusy && styles.disabled]}>
-              <PrimaryButton label="Next" />
-            </Pressable>
-            <View style={styles.secondaryActions}>
-              <Pressable accessibilityRole="button" disabled={isBusy} onPress={capturePhoto} style={styles.textAction}>
-                <SubstrateText variant="small" color={Colors.light.accent}>
-                  Retake
-                </SubstrateText>
-              </Pressable>
-              <Pressable accessibilityRole="button" disabled={isBusy} onPress={choosePhoto} style={styles.textAction}>
-                <SubstrateText variant="small" color={Colors.light.accent}>
-                  Choose Different
-                </SubstrateText>
-              </Pressable>
-            </View>
-          </>
-        ) : (
-          <>
-            <Pressable
-              accessibilityRole="button"
-              disabled={isBusy}
-              onPress={capturePhoto}
-              style={[styles.fullWidth, isBusy && styles.disabled]}>
-              <PrimaryButton label={isUploading ? 'Uploading Photo' : 'Take Photo'} />
-            </Pressable>
-            <Pressable accessibilityRole="button" disabled={isBusy} onPress={choosePhoto} style={styles.secondaryButton}>
-              <SubstrateText variant="small" color={Colors.light.accentDeep}>
-                Choose from Library
-              </SubstrateText>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              disabled={isBusy}
-              onPress={() => router.push('/daily-check-in' as Href)}
-              style={styles.skipButton}>
-              <SubstrateText variant="small" color={Colors.light.textMuted}>
-                Skip for now
-              </SubstrateText>
-            </Pressable>
-          </>
-        )}
-      </View>
-    </AppShell>
-  );
-}
-
-function QualityMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.qualityMetric}>
-      <SubstrateText variant="small" color={Colors.light.textMuted}>
-        {label}
-      </SubstrateText>
-      <SubstrateText variant="small">{value}</SubstrateText>
+        {!hasPhoto?<Copy kind="small" style={{color:t.muted,textAlign:'center'}}>Example · Face forward, eyes open, hair off your face.</Copy>:null}
+        {errorMessage?<Notice>{errorMessage}</Notice>:statusMessage?<View style={{flexDirection:'row',gap:8,alignItems:'center',paddingHorizontal:6}}><Check size={16} color={t.gold}/><Copy kind="small" style={{color:t.muted,flex:1}}>{statusMessage}</Copy></View>:null}
+        {hasPhoto?<ReportButton copper label="View My Analysis" disabled={isBusy||!!errorMessage} onPress={()=>router.push('/skin-story')}/>:<ReportButton copper label="Take Photo" disabled={isBusy||!entryId} onPress={()=>void capturePhoto()}/>}
+        <View style={{flexDirection:'row',gap:10}}>
+          {hasPhoto?<View style={{flex:1}}><ReportButton secondary label="Retake Photo" disabled={isBusy} onPress={()=>void capturePhoto()}/></View>:null}
+          <View style={{flex:1}}><ReportButton secondary label="Choose from Library" disabled={isBusy||!entryId} onPress={()=>void choosePhoto()}/></View>
+        </View>
+      </Panel>
+      {photoAnalysis?<Panel><Copy kind="heading">Photo quality</Copy><View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>{[['Face',photoAnalysis.faceDetected?'Detected':'Retake'],['Light',photoAnalysis.lighting],['Sharpness',photoAnalysis.sharpness],['Framing',photoAnalysis.framing]].map(([label,value])=><View key={label} style={{flexBasis:'47%',flexGrow:1,padding:12,borderRadius:12,backgroundColor:t.paper,borderWidth:1,borderColor:t.line,gap:4}}><Copy kind="small" style={{color:t.muted}}>{label}</Copy><Copy>{typeof value==='number'?Math.round(value):value??'—'}</Copy></View>)}</View>{photoAnalysis.summary?<Copy kind="small" style={{color:t.muted}}>{photoAnalysis.summary}</Copy>:null}</Panel>:<Panel><Copy kind="heading">For a clearer picture</Copy>{[{icon:Sun,text:'Use natural light. Avoid harsh shadows.'},{icon:ScanFace,text:'Face the camera and keep your face centered.'},{icon:Camera,text:'Use the same angle each day.'}].map(({icon:Icon,text})=><View key={text} style={{flexDirection:'row',gap:12,alignItems:'center'}}><Icon size={21} color={t.gold}/><Copy kind="small" style={{flex:1,color:t.muted}}>{text}</Copy></View>)}</Panel>}
+      <Pressable accessibilityRole="button" onPress={()=>router.replace('/your-day')} disabled={isBusy} style={{minHeight:44,alignItems:'center',justifyContent:'center'}}><Copy kind="small" style={{color:'#D2DCE1'}}>{hasPhoto?'Back to Your Day':'Skip for now'}</Copy></Pressable>
     </View>
-  );
+  </ReportFrame>;
 }
-
-function formatScore(value?: number) {
-  return typeof value === 'number' ? String(Math.round(value)) : '--';
-}
-
-function getStatusCopy(statusMessage: string, isUploading: boolean, isAnalyzing: boolean, hasPhoto: boolean) {
-  if (isUploading) return 'Saving your image to this private test day.';
-  if (isAnalyzing) return 'Checking lighting, framing, and visible skin signals.';
-  if (statusMessage) return statusMessage;
-  if (hasPhoto) return 'Review the photo quality, then continue when ready.';
-  return '';
-}
-
-const styles = StyleSheet.create({
-  photoFrame: {
-    minHeight: 286,
-    borderRadius: 24,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-  },
-  photoFrameFilled: {
-    boxShadow: '0 16px 34px rgba(45, 23, 35, 0.08)',
-  },
-  photoPreview: {
-    width: '100%',
-    height: 318,
-  },
-  photoPlaceholder: {
-    width: '100%',
-    height: 286,
-  },
-  photoOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 253, 252, 0.64)',
-  },
-  card: {
-    gap: Spacing.two,
-  },
-  guidanceList: {
-    gap: Spacing.one,
-  },
-  guidanceItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.one,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.light.accent,
-  },
-  qualityGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.two,
-  },
-  qualityMetric: {
-    flexBasis: '47%',
-    flexGrow: 1,
-    minHeight: 52,
-    borderRadius: 14,
-    backgroundColor: '#FBF8F6',
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    justifyContent: 'center',
-    gap: Spacing.half,
-    paddingHorizontal: Spacing.three,
-  },
-  actions: {
-    marginTop: 'auto',
-    gap: Spacing.one,
-    paddingTop: Spacing.two,
-  },
-  fullWidth: {
-    width: '100%',
-  },
-  secondaryButton: {
-    minHeight: 42,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.light.backgroundElement,
-  },
-  secondaryActions: {
-    minHeight: 38,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: Spacing.three,
-  },
-  textAction: {
-    minHeight: 34,
-    justifyContent: 'center',
-  },
-  skipButton: {
-    minHeight: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  summary: {
-    paddingHorizontal: Spacing.one,
-  },
-  disabled: {
-    opacity: 0.65,
-  },
-});

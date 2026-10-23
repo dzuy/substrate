@@ -1,5 +1,5 @@
 import { TateDrawerProvider } from "@/components/tate-drawer";
-import { Stack, usePathname } from "expo-router";
+import { Stack, useGlobalSearchParams, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
@@ -24,6 +24,8 @@ export default function RootLayout() {
 function RootNavigator() {
   const { isLoading, session } = useAuth();
   const pathname = usePathname();
+  const { onboarding } = useGlobalSearchParams<{ onboarding?: string }>();
+  const isOnboarding = pathname === "/onboarding" || (pathname.startsWith("/skin-wardrobe") && onboarding === "1");
   const isLandingRoute = pathname === "/";
   const isAppAdminRoute =
     pathname === "/admin" || pathname.startsWith("/admin/");
@@ -39,6 +41,7 @@ function RootNavigator() {
     <TateDrawerProvider key={session?.user.id || "guest"}><ProfilePanelProvider>
       <View style={styles.appFrame}>
         {session && !isLoading &&
+        !isOnboarding &&
         !isLandingRoute &&
         !isAdminRoute &&
         !isStyleGuideRoute &&
@@ -56,7 +59,7 @@ function RootNavigator() {
                 </SubstrateText>
               </View>
             );
-            if (!session && !isStyleGuideRoute) return <AuthScreen admin={isAppAdminRoute} />;
+            if (!session && !isStyleGuideRoute && pathname !== "/onboarding") return <AuthScreen admin={isAppAdminRoute} />;
             return children;
           }}
           screenOptions={{
@@ -96,7 +99,7 @@ function RootNavigator() {
           <Stack.Screen name="admin" />
           <Stack.Screen name="reset-password" />
         </Stack>
-        {session && !isLoading && !isLandingRoute && !isResetPasswordRoute && !isAdminRoute && !isStyleGuideRoute && pathname !== "/onboarding" && pathname !== "/daily-check-in" && pathname !== "/home" ? (
+        {session && !isLoading && !isLandingRoute && !isResetPasswordRoute && !isAdminRoute && !isStyleGuideRoute && !isOnboarding && pathname !== "/daily-check-in" && pathname !== "/home" ? (
           <BottomNav />
         ) : null}
       </View>

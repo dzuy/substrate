@@ -10,6 +10,9 @@ export type CheckInResponses = {
   confirmedAt?: string;
   timezone?: string;
   legacySnapshot?: Json;
+  sleepHours?: number;
+  hrvMs?: number;
+  cycleDay?: number;
   sleepQuality?: 'Poor' | 'Okay' | 'Rested';
   stressLevel?: 'Low' | 'Medium' | 'High';
   alcoholConsumption?: 'None' | 'Light' | 'Moderate' | 'High';
@@ -17,6 +20,7 @@ export type CheckInResponses = {
   routineNote?: string;
   movementPlan?: ('Yoga' | 'Pilates' | 'Indoors' | 'Outdoors')[];
   movementPlanNote?: string;
+  dailyActivities?: string[];
   skinFeelToday?: 'Dry' | 'Itchy' | 'Oily' | 'Normal';
   yesterdayNote?: string;
   // Legacy prototype field kept so earlier test entries remain readable.
@@ -89,6 +93,8 @@ export type ProfileContext = {
   allergyNotes?: string;
   assessmentAnswers?: Record<string, string | string[]>;
   displayName?: string;
+  dateOfBirth?: string;
+  sexAssignedAtBirth?: string;
   age?: string;
   ageRange?: string;
   height?: string;

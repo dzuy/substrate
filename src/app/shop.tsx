@@ -1,13 +1,12 @@
+import { ProductGrid, ProductImage, ProductSearch } from '@/components/product-grid';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
-import { Image } from 'expo-image';
-import { Search, X, SlidersHorizontal, ChevronRight } from 'lucide-react-native';
+import { ActivityIndicator, Modal, Platform, Pressable, ScrollView, View } from 'react-native';
+import { X, SlidersHorizontal } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { Copy, Notice, ReportButton, ReportFrame } from '@/report/ui';
-import { fontFamily, useReportTheme } from '@/report/theme';
+import { useReportTheme } from '@/report/theme';
 import { getCatalogProduct, type CatalogProduct } from '@/services/catalog';
-import { productArtwork } from '@/experience/product-artwork';
 import type { ProductCategory } from '@/types/database';
 
 type Row = { id: string; name: string; category: ProductCategory; image_url: string | null; brand: { name: string } | null };
@@ -62,7 +61,7 @@ export default function Shop() {
     <View style={{flex:1,minHeight:0,width:'100%',maxWidth:440,alignSelf:'center',gap:12}}>
       <View style={{paddingHorizontal:10,gap:4}}><Copy kind="title" style={{fontSize:32,fontWeight:'400',fontFamily:Platform.OS==='web'?'"Times New Roman", serif':Platform.OS==='ios'?'Times New Roman':'serif'}}>Your Skin Shop</Copy><Copy style={{fontSize:13}}>Explore products for your skin.</Copy></View>
       <View style={{flexDirection:'row',gap:8}}>
-        <View style={{flex:1,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:13,borderRadius:24,backgroundColor:'#FFFAF2',minHeight:46}}><Search size={19} color={t.muted}/><TextInput accessibilityLabel="Search products" placeholder="Search product names" placeholderTextColor={t.muted} value={query} onChangeText={setQuery} style={{flex:1,minWidth:0,height:46,fontFamily:fontFamily(t.bodyFont),fontSize:13,color:t.ink}}/>{query?<Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={()=>setQuery('')} style={{width:32,height:44,alignItems:'center',justifyContent:'center'}}><X size={16} color={t.ink}/></Pressable>:null}</View>
+        <ProductSearch value={query} onChange={setQuery}/>
         <Pressable accessibilityRole="button" accessibilityLabel="Show category filters" accessibilityState={{expanded:showFilters}} onPress={()=>setShowFilters(v=>!v)} style={{width:46,height:46,borderRadius:23,borderWidth:1,borderColor:'#52616B',alignItems:'center',justifyContent:'center'}}><SlidersHorizontal size={20} color="#F1C28E"/></Pressable>
       </View>
       {showFilters?<View style={{flexDirection:'row',flexWrap:'wrap',gap:6}}>{filterControls}</View>:<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{flexGrow:0,flexShrink:0}} contentContainerStyle={{gap:6}}>{filterControls}</ScrollView>}
@@ -71,10 +70,7 @@ export default function Shop() {
           {busy?<ActivityIndicator accessibilityLabel="Loading products" color="#F1C28E" style={{padding:28}}/>:error?<><Notice>{error}</Notice><ReportButton label="Retry" onPress={()=>setRetry(v=>v+1)}/></>:<>
             <Copy kind="small" style={{fontSize:11,color:'#C7D0D6',paddingHorizontal:3}}>{count} {count===1?'product':'products'}</Copy>
             {!rows.length?<View style={{padding:25,gap:12}}><Copy kind="heading">No products found.</Copy><Copy kind="small">Try another search or category.</Copy><ReportButton secondary label="Clear filters" onPress={()=>{setQuery('');setSearch('');chooseCategory('all');}}/></View>:null}
-            <View style={{flexDirection:'row',flexWrap:'wrap',gap:9}}>{rows.map(row=><Pressable key={row.id} accessibilityRole="button" accessibilityLabel={`View ${row.brand?.name||''} ${row.name}`} onPress={()=>void openDetail(row)} style={({pressed})=>({width:'48%',flexGrow:1,maxWidth:'50%',borderRadius:16,overflow:'hidden',backgroundColor:'#FFFAF2',opacity:pressed?0.8:1})}>
-              <View style={{height:145,backgroundColor:'#F3EDE3',padding:15,alignItems:'center'}}><Image source={row.image_url?{uri:row.image_url}:productArtwork(row.category)} accessible={false} contentFit="contain" style={{width:'100%',height:'100%'}}/></View>
-              <View style={{padding:12,gap:4,minHeight:113}}><Copy kind="small" style={{fontSize:10,lineHeight:14,color:t.muted,letterSpacing:0.3}}>{row.brand?.name||row.category}</Copy><Copy style={{fontSize:13,lineHeight:17,fontWeight:'600',color:t.ink}}>{row.name}</Copy><View style={{flexDirection:'row',alignItems:'center',gap:3,marginTop:3}}><Copy kind="small" style={{fontSize:11,color:t.muted}}>View product</Copy><ChevronRight size={12} color={t.muted}/></View></View>
-            </Pressable>)}</View>
+            <ProductGrid products={rows} onSelect={id=>{const row=rows.find(r=>r.id===id);if(row)void openDetail(row);}}/>
             {count>pageSize?<View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:8,paddingVertical:8}}><ReportButton secondary label="Previous" disabled={!page} onPress={()=>{setPage(p=>p-1);list.current?.scrollTo({y:0,animated:false});}}/><Copy kind="small">{page+1} / {Math.ceil(count/pageSize)}</Copy><ReportButton secondary label="Next" disabled={(page+1)*pageSize>=count} onPress={()=>{setPage(p=>p+1);list.current?.scrollTo({y:0,animated:false});}}/></View>:null}
           </>}
         </ScrollView>
@@ -83,7 +79,7 @@ export default function Shop() {
     <Modal visible={!!selected} transparent animationType="slide" onRequestClose={closeDetail}>
       <View style={{flex:1,backgroundColor:'#00000088',justifyContent:'flex-end'}}><SafeAreaView edges={['bottom']} style={{maxHeight:'90%',width:'100%',maxWidth:500,alignSelf:'center',backgroundColor:t.paper,borderTopLeftRadius:24,borderTopRightRadius:24,overflow:'hidden'}}>
         <View style={{alignItems:'flex-end',paddingHorizontal:10,paddingTop:6}}><Pressable accessibilityRole="button" accessibilityLabel="Close product" onPress={closeDetail} style={{width:44,height:44,alignItems:'center',justifyContent:'center'}}><X size={22} color={t.ink}/></Pressable></View>
-        <ScrollView contentContainerStyle={{paddingHorizontal:22,paddingBottom:24,gap:13}}>{selected?<><Image source={selected.image_url?{uri:selected.image_url}:productArtwork(selected.category)} contentFit="contain" accessibilityLabel={selected.name} style={{height:200,width:'100%'}}/><Copy kind="small" style={{color:t.muted}}>{selected.brand?.name}</Copy><Copy kind="heading" style={{color:t.ink}}>{selected.name}</Copy>{detailBusy?<ActivityIndicator color={t.gold}/>:null}{detailError?<><Notice>{detailError}</Notice><ReportButton label="Retry details" onPress={()=>void openDetail(selected)}/></>:null}{detail?<><Copy style={{color:t.ink,fontSize:14}}>{detail.description||''}</Copy><Copy kind="heading" style={{color:t.ink,fontSize:20}}>Ingredients</Copy><Copy kind="small" style={{color:t.muted}}>{detail.ingredients.map(i=>i.ingredient?.inci_name||i.ingredient?.name).filter(Boolean).join(', ')||'Ingredient details are not available yet.'}</Copy></>:null}</>:null}</ScrollView>
+        <ScrollView contentContainerStyle={{paddingHorizontal:22,paddingBottom:24,gap:13}}>{selected?<><ProductImage product={selected} accessible style={{height:200,width:'100%'}}/><Copy kind="small" style={{color:t.muted}}>{selected.brand?.name}</Copy><Copy kind="heading" style={{color:t.ink}}>{selected.name}</Copy>{detailBusy?<ActivityIndicator color={t.gold}/>:null}{detailError?<><Notice>{detailError}</Notice><ReportButton label="Retry details" onPress={()=>void openDetail(selected)}/></>:null}{detail?<><Copy style={{color:t.ink,fontSize:14}}>{detail.description||''}</Copy><Copy kind="heading" style={{color:t.ink,fontSize:20}}>Ingredients</Copy><Copy kind="small" style={{color:t.muted}}>{detail.ingredients.map(i=>i.ingredient?.inci_name||i.ingredient?.name).filter(Boolean).join(', ')||'Ingredient details are not available yet.'}</Copy></>:null}</>:null}</ScrollView>
       </SafeAreaView></View>
     </Modal>
   </ReportFrame>;

@@ -1,8 +1,10 @@
-import {ReportButton} from '@/report/ui';
+import {Copy, ReportButton, ReportFrame} from '@/report/ui';
+import { takeProductPhotoDraft } from '@/services/product-photo-draft';
+import { ProductGrid, ProductSearch } from '@/components/product-grid';
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter, useLocalSearchParams, type Href } from "expo-router";
-import { ChevronRight, Trash2 } from "lucide-react-native";
+import { Trash2 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -84,6 +86,7 @@ export default function SkinWardrobeScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [productQuery,setProductQuery] = useState('');
   const [selectedWardrobeItemId, setSelectedWardrobeItemId] = useState<
     string | null
   >(null);
@@ -272,13 +275,12 @@ export default function SkinWardrobeScreen() {
     wardrobeItems.find((item) => item.id === selectedWardrobeItemId) ?? null;
 
   return (
-    <AppShell>
+    <ReportFrame compact dark footer={false} showStyleGuide={false}>
+      <View style={{width:"100%",maxWidth:440,alignSelf:"center",gap:12}}>
       {onboarding ? <ReportButton secondary label="Return to onboarding" onPress={()=>router.push("/onboarding" as Href)}/> : null}
-      <ScreenHeader
-        eyebrow="Your Wardrobe"
-        title="A routine that’s yours."
-        body="The products you use, all in one place. Open a product to review its ingredients and how it fits your day."
-      />
+      <Copy kind="title" style={{fontWeight:'400'}}>Your Products</Copy>
+      <Copy kind="small">Your Skin Wardrobe, all in one place.</Copy>
+      <View style={{height:46}}><ProductSearch value={productQuery} onChange={setProductQuery} placeholder="Search your products"/></View>
 
       {isLoading ? (
         <View style={styles.loading}>
@@ -308,36 +310,10 @@ export default function SkinWardrobeScreen() {
         </Card>
       ) : null}
 
-      <Card style={styles.card}>
-        <View style={styles.sectionHeader}>
-          <View>
-            <SubstrateText variant="section">All products</SubstrateText>
-            <SubstrateText variant="small" color={t.muted}>
-              {wardrobeItems.length} saved product
-              {wardrobeItems.length === 1 ? "" : "s"}
-            </SubstrateText>
-          </View>
-        </View>
-
-        {wardrobeItems.length ? (
-          <View style={styles.productList}>
-            {wardrobeItems.map((item) => (
-              <WardrobeCard
-                key={item.id}
-                item={item}
-                onPress={() => setSelectedWardrobeItemId(item.id)}
-              />
-            ))}
-          </View>
-        ) : (
-          <View style={styles.emptyState}>
-            <SubstrateText variant="section">No products yet</SubstrateText>
-            <SubstrateText variant="small" color={t.muted}>
-              Add your first product to start building your Skin Wardrobe.
-            </SubstrateText>
-          </View>
-        )}
-      </Card>
+      <Copy kind="small">{wardrobeItems.length} saved {wardrobeItems.length===1?'product':'products'}</Copy>
+      <ProductGrid products={wardrobeItems.filter(item=>`${item.product?.brand?.name||''} ${item.product?.name||''}`.toLowerCase().includes(productQuery.toLowerCase())).map(item=>({id:item.id,name:item.product?.name||'Product unavailable',category:item.product?.category||'other',brand:item.product?.brand,image_url:item.product?.image_url,status:formatCatalogLabel(item.status),subtitle:`${formatCatalogLabel(item.routine_timing)} · ${formatCatalogLabel(item.frequency)}`}))} onSelect={setSelectedWardrobeItemId} actionLabel="Manage product"/>
+      {!isLoading&&!wardrobeItems.length?<Copy>Add your first product to start building your Skin Wardrobe.</Copy>:null}
+      {wardrobeItems.length>0&&!wardrobeItems.some(item=>`${item.product?.brand?.name||''} ${item.product?.name||''}`.toLowerCase().includes(productQuery.toLowerCase()))?<Copy>No products match your search.</Copy>:null}
 
       <Pressable
         accessibilityRole="button"
@@ -369,12 +345,13 @@ export default function SkinWardrobeScreen() {
           }
         }}
       />
-    </AppShell>
+      </View>
+    </ReportFrame>
   );
 }
 
 export function AddProductsScreen() {
-  const {onboarding}=useLocalSearchParams<{onboarding?:string}>();
+  const {onboarding, mode}=useLocalSearchParams<{onboarding?:string; mode?:string}>();
   const { theme: t } = useReportTheme();
   const styles = makeStyles(t);
   const { user } = useAuth();
@@ -383,6 +360,11 @@ export function AddProductsScreen() {
   const [selectedImage, setSelectedImage] =
     useState<SelectedProductImage | null>(null);
   const [detections, setDetections] = useState<ProductDetectionCandidate[]>([]);
+  useEffect(() => {
+    if (!user || mode !== 'photo') return;
+    const photo = takeProductPhotoDraft(user.id);
+    if (photo) setSelectedImage(photo);
+  }, [user, mode]);
   const [manualBrand, setManualBrand] = useState("");
   const [manualProductName, setManualProductName] = useState("");
   const [manualDescription, setManualDescription] = useState("");
@@ -860,7 +842,7 @@ export function AddProductsScreen() {
         </Card>
       ) : null}
 
-      <Card style={styles.card}>
+      {mode !== "photo" ? <Card style={styles.card}>
         <View>
           <SubstrateText variant="section">Add one product</SubstrateText>
           <SubstrateText variant="small" color={t.muted}>
@@ -1023,7 +1005,7 @@ export function AddProductsScreen() {
             Add to Wardrobe
           </SubstrateText>
         </Pressable>
-      </Card>
+      </Card> : null}
 
       <Card style={styles.card}>
         <View>
@@ -1534,48 +1516,6 @@ function MetadataPillGroup<T extends string>({
         })}
       </View>
     </View>
-  );
-}
-
-function WardrobeCard({
-  item,
-  onPress,
-}: {
-  item: UserWardrobeItem;
-  onPress: () => void;
-}) {
-  const { theme: t } = useReportTheme();
-  const styles = makeStyles(t);
-  const product = item.product;
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={styles.productCard}
-    >
-      <View style={styles.productHeader}>
-        <View style={styles.productTitle}>
-          <SubstrateText variant="small" color={t.gold}>
-            {product?.brand?.name ?? "Catalog brand"}
-          </SubstrateText>
-          <SubstrateText variant="section">
-            {product?.name ?? "Catalog product"}
-          </SubstrateText>
-        </View>
-        <View style={styles.statusSummaryPill}>
-          <SubstrateText variant="small" color={t.ink}>
-            {formatCatalogLabel(item.status)}
-          </SubstrateText>
-        </View>
-        <ChevronRight size={20} color={t.muted} />
-      </View>
-      <SubstrateText variant="small" color={t.muted}>
-        {formatCatalogLabel(item.routine_role)} ·{" "}
-        {formatCatalogLabel(item.routine_timing)} ·{" "}
-        {formatCatalogLabel(item.frequency)}
-      </SubstrateText>
-    </Pressable>
   );
 }
 
