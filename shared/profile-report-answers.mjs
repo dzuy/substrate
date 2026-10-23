@@ -18,5 +18,13 @@ export function profileReportAnswers(profile) {
       }
     }
   }
-  return answers;
+  if (['None known','Yes','Unsure'].includes(profile?.ingredientAllergy)) answers.allergy=profile.ingredientAllergy;
+  if(profile?.ingredientAllergy==='Prefer not to say') answers.allergy='Unsure'; // Original declined state remains in the profile; engine receives unresolved context.
+  const sensitivity={'Low':'Usually tolerates products','High':'Easily irritated','Sensitive':'Easily irritated','Very high':'Easily irritated'};
+  if(sensitivity[profile?.sensitivityLevel]) answers.sensitivity=sensitivity[profile.sensitivityLevel];
+  const goals={'Acne':'Breakouts','Redness':'Redness','Pigmentation':'Dark marks','Texture':'Texture / pores','Large pores':'Texture / pores','Dryness':'Dryness','Fine lines':'Fine lines'};
+  const mapped=[...new Set((profile?.skinGoals||[]).map(g=>goals[g]).filter(Boolean))];
+  if(mapped.length===1)answers.goal=mapped[0]; // Multiple goals require the user to choose a priority.
+  // Exact questionnaire values only; do not infer pregnancy, allergies or treatments from notes.
+  return {...(profile?.assessmentAnswers || {}),...answers};
 }

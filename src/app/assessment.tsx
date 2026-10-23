@@ -46,7 +46,7 @@ function AssessmentForUser({ userId }: { userId: string }) {
   const router = useRouter();
   const key = `substrate-assessment-v1:${userId}`;
   const [draft, setDraft] = useState<ReportDraft>(empty);
-  const [profileAnswers, setProfileAnswers] = useState<Record<string, string>>({});
+  const [profileAnswers, setProfileAnswers] = useState<Record<string, string | string[]>>({});
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
@@ -83,7 +83,7 @@ function AssessmentForUser({ userId }: { userId: string }) {
       } catch {
         if (active) setStorageWarning("This device could not restore your assessment.");
       }
-      let saved: Record<string, string> = {};
+      let saved: Record<string, string | string[]> = {};
       try {
         const profile = await getProfile(userId);
         if (!profile.error) saved = profileReportAnswers(toProfileContext(profile.data));

@@ -2,6 +2,8 @@ import { createReportHandler } from "./skin-report.mjs";
 import http from "node:http";
 import { createTateHandler } from "./ask-tate.mjs";
 
+import { createDailyDraftHandler } from "./daily-draft.mjs";
+const dailyDraft=createDailyDraftHandler({allowLocalOrigins:true});
 const report = createReportHandler({ allowLocalOrigins: true });
 const handler = createTateHandler();
 const port = Number(process.env.TATE_PORT || 4318);
@@ -27,6 +29,7 @@ http
       res.end();
       return;
     }
+    if (req.url?.split("?")[0] === "/api/daily-draft") { void dailyDraft(req,res); return; }
     if (req.url?.split("?")[0] === "/api/skin-report") {
       void report(req, res);
       return;

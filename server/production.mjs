@@ -6,6 +6,7 @@ import { createReportHandler } from "./skin-report.mjs";
 import { createTateHandler } from "./ask-tate.mjs";
 import { createHandler } from "../prototypes/face-scan/handler.mjs";
 
+import { createDailyDraftHandler } from "./daily-draft.mjs";
 const defaultRoot = fileURLToPath(new URL("../dist/", import.meta.url));
 const types = {
   ".html": "text/html; charset=utf-8",
@@ -31,6 +32,7 @@ export function createProductionServer({
   tate = createTateHandler(),
   faceScan = createHandler(),
   report = createReportHandler(),
+  dailyDraft = createDailyDraftHandler(),
 } = {}) {
   const send = (res, status, text) => {
     res.writeHead(status, {
@@ -46,6 +48,7 @@ export function createProductionServer({
       const pathname = decodeURIComponent(
         new URL(req.url, "http://localhost").pathname,
       );
+      if (pathname === "/api/daily-draft") return await dailyDraft(req,res);
       if (pathname === "/api/skin-report") return await report(req, res);
       if (pathname === "/api/ask-tate") return await tate(req, res);
       if (pathname === "/api/face-scan-prototype")

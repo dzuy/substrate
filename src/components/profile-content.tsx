@@ -1,6 +1,7 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, type Href } from "expo-router";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -41,11 +42,13 @@ type MultiSelectProfileKey =
 type TextInputMode =
   "decimal" | "email" | "numeric" | "search" | "tel" | "text" | "url";
 
-export function ProfileContent({ onNavigate }: { onNavigate: () => void }) {
+const ProfileSections = createContext<string[] | undefined>(undefined);
+export function ProfileContent({ onNavigate, sections, onSaved }: { onNavigate: () => void; sections?:string[]; onSaved?:(profile:ProfileContext)=>void }) {
   const { theme: t } = useReportTheme();
   const styles = makeStyles(t);
   const { signOut, user } = useAuth();
   const canManageCatalog = isCatalogAdmin(user);
+  const [profileVersion,setProfileVersion]=useState<string|undefined>(undefined);
   const [profileContext, setProfileContext] = useState<ProfileContext>({});
   const [locationInput, setLocationInput] = useState("");
   const [location, setLocation] = useState<ProfileLocation | null>(null);
@@ -81,7 +84,11 @@ export function ProfileContent({ onNavigate }: { onNavigate: () => void }) {
 
       const loadedLocation = toProfileLocation(profile.data);
       const loadedContext = toProfileContext(profile.data);
-      setProfileContext(loadedContext);
+      setProfileVersion(profile.data?.updated_at);
+      let restored=loadedContext;
+      try {const raw=await AsyncStorage.getItem(`substrate:profile-draft:${user.id}`);if(raw){const draft=JSON.parse(raw);restored={...loadedContext,...(draft.context||draft)};if(draft.version)setProfileVersion(draft.version);setStatusMessage('Restored an unsaved device draft. Review before saving.');}}catch{setStatusMessage('Device draft could not be restored.');}
+      if(!isMounted)return;
+      setProfileContext(restored);
       setLocation(loadedLocation);
       setLocationInput(loadedLocation?.query ?? loadedLocation?.label ?? "");
       setIsLoadingProfile(false);
@@ -116,6 +123,7 @@ export function ProfileContent({ onNavigate }: { onNavigate: () => void }) {
       return;
     }
 
+    setProfileVersion(saved.data.updated_at);
     const savedLocation = toProfileLocation(saved.data);
     setLocation(savedLocation);
     setLocationInput(
@@ -133,22 +141,25 @@ export function ProfileContent({ onNavigate }: { onNavigate: () => void }) {
     setErrorMessage("");
     setStatusMessage("");
 
-    const saved = await saveProfileContext(user.id, profileContext);
+    const saved = await saveProfileContext(user.id, profileContext,profileVersion);
     setIsSavingContext(false);
 
     if (saved.error || !saved.data) {
       setErrorMessage(
-        saved.error?.message ?? "Profile details could not be saved.",
+        saved.error?.code === "PGRST116" ? "Your profile changed elsewhere. Your draft is preserved; reload saved details before trying again." : "Profile details could not be saved. Your draft is preserved.",
       );
       return;
     }
 
+    await AsyncStorage.removeItem(`substrate:profile-draft:${user.id}`).catch(()=>{});
+    setProfileVersion(saved.data.updated_at);
     setProfileContext(toProfileContext(saved.data));
     setStatusMessage("Profile details saved.");
+    onSaved?.(toProfileContext(saved.data));
   }
 
   function updateProfileContext(next: Partial<ProfileContext>) {
-    setProfileContext((current) => ({ ...current, ...next }));
+    setProfileContext((current) => {const draft={...current,...next};if(user)void AsyncStorage.setItem(`substrate:profile-draft:${user.id}`,JSON.stringify({context:draft,version:profileVersion})).catch(()=>setErrorMessage('Device draft could not be saved. Keep this page open.'));return draft;});
   }
 
   function toggleMultiValue(key: MultiSelectProfileKey, value: string) {
@@ -157,17 +168,17 @@ export function ProfileContent({ onNavigate }: { onNavigate: () => void }) {
       const next = existing.includes(value)
         ? existing.filter((item) => item !== value)
         : [...existing, value];
-      return { ...current, [key]: next };
+      const draft={...current,[key]:next};if(user)void AsyncStorage.setItem(`substrate:profile-draft:${user.id}`,JSON.stringify({context:draft,version:profileVersion})).catch(()=>setErrorMessage('Device draft could not be saved.'));return draft;
     });
   }
 
   return (
-    <View style={{ gap: 24, padding: 24 }}>
-      <ScreenHeader
+    <ProfileSections.Provider value={sections}><View style={{ gap: sections ? 12 : 24, padding: sections ? 0 : 24 }}>
+      {!sections ? <ScreenHeader
         eyebrow="Profile"
         title="Your skin, in context."
         body="Your background, your habits, your goals. Keep your details up to date as your skin story evolves."
-      />
+      /> : null}
 
       <Card style={styles.card}>
         <SubstrateText variant="section">Account</SubstrateText>
@@ -357,6 +368,10 @@ export function ProfileContent({ onNavigate }: { onNavigate: () => void }) {
         />
       </ProfileSection>
 
+      <ProfileSection title="Allergies">
+        <OptionGroup label="Known skincare ingredient allergies" options={['None known','Yes','Unsure','Prefer not to say']} selected={profileContext.ingredientAllergy} onSelect={(value)=>updateProfileContext({ingredientAllergy:value as ProfileContext['ingredientAllergy']})}/>
+        <ProfileInput label="Allergy details (optional)" value={profileContext.allergyNotes} placeholder="Ingredient or reaction, if known" onChangeText={(allergyNotes)=>updateProfileContext({allergyNotes})}/>
+      </ProfileSection>
       <ProfileSection title="Lifestyle">
         <OptionGroup
           label="Smoking"
@@ -578,6 +593,7 @@ export function ProfileContent({ onNavigate }: { onNavigate: () => void }) {
         ) : null}
       </Card>
 
+      <Pressable accessibilityRole="button" onPress={async()=>{if(!user)return;const latest=await getProfile(user.id);if(latest.error){setErrorMessage('Saved profile unavailable. Draft kept.');return;}await AsyncStorage.removeItem(`substrate:profile-draft:${user.id}`).catch(()=>{});setProfileContext(toProfileContext(latest.data));setProfileVersion(latest.data?.updated_at);setErrorMessage('');setStatusMessage('Loaded saved details. Unsaved profile draft discarded.');}}><SubstrateText variant="small">Discard unsaved draft & reload saved details</SubstrateText></Pressable>
       <View style={styles.actions}>
         <Pressable
           accessibilityRole="button"
@@ -589,7 +605,7 @@ export function ProfileContent({ onNavigate }: { onNavigate: () => void }) {
           </SubstrateText>
         </Pressable>
       </View>
-    </View>
+    </View></ProfileSections.Provider>
   );
 }
 
@@ -604,6 +620,8 @@ function ProfileSection({
 }) {
   const { theme: t } = useReportTheme();
   const styles = makeStyles(t);
+  const filter=useContext(ProfileSections);
+  if(filter && !filter.includes(title)) return null;
   return (
     <Card style={styles.card}>
       <SubstrateText variant="section">{title}</SubstrateText>

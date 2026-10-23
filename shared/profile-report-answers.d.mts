@@ -1,1 +1,2 @@
-export function profileReportAnswers(profile: { displayName?: string; age?: string; ageRange?: string } | null): Record<string, string>;
+import type { ProfileContext } from '../src/types/database';
+export function profileReportAnswers(profile: ProfileContext | null): Record<string, string | string[]>;

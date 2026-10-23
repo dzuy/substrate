@@ -9,12 +9,12 @@ import {
 import { Platform } from "react-native";
 
 export const defaultReportTheme = {
-  ink: "#102F3C",
-  paper: "#F6F3EC",
-  surface: "#FFFEFA",
-  gold: "#AA8248",
-  muted: "#647177",
-  line: "#DCDCD3",
+  ink: "#031927",
+  paper: "#FBF6EE",
+  surface: "#FFFAF2",
+  gold: "#A86F4B",
+  muted: "#536478",
+  line: "#E9DFD2",
   headingFont: "serif",
   bodyFont: "sans",
   radius: 18,

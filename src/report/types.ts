@@ -12,6 +12,7 @@ export type ReportItem = {
   productId?: string | null;
 };
 export type SkinReport = {
+  experience?: "daily-summary-v1";
   id: string;
   version: string;
   createdAt: string;

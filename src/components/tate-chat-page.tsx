@@ -8,7 +8,7 @@ import {
   View,
   Pressable,
 } from "react-native";
-import { MessageCirclePlus, Camera, ArrowUp } from "lucide-react-native";
+import { ArrowUp } from "lucide-react-native";
 import { supabase } from "@/lib/supabase";
 import { Copy, Notice, ReportButton } from "@/report/ui";
 import { fontFamily, useReportTheme } from "@/report/theme";
@@ -19,22 +19,18 @@ type Message = {
   sources?: { id: string; name: string; brand: string }[];
   followUps?: { label: string; question: string }[];
 };
-export function TateChatPage() {
+export function TateChatPage({ initialPrompt = "" }: { initialPrompt?: string }) {
   const { theme: t } = useReportTheme();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [question, setQuestion] = useState("");
+  const prompt = initialPrompt;
+  const [question, setQuestion] = useState(prompt || "");
+  useEffect(()=>{if(prompt)setQuestion(prompt);},[prompt]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const lock = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const conversation = useRef<ScrollView>(null);
   const input = useRef<TextInput>(null);
-  const iconStyle = {
-    width: 44,
-    height: 44,
-    alignItems: "center" as const,
-    justifyContent: "center" as const,
-  };
   useEffect(
     () => () => {
       controller.current?.abort();
@@ -127,49 +123,6 @@ export function TateChatPage() {
           backgroundColor: t.paper,
         }}
       >
-        <View
-          style={{
-            paddingHorizontal: 24,
-            paddingVertical: 12,
-            borderBottomWidth: 1,
-            borderColor: t.line,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <View style={{ gap: 4, flex: 1, minWidth: 0 }}>
-            <Copy kind="small" style={{ color: t.muted }}>
-              Your skin, your products, a little more clarity.
-            </Copy>
-          </View>
-          <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="New chat"
-              accessibilityState={{ disabled: busy }}
-              disabled={busy}
-              onPress={() => {
-                setMessages([]);
-                setError("");
-                setQuestion("");
-                input.current?.focus();
-              }}
-              style={[iconStyle, { opacity: busy ? 0.45 : 1 }]}
-            >
-              <MessageCirclePlus size={21} color={t.ink} />
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Product or QR camera — coming soon"
-              accessibilityState={{ disabled: true }}
-              disabled
-              style={[iconStyle, { opacity: 0.5 }]}
-            >
-              <Camera size={22} color={t.ink} />
-            </Pressable>
-          </View>
-        </View>
         <ScrollView
           ref={conversation}
           style={{ flex: 1 }}

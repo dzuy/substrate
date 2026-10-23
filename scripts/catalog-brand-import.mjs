@@ -8,8 +8,8 @@ const q = value => "'" + String(value).replaceAll("'", "''") + "'";
 const j = value => q(JSON.stringify(value)) + '::jsonb';
 const slug = value => identity(value).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
 export function stableId(value){const hex=createHash('sha256').update('substrate-brand-catalog:'+value).digest('hex');return `${hex.slice(0,8)}-${hex.slice(8,12)}-5${hex.slice(13,16)}-a${hex.slice(17,20)}-${hex.slice(20,32)}`;}
-const unusable = value => /not (?:published|disclosed|available|listed)|unknown|do not infer|requires|not stated/i.test(value);
-export const variantIdentity = value => !value || unusable(value) || /consolidat|current (?:official|full.size|presentation)|not (?:split|captured)|where offered|canonical|full.size only/i.test(value) ? '' : identity(value);
+const unusable = value => /not (?:published|disclosed|available|listed|verified|provided|captured|applicable|specified)|unknown|do not infer|requires|not stated|^(?:n\/?a|none|-)$/i.test(value);
+export const variantIdentity = value => !value || unusable(value) || /consolidat|collaps|current (?:official|full.size|presentation|retail size)|not (?:split|captured|verified|provided|specified|checked)|where offered|canonical|full.size only|^(?:full size|full \+ travel size|standard|n\/?a)$|^(?:varies|various|multiple|see)\b/i.test(value) ? '' : identity(value);
 const productLabel = f => f.product_name.toLowerCase().startsWith(f.brand.toLowerCase()+' ') ? f.product_name.slice(f.brand.length+1) : f.product_name;
 
 export function prepareBrandImport(rows,backup,snapshots) {
@@ -25,11 +25,15 @@ export function prepareBrandImport(rows,backup,snapshots) {
     let k=[brand.id,identity(productLabel(f)),variant].join('|');
     const group=groups.get(k);
     // Same-name rows inside one workbook are distinct until variant identity is reviewed.
-    if(group?.some(r=>r.source_file_id===row.source_file_id)){k+='|'+row.source_id;conflicts.push({sourceId:row.source_id,reason:'Same-name rows in one workbook; retained separately'});}
+    const exactRawDuplicate=group?.some(r=>r.source_file_id===row.source_file_id&&Object.keys(row.raw??{}).length>0&&JSON.stringify(r.raw)===JSON.stringify(row.raw));
+    if(group?.some(r=>r.source_file_id===row.source_file_id)&&!exactRawDuplicate){k+='|'+row.source_id;conflicts.push({sourceId:row.source_id,reason:'Same-name rows in one workbook; retained separately'});}
     if(!groups.has(k))groups.set(k,[]);groups.get(k).push(row);
   }
   const products=[];const records=[];const reviews=[];const ingredientLinks=[];const newIngredients=[];
   const ingredients=[...backup.ingredients];
+  const ingredientIndex=new Map();
+  const indexIngredient=i=>{for(const n of new Set([i.name,i.inci_name,...(i.aliases??[])].filter(Boolean).map(identity))){if(!ingredientIndex.has(n))ingredientIndex.set(n,[]);ingredientIndex.get(n).push(i);}};
+  for(const i of ingredients)indexIngredient(i);
   for(const group of groups.values()){
     const ranked=[...group].sort((a,b)=>(fileDates.get(b.source_file_id)??'').localeCompare(fileDates.get(a.source_file_id)??''));
     const chosen=ranked[0];const f={...chosen.fields};const name=productLabel(f);
@@ -71,9 +75,9 @@ export function prepareBrandImport(rows,backup,snapshots) {
       const seen=new Set();let invalid=false;const pending=[];
       for(const item of parsed.items){
         if(/https?:|\*|°|manufacturer|ingredient|available|published|full inci/i.test(item.name)){invalid=true;break;}
-        const matches=ingredients.filter(i=>[i.name,i.inci_name,...(i.aliases??[])].filter(Boolean).some(n=>identity(n)===identity(item.name)));
+        const matches=ingredientIndex.get(identity(item.name))??[];
         if(matches.length>1){invalid=true;break;}
-        let ingredient=matches[0];if(!ingredient){ingredient={id:stableId('ingredient:'+identity(item.name)),name:item.name,inci_name:item.name,aliases:[]};ingredients.push(ingredient);newIngredients.push(ingredient);}
+        let ingredient=matches[0];if(!ingredient){ingredient={id:stableId('ingredient:'+identity(item.name)),name:item.name,inci_name:item.name,aliases:[]};ingredients.push(ingredient);newIngredients.push(ingredient);indexIngredient(ingredient);}
         if(seen.has(ingredient.id))continue;seen.add(ingredient.id);
         pending.push({product_id:id,ingredient_id:ingredient.id,ingredient_order:item.order,concentration:item.concentration,concentration_unit:item.concentration===null?null:'%',notes:'Unverified source transcription; '+chosen.source_id+'; '+item.section});
       }
@@ -91,22 +95,32 @@ export function buildBrandSql(prepared,snapshots){
   for(const p of prepared.products.filter(p=>!p.existing)){
     sql+=`insert into public.products(id,brand_id,name,slug,category,status,catalog_visible,product_type,is_bundle,variant_label,manufacturer_sku,price_amount,currency,availability,formula_status) values (${q(p.id)},${q(p.brand_id)},${q(p.name)},${q(p.slug)},${q(p.category)},'needs_review',false,${q(p.product_type)},${p.is_bundle},${p.variant_label?q(p.variant_label):'null'},${p.manufacturer_sku?q(p.manufacturer_sku):'null'},${p.price_amount??'null'},${p.currency?q(p.currency):'null'},${p.availability?q(p.availability):'null'},${q(p.formula_status)}) on conflict(id) do nothing;\n`;
   }
-  for(const r of prepared.records)sql+=`insert into public.catalog_records(source_id,product_id,import_id,entity_type,fields) values (${q(r.source_id)},${q(r.product_id)},${q(r.import_id)},${q(r.entity_type)},${j(r.fields)}) on conflict(source_id) do nothing;\n`;
-  for(const r of prepared.sources)sql+=`insert into public.catalog_sources(source_id,product_id,import_id,source_file_id,sheet_name,source_row,fields,raw_fields) values (${q(r.source_id)},${q(r.product_id)},${q('drive-'+r.source_file_id)},${q(r.source_file_id)},${q(r.sheet)},${r.row},${j(r.fields)},${j(r.raw)}) on conflict(source_id) do nothing;\n`;
+  // BEFORE INSERT metadata triggers execute even when ON CONFLICT skips a row.
+  // Filter existing records before insertion so replay cannot overwrite later CMS edits.
+  for(const r of prepared.records)sql+=`insert into public.catalog_records(source_id,product_id,import_id,entity_type,fields) select ${q(r.source_id)},${q(r.product_id)},${q(r.import_id)},${q(r.entity_type)},${j(r.fields)} where not exists (select 1 from public.catalog_records where source_id=${q(r.source_id)}) on conflict(source_id) do nothing;\n`;
+  for(const r of prepared.sources)sql+=`insert into public.catalog_sources(source_id,product_id,import_id,source_file_id,sheet_name,source_row,fields,raw_fields) values (${q(r.source_id)},${r.product_id?q(r.product_id):'null'},${q('drive-'+r.source_file_id)},${q(r.source_file_id)},${q(r.sheet)},${r.row},${j(r.fields)},${j(r.raw)}) on conflict(source_id) do nothing;\n`;
   for(const r of prepared.reviews)sql+=`insert into public.catalog_reviews(id,source_row,fields,status) values (${q(r.id)},${r.source_row},${j(r.fields)},'OPEN') on conflict(id) do nothing;\n`;
   for(const i of prepared.newIngredients)sql+=`insert into public.ingredients(id,name,inci_name) values (${q(i.id)},${q(i.name)},${q(i.inci_name)}) on conflict(id) do nothing;\n`;
   for(const i of prepared.ingredientLinks)sql+=`insert into public.product_ingredients(product_id,ingredient_id,ingredient_order,concentration,concentration_unit,notes) values (${q(i.product_id)},${q(i.ingredient_id)},${i.ingredient_order},${i.concentration??'null'},${i.concentration_unit?q(i.concentration_unit):'null'},${q(i.notes)}) on conflict(product_id,ingredient_id) do nothing;\n`;
   return sql+'commit;\n';
 }
-export function buildBrandBatches(prepared,snapshots){
+export function buildBrandBatches(prepared,snapshots,{snapshotBatchSize=10,productBatchSize=100,maxRequestBytes=Infinity}={}){
+ if(!Number.isInteger(snapshotBatchSize)||snapshotBatchSize<1||!Number.isInteger(productBatchSize)||productBatchSize<1)throw Error('Batch sizes must be positive integers');
  const empty={brands:[],products:[],records:[],sources:[],reviews:[],newIngredients:[],ingredientLinks:[]};
  const batches=[];
- for(let i=0;i<snapshots.length;i+=10)batches.push({name:'snapshot-'+String(i/10).padStart(3,'0'),sql:buildBrandSql(empty,snapshots.slice(i,i+10))});
+ for(let i=0;i<snapshots.length;i+=snapshotBatchSize)batches.push({name:'snapshot-'+String(i/snapshotBatchSize).padStart(3,'0'),sql:buildBrandSql(empty,snapshots.slice(i,i+snapshotBatchSize))});
  batches.push({name:'shared-library',sql:buildBrandSql({...empty,brands:prepared.brands,newIngredients:prepared.newIngredients},[])});
- for(let i=0;i<prepared.products.length;i+=100){
-  const products=prepared.products.slice(i,i+100);const ids=new Set(products.map(p=>p.id));
-  batches.push({name:'products-'+String(i/100).padStart(3,'0'),sql:buildBrandSql({...empty,products,records:prepared.records.filter(r=>ids.has(r.product_id)),sources:prepared.sources.filter(r=>ids.has(r.product_id)),reviews:prepared.reviews.filter(r=>ids.has(r.fields.product_uuid)),ingredientLinks:prepared.ingredientLinks.filter(r=>ids.has(r.product_id))},[])});
- }
+ let productBatchNumber=0;
+ const appendProducts=products=>{
+  const ids=new Set(products.map(p=>p.id));
+  const sql=buildBrandSql({...empty,products,records:prepared.records.filter(r=>ids.has(r.product_id)),sources:prepared.sources.filter(r=>ids.has(r.product_id)),reviews:prepared.reviews.filter(r=>ids.has(r.fields.product_uuid)),ingredientLinks:prepared.ingredientLinks.filter(r=>ids.has(r.product_id))},[]);
+  if(Buffer.byteLength(JSON.stringify({query:sql}))>maxRequestBytes){
+   if(products.length===1)throw Error('Single product exceeds request size limit: '+products[0].id);
+   const middle=Math.ceil(products.length/2);appendProducts(products.slice(0,middle));appendProducts(products.slice(middle));return;
+  }
+  batches.push({name:'products-'+String(productBatchNumber++).padStart(3,'0'),sql});
+ };
+ for(let i=0;i<prepared.products.length;i+=productBatchSize)appendProducts(prepared.products.slice(i,i+productBatchSize));
  return batches;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(process.argv[1]).href){

@@ -112,3 +112,44 @@ Validation included a representative rollback-only batch before import, final ta
 Migration `202609300005` separates recognized note-only placeholders from actual formula text. Source prose is preserved as **Ingredient source notes** in Formula & sources; immutable workbook snapshots and source rows remain unchanged. Empty formulas become `missing`, while existing `not_applicable` classifications and devices/accessories retain that status. Actual ingredient lists and mixed entries containing ingredient names are left intact. No ingredient associations are removed.
 
 The same conservative classifier is used by `scripts/catalog-stage.py`; database normalization prevents these placeholders from returning on later CMS saves. Parser guards also prevent common placeholders from becoming ingredient identities. Regression checks: `python3 scripts/catalog_formula_notes_test.py`, `node --test scripts/catalog-ingredients.test.mjs`, and rollback-only `supabase/tests/catalog_ingredient_notes.sql`.
+
+## October 20 incremental workbook import
+
+The Drive folder grew from 224 to 737 workbooks. All 513 new files were downloaded, size-checked, opened, and captured with their complete worksheet contents. SHA-256 and worksheet comparisons found 506 distinct new workbooks and seven duplicate uploads; none duplicated a previously imported workbook. Four unique workbooks contained technology research or an empty product audit rather than product rows. All 513 files remain preserved as immutable snapshots.
+
+The final import added 6,406 product drafts from 6,673 source rows. Another 202 rows matched existing products and were attached as source evidence without changing their canonical CMS records. Sixty-five uncertain identities were held as source evidence and review issues. New products remain unpublished and recommendation-disabled. The database now contains 10,762 products, 709 brands, 4,895 ingredients, 10,900 source rows, and 739 workbook/import snapshots. The import added 12,813 ingredient associations and 6,671 review issues.
+
+Matching uses both current CMS names and historical source identities, preserves explicit variants, and supports individually reviewed brand aliases. A shared URL does not establish product identity. A further near-name audit resolved six additional duplicate identities and held 26 uncertain overlaps. Their 32 newly inserted drafts were removed in a guarded transaction after verifying that they had no CMS edits, publication, wardrobe references, or reviewed mappings. Their source rows and reviews were retained. No pre-existing products were removed.
+
+Each data transaction locks the affected catalog tables and compares every pre-existing row before commit, including reviews and ingredient mappings. Canonical records are skipped before insertion when their source ID already exists; this prevents metadata triggers from overwriting CMS edits during a retry. A rollback-only replay with simulated CMS changes verified that notes, variant, price, and description survive.
+
+Final readback verified all 4,356 original products, 242 brands, 3,577 ingredients, 4,443 canonical CMS records, 4,227 source rows, 15,978 ingredient links, and 927 reviewed engine mappings unchanged. The 226 original import identifiers, hashes, and modification timestamps also matched. All new source mappings, snapshot hashes, review IDs, and unpublished draft states passed verification. The importer and ingredient regression suites passed 25 JavaScript tests and four Python tests.
+
+### Audit and recovery
+
+The ignored `data/catalog/october-2026/` directory contains original workbooks, manifests, snapshots, pre-import backups, duplicate decisions, staging data, SQL batches, completion hashes, overlap reconciliation, and final verification. `settled-report.json` describes the final result; `verification.json` records the comparison with the original CMS data. Preserve both the original batch plan and the subsequent overlap settlement for recovery.
+
+The incremental tooling is separate from the September import:
+
+```sh
+python3 scripts/catalog-stage.py /path/to/stage-snapshots.json /path/to/batch-directory
+node scripts/catalog-incremental.mjs /path/to/batch-directory
+node scripts/catalog-resolve-overlaps.mjs /path/to/batch-directory
+node scripts/catalog-verify-incremental.mjs /path/to/batch-directory --generate
+node --test scripts/catalog-brand-import.test.mjs scripts/catalog-incremental.test.mjs scripts/catalog-ingredients.test.mjs
+python3 scripts/catalog_formula_notes_test.py
+```
+
+Preparation requires reviewed snapshots, a current database backup, and optional documented brand aliases. Overlap resolution additionally requires explicit reviewed decisions; it is not an automatic fuzzy merge. Inspect generated SQL and run rollback-only preflight before applying. The batch runner requires `--apply`, `SUBSTRATE_SUPABASE_CLI`, `SUBSTRATE_CATALOG_BATCH_DIR`, and the verified `SUBSTRATE_CATALOG_PROJECT_REF`. This import used 127 checkpointed transactions, followed by the overlap settlement. Do not regenerate completed batches against a different backup or replay original inserts after settling overlaps; retain the completed checkpoint file. Final verification runs the generated detail checks and compares original rows field-for-field with the backups.
+
+Run linked CLI queries sequentially: concurrent CLI login initialization can invalidate another query's temporary database credentials. Table-specific `verify-core-*.sql` queries are available if the combined core readback needs to be split.
+
+### Follow-up review of the 65 held identities
+
+The October 20 follow-up reviewed every held source against its original workbook evidence, the current candidate CMS records, and targeted manufacturer checks. It linked 51 sources to existing products and retained 14 holds for unresolved shade, scent, packaging, formula-version, product-code, or bundle-scope conflicts. No product was created, deleted, published, or rewritten. The catalog remains at 10,762 products.
+
+Thirty-five identity-only issues were resolved. Sixteen issues were marked partially resolved because their original formula or price questions remain open. Each of the 14 remaining holds has a specific evidence requirement. Review notes distinguish an identity decision from formula verification or approval for recommendations.
+
+The review also corrected an import metadata bug: a held source with a null product ID could inherit the ID of an unrelated null-linked canonical record. Held reviews now point to their own source; confirmed matches point to the correct canonical record. Existing editorial fields are preserved, and a regression test covers the null-ID case.
+
+The ignored `data/catalog/october-2026/held-review/` directory contains the fresh backup, all 65 evidence-backed decisions, expected results, rollback-only validation, applied SQL, readback verification, and `review-report.md`. `scripts/catalog-review-held.mjs` generates SQL only from those explicit decisions. It rejects changed source/review rows, guards all canonical CMS records and mappings, and supports replay of the same decisions without changing review timestamps. The earlier import reports remain historical; the follow-up report records the updated source associations.

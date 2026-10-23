@@ -207,6 +207,7 @@ export function createReportHandler({
           wardrobe,
           mode: body.mode,
         });
+        if(body.experience === 'daily-summary-v1') {report.experience='daily-summary-v1';report.price=0;report.title='Your Skin Summary';}
         return send(200, { report });
       }
       if (body.action === "delete") {

@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDate } from '../../shared/journey.mjs';
 
 import { supabase } from '@/lib/supabase';
 import type { CheckInResponses } from '@/types/database';
@@ -23,11 +23,13 @@ export async function getOrCreateDailyEntry(userId: string, entryDate: EntryDate
     return existing;
   }
 
-  return supabase
+  const created = await supabase
     .from('daily_entries')
     .insert({ user_id: userId, entry_date: date, status: 'draft' })
     .select('*')
     .single();
+  if(created.error?.code==='23505') return supabase.from('daily_entries').select('*').eq('user_id',userId).eq('entry_date',date).single();
+  return created;
 }
 
 export async function listDailyEntries(userId: string, limit = 20) {
@@ -59,41 +61,12 @@ export async function saveDailyCheckIn(entryId: string, checkIn: CheckInResponse
     .single();
 }
 
-export async function getActiveEntryDate(userId: string) {
-  const key = buildActiveEntryDateKey(userId);
-  const storedDate = await AsyncStorage.getItem(key);
-
-  if (storedDate && isEntryDate(storedDate)) {
-    return storedDate;
-  }
-
-  const today = formatLocalDate(new Date());
-  await AsyncStorage.setItem(key, today);
-  return today;
-}
-
-export async function advanceActiveEntryDate(userId: string) {
-  const activeDate = await getActiveEntryDate(userId);
-  const nextDate = addDays(activeDate, 1);
-  await AsyncStorage.setItem(buildActiveEntryDateKey(userId), nextDate);
-  return nextDate;
-}
-
+// Keep old function names for existing routes; never advance or relabel historical records.
+export async function getActiveEntryDate(_userId: string) { return localDate(); }
+export async function advanceActiveEntryDate(_userId: string) { return localDate(); }
 export async function getActiveOrNextEntryDate(userId: string) {
-  let activeDate = await getActiveEntryDate(userId);
-  const entry = await getOrCreateDailyEntry(userId, activeDate);
-
-  if (entry.error || !entry.data) {
-    return { data: activeDate, error: entry.error };
-  }
-
-  if (entry.data.status === 'planned') {
-    activeDate = addDays(activeDate, 1);
-    await AsyncStorage.setItem(buildActiveEntryDateKey(userId), activeDate);
-    return { data: activeDate, error: null };
-  }
-
-  return { data: activeDate, error: null };
+ const date=localDate(); const entry=await getOrCreateDailyEntry(userId,date);
+ return {data:date,error:entry.error};
 }
 
 export function formatDisplayDate(date: string) {
@@ -118,21 +91,4 @@ function formatLocalDate(date: Date) {
   return `${year}-${month}-${day}`;
 }
 
-function buildActiveEntryDateKey(userId: string) {
-  return `substrate:${userId}:active-entry-date`;
-}
-
-function isEntryDate(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
-}
-
-function parseEntryDate(value: string) {
-  const [year, month, day] = value.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}
-
-function addDays(value: string, days: number) {
-  const date = parseEntryDate(value);
-  date.setDate(date.getDate() + days);
-  return formatLocalDate(date);
-}
+function parseEntryDate(value: string) { const [y,m,d]=value.split('-').map(Number);return new Date(y,m-1,d); }

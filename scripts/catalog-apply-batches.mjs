@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 if (!process.argv.includes('--apply') || !process.env.SUBSTRATE_SUPABASE_CLI) {
   throw new Error('Set SUBSTRATE_SUPABASE_CLI to an authenticated linked CLI and pass --apply.');
 }
-const folder = 'data/catalog/brand-import-batches/';
+const folder = (process.env.SUBSTRATE_CATALOG_BATCH_DIR || 'data/catalog/brand-import-batches').replace(/\/$/, '') + '/';
 const manifest = JSON.parse(readFileSync(folder + 'manifest.json'));
 let completed = [];
 try { completed = JSON.parse(readFileSync(folder + 'completed.json')); } catch (e) { if (e.code !== 'ENOENT') throw e; }
@@ -16,7 +16,8 @@ for (const batch of manifest) {
   if (hash !== batch.sha256) throw new Error('Changed generated batch: ' + batch.name);
   const prior = completed.find(b => b.name === batch.name);
   if (prior) { if (prior.sha256 !== hash) throw new Error('Completed batch changed'); continue; }
-  const result = spawnSync(process.env.SUBSTRATE_SUPABASE_CLI, ['db','query','--linked','--file',file,'--output','json'], { encoding:'utf8', maxBuffer:2_000_000 });
+  const projectArgs = process.env.SUBSTRATE_CATALOG_PROJECT_REF ? ['--project-ref', process.env.SUBSTRATE_CATALOG_PROJECT_REF] : [];
+  const result = spawnSync(process.env.SUBSTRATE_SUPABASE_CLI, ['db','query','--linked',...projectArgs,'--file',file,'--output','json'], { encoding:'utf8', maxBuffer:2_000_000 });
   if (result.status !== 0) {
     writeFileSync(folder + batch.name + '.error.txt', result.stderr + result.stdout);
     throw new Error('Batch failed: ' + batch.name + '; inspect its local error file.');

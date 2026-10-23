@@ -1,3 +1,4 @@
+import { AppShell } from '@/report/account-ui';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { type Href, useFocusEffect, useRouter } from 'expo-router';
@@ -5,7 +6,6 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
 import {
-  AppShell,
   BackLink,
   Card,
   PrimaryButton,
@@ -79,7 +79,7 @@ export default function PhotoScreen() {
 
         const loadedAnalysis = toPhotoAnalysis(photo.data?.photo.quality_checks);
         setPhotoAnalysis(loadedAnalysis ?? null);
-        setStatusMessage(photo.data ? 'Loaded this test day’s saved photo.' : '');
+        setStatusMessage(photo.data ? 'Loaded today’s saved photo.' : '');
         setIsLoading(false);
 
         if (photo.data?.photo.id && !loadedAnalysis?.analyzedAt) {
@@ -94,7 +94,7 @@ export default function PhotoScreen() {
 
           if (analyzed.data) {
             setPhotoAnalysis(analyzed.data);
-            setStatusMessage('Loaded and analyzed this test day’s saved photo.');
+            setStatusMessage('Loaded and analyzed today’s saved photo.');
           }
         }
       }
@@ -200,7 +200,7 @@ export default function PhotoScreen() {
 
   return (
     <AppShell>
-      <BackLink href="/" />
+      <BackLink href={"/daily-check-in" as Href} />
       <StepProgress currentStep={1} totalSteps={5} currentLabel="Photo" nextLabel="Check-in" />
       <ScreenHeader
         title={hasPhoto ? title : "Take Today's Photo"}
@@ -278,7 +278,7 @@ export default function PhotoScreen() {
             <Pressable
               accessibilityRole="button"
               disabled={isBusy}
-              onPress={() => router.push('/check-in' as Href)}
+              onPress={() => router.push('/daily-check-in' as Href)}
               style={[styles.fullWidth, isBusy && styles.disabled]}>
               <PrimaryButton label="Next" />
             </Pressable>
@@ -312,7 +312,7 @@ export default function PhotoScreen() {
             <Pressable
               accessibilityRole="button"
               disabled={isBusy}
-              onPress={() => router.push('/check-in' as Href)}
+              onPress={() => router.push('/daily-check-in' as Href)}
               style={styles.skipButton}>
               <SubstrateText variant="small" color={Colors.light.textMuted}>
                 Skip for now

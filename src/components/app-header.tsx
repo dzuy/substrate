@@ -1,3 +1,4 @@
+import { useTate } from "./tate-drawer";
 import {
   createContext,
   useCallback,
@@ -5,8 +6,8 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
-import { Link, type Href } from "expo-router";
-import { CircleUserRound, X } from "lucide-react-native";
+import { Link, usePathname, useRouter, type Href } from "expo-router";
+import { ArrowLeft, MessageCircle, X } from "lucide-react-native";
 import {
   Pressable,
   View,
@@ -103,52 +104,39 @@ export function ProfilePanelProvider({ children }: PropsWithChildren) {
   );
 }
 export function AppHeader() {
-  const { openProfile } = useProfilePanel();
+  const {openTate} = useTate();
   const { theme: t } = useReportTheme();
+  const pathname = usePathname();
+  const router = useRouter();
+  const dailyEntry = pathname === "/daily-check-in" || pathname === "/home";
+  const isTate = pathname === "/ask-tate";
   return (
     <SafeAreaView
       edges={["top"]}
       style={{
-        backgroundColor: t.paper,
+        backgroundColor: dailyEntry ? "#031723" : t.ink,
         borderBottomWidth: 1,
-        borderColor: t.line,
+        borderColor: dailyEntry ? "#031723" : t.ink,
       }}
     >
       <View
         style={{
           width: "100%",
-          maxWidth: 1128,
+          maxWidth: 560,
           alignSelf: "center",
-          paddingHorizontal: 24,
-          paddingVertical: 14,
+          paddingHorizontal: 16,
+          paddingVertical: 2,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
         }}
       >
+        {isTate ? <Pressable accessibilityRole="button" accessibilityLabel="Back to previous screen" onPress={() => router.canGoBack() ? router.back() : router.replace('/home')} style={{minWidth:64,height:44,flexDirection:'row',gap:4,alignItems:'center'}}><ArrowLeft size={20} color={t.paper}/><Copy kind="small" style={{color:t.paper}}>Back</Copy></Pressable> : <View style={{width:44}}/>}
         <Link href={"/home" as Href} accessibilityLabel="Substrate home">
-          <Copy kind="brand">
-            Substrate<Copy kind="small">™</Copy>
-          </Copy>
+          <Copy kind="eyebrow" style={{color:t.paper,fontSize:11,letterSpacing:3.5}}>SUBSTRATE</Copy>
         </Link>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Profile"
-          onPress={openProfile}
-          style={({ pressed }) => ({
-            width: 44,
-            height: 44,
-            borderRadius: 22,
-            borderWidth: 1,
-            borderColor: t.line,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: pressed ? t.surface : t.paper,
-          })}
-        >
-          <CircleUserRound color={t.ink} size={23} />
-        </Pressable>
+        {isTate ? <View style={{width:64}}/> : <Pressable onPress={()=>openTate()} accessibilityRole="button" accessibilityLabel="Ask Tate" style={{width:44,height:44,alignItems:'center',justifyContent:'center'}}><MessageCircle size={21} color="#F2C18D"/></Pressable>}
       </View>
     </SafeAreaView>
   );

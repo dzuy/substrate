@@ -338,3 +338,11 @@ test("deleted reports return a definitive 410 rather than a cached fallback", as
     assert.equal(result.data.code, "REPORT_DELETED");
   }
 });
+
+test("daily summary experience preserves legacy reports without adding a purchase or unlock", async () => {
+ const s=setup();const scan=await invoke(s.handler,{action:'scan',image:'fixture'});
+ const body={action:'generate',scanToken:scan.data.scanToken,answers:fixtureAnswers,mode:'optimize'};
+ const legacy=await invoke(s.handler,body);assert.equal(legacy.data.report.price,79);assert.equal(legacy.data.report.experience,undefined);
+ const daily=await invoke(s.handler,{...body,experience:'daily-summary-v1'});assert.equal(daily.status,200);assert.equal(daily.data.report.price,0);assert.equal(daily.data.report.experience,'daily-summary-v1');assert.equal(daily.data.report.unlocked,false);assert.equal(daily.data.report.paymentMode,'simulation');
+ assert.ok(s.calls.every(c=>!c.path.includes('stripe')));
+});

@@ -1,6 +1,8 @@
+import { GoldButtonSurface } from "@/components/gold-button-surface";
 import { Link, usePathname, type Href } from "expo-router";
 import { ArrowRight, Layers3 } from "lucide-react-native";
-import type { PropsWithChildren } from "react";
+import { createContext, useContext, type PropsWithChildren } from "react";
+import { Image } from "expo-image";
 import {
   ActivityIndicator,
   Platform,
@@ -15,6 +17,13 @@ import Svg, { Path, Circle } from "react-native-svg";
 import { useAuth } from "@/lib/auth-context";
 import { fontFamily, useReportTheme } from "./theme";
 
+const DarkSurface = createContext(false);
+const CompactLayout = createContext(false);
+
+export function NautilusArt({size = 220}: {size?: number}) {
+  return <Image source={require("@/assets/images/nautilus-daily-v3.png")} accessible={false} style={{width:size,height:size,maxWidth:"100%",alignSelf:"center",borderRadius:24}} contentFit="contain"/>;
+}
+
 export function Copy({
   children,
   kind = "body",
@@ -24,18 +33,22 @@ export function Copy({
   style?: TextStyle;
 }>) {
   const { theme: t } = useReportTheme();
+  const dark = useContext(DarkSurface);
+  const compact = useContext(CompactLayout);
   const size = {
-    body: 16,
-    small: 13,
+    body: compact ? 14 : 16,
+    small: compact ? 12 : 13,
     eyebrow: 10,
-    title: 46,
-    heading: 27,
+    title: compact ? 29 : 36,
+    heading: compact ? 21 : 27,
     brand: 34,
   }[kind];
   return (
     <Text
+      accessibilityRole={kind === "title" || kind === "heading" ? "header" : undefined}
+      aria-level={kind === "title" ? 1 : kind === "heading" ? 2 : undefined}
       style={{
-        color: t.ink,
+        color: dark ? t.paper : t.ink,
         fontFamily: fontFamily(
           ["title", "heading", "brand"].includes(kind)
             ? t.headingFont
@@ -58,38 +71,46 @@ export function Copy({
 }
 export function ReportButton({
   label,
+  accessibilityLabel,
   onPress,
   secondary = false,
+  copper = false,
   destructive = false,
   disabled = false,
   busy = false,
 }: {
   label: string;
+  accessibilityLabel?: string;
   onPress: () => void;
   secondary?: boolean;
+  copper?: boolean;
   destructive?: boolean;
   disabled?: boolean;
   busy?: boolean;
 }) {
   const { theme: t } = useReportTheme();
+  const dark = useContext(DarkSurface);
+  const compact = useContext(CompactLayout);
+  const foreground = destructive ? "#FFFFFF" : copper ? t.ink : secondary ? (dark ? t.paper : t.ink) : t.paper;
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel || label}
       accessibilityState={{ disabled: disabled || busy }}
       disabled={disabled || busy}
       onPress={onPress}
       style={({ pressed }) => ({
-        minHeight: 52,
-        borderRadius: Math.min(t.radius, 28),
-        paddingHorizontal: 22,
-        paddingVertical: 14,
+        minHeight: compact ? 44 : 52,
+        borderRadius: 28,
+        paddingHorizontal: compact ? 16 : 22,
+        paddingVertical: compact ? 10 : 14,
         backgroundColor: destructive
           ? "#B42318"
           : secondary
             ? "transparent"
-            : t.ink,
+            : copper ? "#F2C18D" : t.ink,
         borderWidth: 1,
-        borderColor: destructive ? "#B42318" : secondary ? t.line : t.ink,
+        borderColor: destructive ? "#B42318" : copper ? "#F2C18D" : secondary ? (dark ? "#49616F" : t.line) : t.ink,
         opacity: disabled ? 0.45 : pressed ? 0.75 : 1,
         flexDirection: "row",
         alignItems: "center",
@@ -97,14 +118,15 @@ export function ReportButton({
         gap: 12,
       })}
     >
+      {copper && !secondary && !destructive ? <GoldButtonSurface /> : null}
       {busy ? (
         <ActivityIndicator
-          color={destructive ? "#FFFFFF" : secondary ? t.ink : t.paper}
+          color={foreground}
         />
       ) : null}
       <Copy
         style={{
-          color: destructive ? "#FFFFFF" : secondary ? t.ink : t.paper,
+          color: foreground,
           fontSize: 14,
           fontWeight: "600",
           flexShrink: 1,
@@ -114,7 +136,7 @@ export function ReportButton({
         {label}
       </Copy>
       {!secondary && !destructive && !busy ? (
-        <ArrowRight size={17} color={t.paper} />
+        <View><ArrowRight size={17} color={foreground} /></View>
       ) : null}
     </Pressable>
   );
@@ -124,52 +146,62 @@ export function Panel({
   style,
 }: PropsWithChildren<{ style?: ViewStyle }>) {
   const { theme: t } = useReportTheme();
+  const compact = useContext(CompactLayout);
   return (
-    <View
+    <DarkSurface.Provider value={false}><View
       style={{
         backgroundColor: t.surface,
         borderWidth: 1,
         borderColor: t.line,
-        borderRadius: t.radius,
-        padding: 24,
-        gap: 16,
+        borderRadius: compact ? 16 : t.radius,
+        padding: compact ? 14 : 20,
+        gap: compact ? 10 : 16,
         ...style,
       }}
     >
       {children}
-    </View>
+    </View></DarkSurface.Provider>
   );
 }
 export function ReportFrame({
   children,
   wide = false,
+  compact = false,
+  dark = false,
   footer = true,
   showStyleGuide = true,
+  fixed = false,
 }: PropsWithChildren<{
   wide?: boolean;
+  compact?: boolean;
+  dark?: boolean;
   footer?: boolean;
   showStyleGuide?: boolean;
+  fixed?: boolean;
 }>) {
   const { theme: t } = useReportTheme();
   const { session } = useAuth();
   const pathname = usePathname();
   const localHeader = !session || pathname === "/style-guide";
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: t.paper }}
+    <CompactLayout.Provider value={compact}><DarkSurface.Provider value={dark}><ScrollView
+      scrollEnabled={!fixed}
+      style={{ flex: 1, backgroundColor: dark ? t.ink : t.paper }}
       contentContainerStyle={{
-        paddingHorizontal: 24,
-        paddingTop: 28,
-        paddingBottom: 48,
+        ...(fixed ? { flex: 1, minHeight: 0 } : {}),
+        paddingHorizontal: compact ? 12 : 18,
+        paddingTop: compact ? 12 : 28,
+        paddingBottom: fixed ? 12 : compact ? 24 : 48,
       }}
       keyboardShouldPersistTaps="handled"
     >
       <View
         style={{
           width: "100%",
-          maxWidth: wide ? 1080 : 740,
+          ...(fixed ? { flex: 1, minHeight: 0 } : {}),
+          maxWidth: wide ? 960 : compact ? 520 : 640,
           alignSelf: "center",
-          gap: 32,
+          gap: compact ? 12 : 20,
         }}
       >
         {localHeader ? (
@@ -226,17 +258,17 @@ export function ReportFrame({
           >
             <Copy
               kind="eyebrow"
-              style={{ textAlign: "center", color: t.muted }}
+              style={{ textAlign: "center", color: dark ? "#BECAD1" : t.muted }}
             >
               REAL BIOLOGY · SMARTER CHOICES · HEALTHIER SKIN
             </Copy>
-            <Copy kind="small" style={{ textAlign: "center", color: t.muted }}>
+            <Copy kind="small" style={{ textAlign: "center", color: dark ? "#BECAD1" : t.muted }}>
               Understand today. Shape tomorrow.
             </Copy>
           </View>
         ) : null}
       </View>
-    </ScrollView>
+    </ScrollView></DarkSurface.Provider></CompactLayout.Provider>
   );
 }
 export function Spiral({ size = 210 }: { size?: number }) {
@@ -284,12 +316,20 @@ export function Notice({ children }: PropsWithChildren) {
       accessibilityRole="alert"
       style={{
         padding: 16,
+        backgroundColor: t.surface,
         borderWidth: 1,
         borderColor: t.gold,
         borderRadius: 12,
       }}
     >
-      <Copy kind="small">{children}</Copy>
+      <Copy kind="small" style={{color:t.ink}}>{children}</Copy>
     </View>
   );
+}
+
+
+/** Responsive evidence cards; content remains the saved analysis, never mockup metrics. */
+export function SummaryGrid({cards}: {cards: {title:string;body:string;source:string}[]}) {
+  const {theme:t}=useReportTheme();
+  return <View style={{flexDirection:'row',flexWrap:'wrap',gap:12}}>{cards.map(c=><Panel key={c.title} style={{flexGrow:1,flexBasis:230,minWidth:0,padding:18,gap:12}}><Copy kind="eyebrow" style={{letterSpacing:1.2}}>{c.title}</Copy><View style={{width:30,height:2,backgroundColor:t.gold}}/><Copy style={{fontSize:14,lineHeight:21}}>{c.body}</Copy><Copy kind="small" style={{color:t.muted,fontSize:11}}>Source: {c.source}</Copy></Panel>)}</View>;
 }

@@ -3,6 +3,7 @@ import collections
 import hashlib
 import json
 import re
+import sys
 from pathlib import Path
 from catalog_formula_notes import separate_ingredient_note
 
@@ -12,33 +13,36 @@ def key(value):
     return re.sub(r'[^a-z0-9]', '', str(value or '').lower())
 
 ALIASES = {
- 'product_name':['Product Name','Product','product_name'],
+ 'product_name':['Product Name','Product','product_name','Product Name / Family','Product Name / Platform','Product Name / Formula Family','Product / Line','Product / Family'],
  'brand':['Brand'],
- 'source_category':['Category','Category / Line / Collection'],
- 'variant':['Size / Variant','Variant / Size','Variant'],
+ 'source_category':['Category','Category / Line / Collection','Product Type','Route / Class'],
+ 'variant':['Size / Variant','Variant / Size','Variant','Size'],
  'product_url':['Official Product URL','Official URL','Product URL'],
- 'price_raw':['Current Price','Current Price (USD)','Price (USD)','Price'],
+ 'price_raw':['Current Price','Current Price (USD)','Current Price USD','Current Retailer Price USD','Price (USD)','Price'],
  'currency':['Currency'],
  'manufacturer_sku':['Manufacturer SKU / Product Code','SKU / Product ID','SKU (Manufacturer)','SKU'],
  'barcode':['Barcode'],
- 'ingredient_list':['Full INCI','Full INCI / Ingredients','Full INCI / Published Ingredients','Full INCI / Ingredient Notes','Full INCI / Ingredient Status'],
- 'ingredient_status_source':['Ingredient-List Status','Ingredient List Status'],
- 'manufacturer_directions':['Manufacturer Directions / Frequency','Directions / Frequency','How to Use','Session Timing / Frequency'],
- 'manufacturer_claim':['Evidence / Claims Notes','Manufacturer Claim / Positioning','Claims / Evidence Notes'],
- 'use_cases':['Primary Use','Primary Use Cases'],
- 'key_technology_actives':['Key Actives / Technology','Technology / Modality'],
+ 'ingredient_list':['Full INCI','Full INCI / Ingredients','Full INCI / Published Ingredients','Full INCI / Ingredient Notes','Full INCI / Ingredient Status','Full INCI / Material','Full INCI (official transcription)'],
+ 'ingredient_status_source':['Ingredient-List Status','Ingredient List Status','Ingredient Status'],
+ 'manufacturer_directions':['Manufacturer Directions / Frequency','Directions / Frequency','How to Use','Session Timing / Frequency','Use / Directions','Directions'],
+ 'manufacturer_claim':['Evidence / Claims Notes','Manufacturer Claim / Positioning','Claims / Evidence Notes','Claims / Evidence','Evidence / Claims','Claims / Benefits','Clinical / Evidence Notes','Evidence'],
+ 'use_cases':['Primary Use','Primary Use Cases','Primary Use / Concern'],
+ 'key_technology_actives':['Key Actives / Technology','Technology / Modality','Key Actives / Technologies','Key Technology / Actives','Technology / Key Actives','Key Technology'],
  'known_conflicts':['Layering / Conflict / Safety Notes','Layering / Conflict Notes','Safety / SUBSTRATE Logic','Contraindications / Safety'],
- 'availability':['Lifecycle Status / Availability','Lifecycle Status','Lifecycle / Availability','Lifecycle / Catalog Status','Catalog Status','product_status'],
- 'notes':['Source / Audit Notes','Notes','Source Notes'],
- 'source_checked':['Source Checked','last_verified'],
+ 'availability':['Lifecycle Status / Availability','Lifecycle Status','Lifecycle / Availability','Lifecycle / Catalog Status','Catalog Status','product_status','Current / Discontinued / Sold Out / Regional status','Market Status','US Catalog Status','Product Status / Region','Retailer Stock Status','Status','Current Status','Market / Status'],
+ 'notes':['Source / Audit Notes','Notes','Source Notes','Audit Notes','Audit Note','Audit Caveat'],
+ 'source_checked':['Source Checked','last_verified','Date Verified','Verified'],
 }
 def normalize(raw, source):
     indexed = {key(k):v for k,v in raw.items()}
     fields = {field:next((str(indexed[key(a)]).strip() for a in aliases if indexed.get(key(a)) is not None), '') for field,aliases in ALIASES.items()}
+    if not fields['ingredient_list']:
+        fields['ingredient_list']=next((str(v).strip() for k,v in raw.items() if key(k).startswith('fullinci') and v is not None),'')
     if not fields['brand']:
-        fields['brand'] = re.sub(r'_Product_Database.*|_Device_Database.*|\.xlsx$|\(\d+\)|_REVISED$', '', source['title'].replace('SUBSTRATE_',''), flags=re.I).replace('_',' ')
+        fields['brand'] = re.sub(r'_Product_Database.*|_Device_Database.*|_Database.*|\.xlsx$|\(\d+\)|_REVISED$', '', source['title'].replace('SUBSTRATE_',''), flags=re.I).replace('_',' ')
     text = (fields['source_category']+' '+fields['product_name']).lower()
-    if re.search(r'\boral\b|\bingestible\b|\bdaily skin supplement\b',text):typ='supplement'
+    if re.search(r'injectab|mesotherap|dermal filler|\binjection\b',text):typ='unknown'
+    elif re.search(r'\boral\b|\bingestible\b|\bdaily skin supplement\b',text):typ='supplement'
     elif re.search(r'\bdevice\b|microcurrent|\bled\b|dermaplaning|humidifier',text) and not re.search(r'\bserum\b|\bcleanser\b|\bmist\b|\bgel\b|\bcr[eè]me\b',text):typ='device'
     elif re.search(r'\bhair\b|\bscalp\b|\bshampoo\b|\bconditioner\b',text) and not re.search(r'\btoner\b|\bingrown\b',text):typ='hair_scalp'
     elif re.search(r'\bfoundation\b|\bmascara\b|\blipstick\b|\bconcealer\b|\bbrow\b|\blash\b|\bprimer\b|skincare.makeup|makeup.skincare|setting (?:spray|mist)',text):typ='cosmetic'
@@ -63,8 +67,9 @@ def normalize(raw, source):
     fields.update({'product_type':typ,'is_bundle':str(bundle).lower(),'category':cat,'formula_status':completeness,'price_amount':str(amount) if amount else '', 'currency':currency,'formula_verification_status':'Needs review','review_status':'needs_review'})
     return fields
 
-def stage():
-    snapshots=json.loads((DATA/'brand-workbook-snapshots.json').read_text())
+def stage(snapshot_path=None, output_directory=None):
+    destination=Path(output_directory) if output_directory else DATA
+    snapshots=json.loads(Path(snapshot_path or DATA/'brand-workbook-snapshots.json').read_text())
     digest_groups=collections.defaultdict(list)
     for snapshot in snapshots:digest_groups[snapshot['sha256']].append(snapshot)
     records=[];issues=[];reports=[]
@@ -74,7 +79,9 @@ def stage():
         for sheet in snapshot['sheets']:
             for offset,header in enumerate(sheet['rows']):
                 header_keys={key(v) for v in header}
-                if not header_keys.intersection({'productname','product','productname'}) or not any('url' in h for h in header_keys) or not any('category' in h for h in header_keys):continue
+                name_headers={key(v) for v in ALIASES['product_name']}
+                category_headers={key(v) for v in ALIASES['source_category']}
+                if not header_keys.intersection(name_headers) or not header_keys.intersection(category_headers) or (not any('url' in h for h in header_keys) and sheet['title'].lower()!='products'):continue
                 tables.append({'sheet':sheet['title'],'headerRow':offset+1})
                 for index,row in enumerate(sheet['rows'][offset+1:],offset+2):
                     raw={str(h):row[j] if j<len(row) else None for j,h in enumerate(header) if h is not None and str(h).strip()}
@@ -128,10 +135,10 @@ def stage():
     for r in records:
         f=r['fields'];candidates[(key(f['brand']),key(f['product_name']))].append(r['source_id'])
     summary={'files':len(snapshots),'uniqueWorkbooks':len(digest_groups),'duplicateUploads':len(snapshots)-len(digest_groups),'sourceProductRows':len(records),'formulaStatuses':dict(collections.Counter(r['fields']['formula_status'] for r in records)),'productTypes':dict(collections.Counter(r['fields']['product_type'] for r in records)),'workbooks':reports,'issues':issues,'nameOverlapCandidates':[{'brand':b,'name':n,'source_ids':ids} for (b,n),ids in candidates.items() if len(ids)>1]}
-    (DATA/'brand-staging.json').write_text(json.dumps(records,ensure_ascii=False,indent=2)+'\n')
-    (DATA/'brand-staging-report.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n')
+    (destination/'brand-staging.json').write_text(json.dumps(records,ensure_ascii=False,indent=2)+'\n')
+    (destination/'brand-staging-report.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n')
     print(json.dumps({k:v for k,v in summary.items() if k not in ('workbooks','issues','nameOverlapCandidates')}))
     print('Issues:',len(issues),'Overlap groups:',len(summary['nameOverlapCandidates']))
     for i in issues:print(json.dumps(i)[:300])
 
-if __name__=='__main__':stage()
+if __name__=='__main__':stage(*sys.argv[1:])

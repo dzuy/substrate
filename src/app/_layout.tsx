@@ -1,3 +1,4 @@
+import { TateDrawerProvider } from "@/components/tate-drawer";
 import { Stack, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
@@ -35,7 +36,7 @@ function RootNavigator() {
     pathname.startsWith("/admin/");
 
   return (
-    <ProfilePanelProvider key={session?.user.id || "guest"}>
+    <TateDrawerProvider key={session?.user.id || "guest"}><ProfilePanelProvider>
       <View style={styles.appFrame}>
         {session && !isLoading &&
         !isLandingRoute &&
@@ -65,6 +66,16 @@ function RootNavigator() {
         >
           <Stack.Screen name="index" />
           <Stack.Screen name="home" />
+          <Stack.Screen name="explore" />
+          <Stack.Screen name="membership" />
+          <Stack.Screen name="onboarding" />
+          <Stack.Screen name="daily-check-in" />
+          <Stack.Screen name="your-day" />
+          <Stack.Screen name="routine" />
+          <Stack.Screen name="category" />
+          <Stack.Screen name="summary" />
+          <Stack.Screen name="shop" />
+          <Stack.Screen name="you" />
           <Stack.Screen name="ask-tate" />
           <Stack.Screen name="assessment" />
           <Stack.Screen name="past-reports" />
@@ -85,11 +96,11 @@ function RootNavigator() {
           <Stack.Screen name="admin" />
           <Stack.Screen name="reset-password" />
         </Stack>
-        {session && !isLoading && !isLandingRoute && !isResetPasswordRoute && !isAdminRoute && !isStyleGuideRoute ? (
+        {session && !isLoading && !isLandingRoute && !isResetPasswordRoute && !isAdminRoute && !isStyleGuideRoute && pathname !== "/onboarding" && pathname !== "/daily-check-in" && pathname !== "/home" ? (
           <BottomNav />
         ) : null}
       </View>
-    </ProfilePanelProvider>
+    </ProfilePanelProvider></TateDrawerProvider>
   );
 }
 

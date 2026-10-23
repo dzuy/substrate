@@ -1,9 +1,9 @@
+import { AppShell } from '@/report/account-ui';
 import { type Href, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 
 import {
-  AppShell,
   BackLink,
   Card,
   ScreenHeader,

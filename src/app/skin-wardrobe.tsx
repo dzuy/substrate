@@ -1,6 +1,7 @@
+import {ReportButton} from '@/report/ui';
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useFocusEffect, useRouter, useLocalSearchParams, type Href } from "expo-router";
 import { ChevronRight, Trash2 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -73,6 +74,7 @@ type ProductReviewDraft = {
 };
 
 export default function SkinWardrobeScreen() {
+  const {onboarding}=useLocalSearchParams<{onboarding?:string}>();
   const { theme: t } = useReportTheme();
   const styles = makeStyles(t);
   const { user } = useAuth();
@@ -271,6 +273,7 @@ export default function SkinWardrobeScreen() {
 
   return (
     <AppShell>
+      {onboarding ? <ReportButton secondary label="Return to onboarding" onPress={()=>router.push("/onboarding" as Href)}/> : null}
       <ScreenHeader
         eyebrow="Your Wardrobe"
         title="A routine that’s yours."
@@ -338,7 +341,7 @@ export default function SkinWardrobeScreen() {
 
       <Pressable
         accessibilityRole="button"
-        onPress={() => router.push("/skin-wardrobe/add-products")}
+        onPress={() => router.push((onboarding?"/skin-wardrobe/add-products?onboarding=1":"/skin-wardrobe/add-products") as Href)}
         style={styles.footerButton}
       >
         <PrimaryButton label="Add Products" />
@@ -371,6 +374,7 @@ export default function SkinWardrobeScreen() {
 }
 
 export function AddProductsScreen() {
+  const {onboarding}=useLocalSearchParams<{onboarding?:string}>();
   const { theme: t } = useReportTheme();
   const styles = makeStyles(t);
   const { user } = useAuth();
@@ -812,6 +816,7 @@ export function AddProductsScreen() {
 
   return (
     <AppShell>
+      {onboarding ? <ReportButton secondary label="Return to onboarding" onPress={()=>router.push("/onboarding" as Href)}/> : null}
       <Pressable
         accessibilityRole="button"
         onPress={() => router.back()}

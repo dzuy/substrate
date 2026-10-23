@@ -138,7 +138,7 @@ export default function DailyPlanScreen() {
     setIsAdvancing(true);
     await advanceActiveEntryDate(user.id);
     setIsAdvancing(false);
-    router.push('/');
+    router.push('/home' as Href);
   }
 
   return (
@@ -218,7 +218,7 @@ export default function DailyPlanScreen() {
         <Card style={styles.planCard}>
           <SubstrateText variant="section">No plan yet</SubstrateText>
           <SubstrateText variant="small" color={Colors.light.textMuted}>
-            Complete today’s photo and check-in to create your plan.
+            Complete today’s optional photo and check-in to create your plan.
           </SubstrateText>
         </Card>
       )}

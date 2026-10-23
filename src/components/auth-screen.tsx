@@ -117,8 +117,8 @@ export function AuthScreen({ admin = false }: { admin?: boolean }) {
             </Copy>
             <Spiral size={190} />
             <Copy kind="small" style={{ color: t.muted }}>
-              Preview your report, then unlock the full picture for $79. We’re
-              testing the experience—no payment is collected.
+              Explore your personal skin summary and daily routine. The proposed
+              $19.99/month subscription is simulated; no payment is collected.
             </Copy>
           </View>
           <Panel style={{ flexGrow: 1, flexBasis: 280, gap: 22 }}>

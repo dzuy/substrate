@@ -1,4 +1,4 @@
-import { decode } from 'base64-arraybuffer';
+import { decode, encode } from 'base64-arraybuffer';
 import * as FileSystem from 'expo-file-system/legacy';
 import { Platform } from 'react-native';
 
@@ -221,4 +221,19 @@ function toNumber(value: unknown) {
 
 function toString(value: unknown) {
   return typeof value === 'string' ? value : undefined;
+}
+
+// Baseline views use the existing owner-scoped private bucket, never daily-entry rows.
+export async function uploadBaselineView(userId:string,view:'front'|'left'|'right',dataUrl:string) {
+ if(!dataUrl.startsWith('data:image/jpeg;base64,'))throw Error('Use a prepared JPEG photo.');
+ const path=`${userId}/baseline/${Date.now()}-${Math.random().toString(36).slice(2)}-${view}.jpg`;
+ const result=await supabase.storage.from(dailyPhotosBucket).upload(path,decode(dataUrl.split(',')[1]),{contentType:'image/jpeg',upsert:false});
+ if(result.error)throw Error('Private photo upload failed. The device draft is preserved; retry the upload.');
+ return path;
+}
+export async function downloadBaselineView(userId:string,path:string) {
+ if(!path.startsWith(`${userId}/baseline/`))throw Error('This photo does not belong to the current baseline.');
+ const result=await supabase.storage.from(dailyPhotosBucket).download(path);
+ if(result.error)throw Error('Saved baseline photo is unavailable. Upload or capture it again.');
+ return `data:image/jpeg;base64,${encode(await result.data.arrayBuffer())}`;
 }

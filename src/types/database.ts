@@ -6,6 +6,10 @@ export type { SkinStory } from '@/skin-intelligence/skinStoryTypes';
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type CheckInResponses = {
+  journeyVersion?: number;
+  confirmedAt?: string;
+  timezone?: string;
+  legacySnapshot?: Json;
   sleepQuality?: 'Poor' | 'Okay' | 'Rested';
   stressLevel?: 'Low' | 'Medium' | 'High';
   alcoholConsumption?: 'None' | 'Light' | 'Moderate' | 'High';
@@ -81,6 +85,9 @@ export type ProfileLocation = {
 };
 
 export type ProfileContext = {
+  ingredientAllergy?: "None known" | "Yes" | "Unsure" | "Prefer not to say";
+  allergyNotes?: string;
+  assessmentAnswers?: Record<string, string | string[]>;
   displayName?: string;
   age?: string;
   ageRange?: string;
@@ -123,6 +130,8 @@ export type ProfileContext = {
 };
 
 export type DailyPlan = {
+  inputFingerprint?: string;
+  analysisSnapshot?: AnalysisSignals;
   id?: string;
   date?: string;
   skinStoryId?: string;

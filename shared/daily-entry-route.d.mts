@@ -1,0 +1,1 @@
+export function dailyEntryRoute(input: {date:string; entry?: {entry_date:string; check_in?: {journeyVersion?:number; confirmedAt?:string}} | null; skippedDate?:string|null}): '/your-day' | '/daily-check-in';

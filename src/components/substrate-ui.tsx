@@ -1,6 +1,6 @@
 import { Link, usePathname, useRouter, type Href } from 'expo-router';
 import { Image } from 'expo-image';
-import { ChevronLeft, MessageCircle, House, FilePlus2, Files, ShoppingBag } from 'lucide-react-native';
+import { ChevronLeft, Compass, ListChecks, House, CircleUserRound, Store } from 'lucide-react-native';
 import {
   Pressable,
   ScrollView,
@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useReportTheme } from '@/report/theme';
+import { fontFamily, useReportTheme } from '@/report/theme';
 
 import { Colors, Fonts, MaxContentWidth, Spacing } from '@/constants/theme';
 
@@ -34,11 +34,12 @@ export function AppShell({
   children: React.ReactNode;
   contentStyle?: StyleProp<ViewStyle>;
 }) {
+  const {theme:t}=useReportTheme();
   return (
-    <View style={styles.viewport}>
-      <SafeAreaView style={styles.safeArea}>
+    <View style={[styles.viewport,{backgroundColor:t.paper}]}>
+      <SafeAreaView style={[styles.safeArea,{backgroundColor:t.paper}]}>
         <ScrollView
-          style={styles.scroll}
+          style={[styles.scroll,{backgroundColor:t.paper}]}
           contentContainerStyle={[styles.content, contentStyle]}
           showsVerticalScrollIndicator={false}>
           {children}
@@ -59,7 +60,8 @@ export function SubstrateText({
   color?: string;
   style?: StyleProp<TextStyle>;
 }) {
-  return <Text style={[stylesText[variant], { color }, style]}>{children}</Text>;
+  const {theme:t}=useReportTheme();
+  return <Text style={[stylesText[variant], { color:color===Colors.light.text?t.ink:color,fontFamily:fontFamily(['title','subtitle','section','brand'].includes(variant)?t.headingFont:t.bodyFont) }, style]}>{children}</Text>;
 }
 
 export function ScreenHeader({
@@ -113,7 +115,8 @@ export function Card({
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
-  return <View style={[styles.card, style]}>{children}</View>;
+  const {theme:t}=useReportTheme();
+  return <View style={[styles.card,{backgroundColor:t.surface,borderColor:t.line,borderRadius:t.radius}, style]}>{children}</View>;
 }
 
 export function Pill({
@@ -250,8 +253,8 @@ export function BottomNav() {
   const { theme: t } = useReportTheme();
 
   return (
-    <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.navWrap, { backgroundColor: t.paper }]}>
-      <View accessibilityRole="tablist" style={[styles.navBar, { backgroundColor: t.surface, borderColor: t.line }]}>
+    <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.navWrap, { backgroundColor: t.ink }]}>
+      <View accessibilityRole="tablist" style={[styles.navBar, { backgroundColor: t.ink, borderColor: t.ink }]}>
         {navItems.map((item) => {
           const isActive = activeItem === item.key;
           const Icon = item.icon;
@@ -262,14 +265,15 @@ export function BottomNav() {
               accessibilityRole="tab"
               accessibilityLabel={item.label}
               accessibilityState={{ selected: isActive }}
+              aria-selected={isActive}
               onPress={() => { if (pathname !== item.href) router.navigate(item.href); }}
-              style={({ pressed }) => [styles.navItem, { backgroundColor: isActive ? t.ink : "transparent", opacity: pressed ? 0.7 : 1 }]}>
+              style={({ pressed }) => [styles.navItem, { backgroundColor: "transparent", opacity: pressed ? 0.7 : 1 }]}>
               <Icon
                 size={19}
                 strokeWidth={2.2}
-                color={isActive ? t.paper : t.muted}
+                color={isActive ? "#F2C18D" : "#BAC7CE"}
               />
-              <Text style={[styles.navLabel, { color: isActive ? t.paper : t.muted, fontWeight: isActive ? "600" : "400" }]}>{item.label}</Text>
+              <Text style={[styles.navLabel, { color: isActive ? "#F2C18D" : "#BAC7CE", fontWeight: isActive ? "600" : "400" }]}>{item.label}</Text>
             </Pressable>
           );
         })}
@@ -279,20 +283,19 @@ export function BottomNav() {
 }
 
 const navItems = [
-  { key: 'home', label: 'Home', href: '/home' as Href, icon: House },
-  { key: 'new', label: 'New Report', href: '/assessment' as Href, icon: FilePlus2 },
-  { key: 'past', label: 'Reports', href: '/past-reports' as Href, icon: Files },
-  { key: 'wardrobe', label: 'Wardrobe', href: '/skin-wardrobe' as Href, icon: ShoppingBag },
-  { key: 'tate', label: 'Tate', href: '/ask-tate' as Href, icon: MessageCircle },
+ {key:'day',label:'Your Day',href:'/home' as Href,icon:House},
+ {key:'explore',label:'Explore',href:'/explore' as Href,icon:Compass},
+ {key:'plan',label:'Routine',href:'/routine' as Href,icon:ListChecks},
+ {key:'shop',label:'Shop',href:'/shop' as Href,icon:Store},
+ {key:'profile',label:'Profile',href:'/profile' as Href,icon:CircleUserRound},
 ] as const;
-
-function getActiveNavItem(pathname: string) {
-  if (pathname === '/ask-tate') return 'tate';
-  if (pathname === '/assessment') return 'new';
-  if (pathname === '/past-reports' || pathname === '/report') return 'past';
-  if (pathname === '/skin-wardrobe' || pathname.startsWith('/skin-wardrobe/')) return 'wardrobe';
-  if (pathname === '/home') return 'home';
-  return undefined;
+function getActiveNavItem(pathname:string){
+ if(['/home','/daily-check-in','/photo','/your-day','/skin-story'].includes(pathname))return 'day';
+ if(['/routine','/daily-plan'].includes(pathname))return 'plan';
+ if(['/explore','/category','/progress','/progress-history'].includes(pathname))return 'explore';
+ if(pathname.startsWith('/skin-wardrobe')||['/profile','/you','/membership','/onboarding','/summary','/past-reports','/report'].includes(pathname))return 'profile';
+ if(pathname==='/shop')return 'shop';
+ return undefined;
 }
 
 const styles = StyleSheet.create({
@@ -512,14 +515,14 @@ const styles = StyleSheet.create({
   navWrap: {
     alignItems: 'center',
     paddingHorizontal: 14,
-    paddingBottom: Spacing.two,
-    paddingTop: Spacing.one,
+    paddingBottom: 2,
+    paddingTop: 2,
     backgroundColor: Colors.light.background,
   },
   navBar: {
     width: '100%',
-    maxWidth: MaxContentWidth - 28,
-    minHeight: 62,
+    maxWidth: 520,
+    minHeight: 52,
     borderRadius: 22,
     borderWidth: 1,
     borderColor: Colors.light.border,
@@ -532,7 +535,7 @@ const styles = StyleSheet.create({
   },
   navItem: {
     flex: 1,
-    minHeight: 54,
+    minHeight: 44,
     minWidth: 0,
     paddingVertical: 6,
     paddingHorizontal: 2,

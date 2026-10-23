@@ -1,3 +1,5 @@
+import { listUserWardrobe } from '@/services/catalog';
+import { stableInput, ownedRoutine } from '../../shared/journey.mjs';
 import { supabase } from '@/lib/supabase';
 import { getEnvironmentSnapshot, toEnvironmentSnapshot } from '@/services/environment';
 import { analyzeDailyPhoto, toPhotoAnalysis } from '@/services/photos';
@@ -33,21 +35,9 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
     return existing;
   }
 
-  if (
-    existing.data &&
-    typeof existing.data.analysis.skinHealthScore === 'number' &&
-    isCurrentSkinStory(existing.data.skinStory) &&
-    existing.data.dailyPlan.items?.length
-  ) {
-    return {
-      data: {
-        ...existing.data,
-        dailyPlan: withSkinStoryPlanGuidance(existing.data.dailyPlan, existing.data.skinStory),
-        isGenerated: false,
-      },
-      error: null,
-    };
-  }
+  const inputs = await readPlanInputs(userId,dailyEntryId);
+  if (inputs.error || !inputs.data) return {data:null,error:inputs.error};
+  if(existing.data && isCurrentSkinStory(existing.data.skinStory) && existing.data.dailyPlan.inputFingerprint === inputs.data.fingerprint) return {data:{...existing.data,dailyPlan:{...existing.data.dailyPlan,items:existing.data.dailyPlan.items||[]},isGenerated:false},error:null};
 
   const entry = await supabase
     .from('daily_entries')
@@ -100,8 +90,14 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
     priorScore
   );
 
+  const owned = ownedRoutine(inputs.data.wardrobe,entry.data.check_in);
+  const previousItems=existing.data?.dailyPlan.items||[];
+  generated.dailyPlan={...generated.dailyPlan,inputFingerprint:inputs.data.fingerprint,analysisSnapshot:generated.analysis,
+    items:[...owned,...generated.dailyPlan.items.filter(i=>!owned.some(o=>o.moment===i.moment && /cleanser|moisturiz|spf/i.test(i.label)))].map(i=>({...i,completed:previousItems.some(old=>old.id===i.id && old.label===i.label && old.completed)}))};
+  const current=await readPlanInputs(userId,dailyEntryId);
+  if(current.error || current.data?.fingerprint!==inputs.data.fingerprint) return {data:null,error:new Error('Your inputs changed while the plan was building. Generate it again.')};
   if (existing.data) {
-    await supabase
+    const updated = await supabase
       .from('recommendation_results')
       .update({
         skin_story: generated.skinStory,
@@ -109,6 +105,7 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
         safety_notes: generated.safetyNotes,
       })
       .eq('id', existing.data.recommendationId ?? '');
+    if(updated.error) return {data:null,error:updated.error};
 
     return {
       data: {
@@ -124,7 +121,9 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
     };
   }
 
-  const analysis = await supabase
+  const priorAnalysis=await supabase.from('analysis_results').select('*').eq('daily_entry_id',dailyEntryId).eq('user_id',userId).maybeSingle();
+  if(priorAnalysis.error)return {data:null,error:priorAnalysis.error};
+  const analysis = priorAnalysis.data ? {data:priorAnalysis.data,error:null} : await supabase
     .from('analysis_results')
     .insert({
       user_id: userId,
@@ -139,7 +138,7 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
       },
       caveats: [
         'This is a prototype wellness signal, not a medical diagnosis.',
-        'Image analysis is not yet active; photo presence is used as a workflow signal.',
+        'Photo analysis is used only when available; these prototype rules are not clinical measurements.',
       ],
     })
     .select('*')
@@ -468,7 +467,7 @@ export async function getLatestRecommendation(userId: string, dailyEntryId: stri
     data: {
       entryId: dailyEntryId,
       recommendationId: recommendation.data.id,
-      analysis: analysis.data?.signals ?? {},
+      analysis: recommendation.data.daily_plan.analysisSnapshot ?? analysis.data?.signals ?? {},
       skinStory: recommendation.data.skin_story,
       dailyPlan: withSkinStoryPlanGuidance(recommendation.data.daily_plan, recommendation.data.skin_story),
       safetyNotes: recommendation.data.safety_notes,
@@ -890,4 +889,16 @@ function getRoutineContext(checkIn: CheckInResponses) {
     .filter(Boolean)
     .join(' ')
     .trim();
+}
+
+export async function readPlanInputs(userId:string,entryId:string) {
+ const [entry,photo,profile,environment,wardrobe]=await Promise.all([
+  supabase.from('daily_entries').select('*').eq('id',entryId).eq('user_id',userId).single(),
+  supabase.from('photos').select('id,quality_checks,created_at').eq('daily_entry_id',entryId).eq('user_id',userId).order('created_at',{ascending:false}).limit(1).maybeSingle(),
+  getProfile(userId),getEnvironmentSnapshot(userId,entryId),listUserWardrobe(userId)
+ ]);
+ const error=entry.error||photo.error||profile.error||environment.error||wardrobe.error;
+ if(error)return {data:null,error};
+ const fingerprint=stableInput({policy:'daily-owned-v1',checkIn:entry.data.check_in,photo:photo.data,profile:profile.data,environment:environment.data,wardrobe:wardrobe.data});
+ return {data:{fingerprint,wardrobe:wardrobe.data||[],entry:entry.data},error:null};
 }

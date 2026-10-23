@@ -88,7 +88,7 @@ export async function ensureProfile(userId: string, email?: string | null) {
     .single();
 }
 
-export async function saveProfileContext(userId: string, context: ProfileContext) {
+export async function saveProfileContext(userId: string, context: ProfileContext, expectedUpdatedAt?: string) {
   const profileData = normalizeProfileContext(context);
   const knownTriggers = [
     ...(profileData.knownTriggers ?? []),
@@ -96,24 +96,14 @@ export async function saveProfileContext(userId: string, context: ProfileContext
     ...(profileData.medicalHistory ?? []),
   ];
 
-  return supabase
-    .from('profiles')
-    .upsert(
-      {
-        id: userId,
-        display_name: normalizeText(profileData.displayName),
-        age_range: normalizeText(profileData.age ?? profileData.ageRange),
-        skin_type: normalizeText(profileData.skinType),
-        sensitivity_level: normalizeText(profileData.sensitivityLevel),
-        skin_goals: profileData.skinGoals ?? [],
-        known_triggers: Array.from(new Set(knownTriggers)),
-        skin_context_note: normalizeText(profileData.skinContextNote),
-        profile_data: profileData,
-      },
-      { onConflict: 'id' }
-    )
-    .select('*')
-    .single();
+  const payload = {
+    display_name:normalizeText(profileData.displayName),age_range:normalizeText(profileData.age ?? profileData.ageRange),
+    skin_type:normalizeText(profileData.skinType),sensitivity_level:normalizeText(profileData.sensitivityLevel),
+    skin_goals:profileData.skinGoals ?? [],known_triggers:Array.from(new Set(knownTriggers)),
+    skin_context_note:normalizeText(profileData.skinContextNote),profile_data:profileData,
+  };
+  if(expectedUpdatedAt) return supabase.from('profiles').update(payload).eq('id',userId).eq('updated_at',expectedUpdatedAt).select('*').single();
+  return supabase.from('profiles').upsert({id:userId,...payload},{onConflict:'id'}).select('*').single();
 }
 
 export function toProfileLocation(profile: ProfileRow | null | undefined): ProfileLocation | null {

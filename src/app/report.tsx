@@ -76,7 +76,7 @@ function ReportView({
         if (!active) return;
         setReport(result);
         setLoading(false);
-        if (!result.unlocked && reveal === "1" && !seen) {
+        if (result.experience !== "daily-summary-v1" && !result.unlocked && reveal === "1" && !seen) {
           setPreview(true);
           void AsyncStorage.setItem(key, "1").catch(() => {});
           timer = setTimeout(() => setPreview(false), 6000);
@@ -136,7 +136,7 @@ function ReportView({
       setBusy("");
     }
   };
-  const locked = Boolean(report && !report.unlocked && !preview);
+  const locked = Boolean(report && report.experience !== "daily-summary-v1" && !report.unlocked && !preview);
   return (
     <>
       <ReportFrame>
@@ -151,7 +151,7 @@ function ReportView({
             <ReportButton
               secondary
               label="Back to reports"
-              onPress={() => router.replace("/" as Href)}
+              onPress={() => router.replace("/home" as Href)}
             />
           </>
         ) : null}
@@ -316,7 +316,7 @@ function ReportView({
                 <ReportButton
                   secondary
                   label="Back to my reports"
-                  onPress={() => router.replace("/" as Href)}
+                  onPress={() => router.replace("/home" as Href)}
                 />
               </>
             ) : null}
@@ -381,7 +381,7 @@ function ReportView({
         visible={locked && !confirmDelete}
         transparent
         animationType="fade"
-        onRequestClose={() => router.replace("/" as Href)}
+        onRequestClose={() => router.replace("/home" as Href)}
       >
         <View
           style={{
@@ -463,7 +463,7 @@ function ReportView({
               <ReportButton
                 secondary
                 label="Back to my reports"
-                onPress={() => router.replace("/" as Href)}
+                onPress={() => router.replace("/home" as Href)}
               />
             </View>
           </ScrollView>
