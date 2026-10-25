@@ -52,7 +52,7 @@ begin
   if exists(select 1 from public.catalog_records) then raise exception 'Evidence leaked to member'; end if;
   if exists(select 1 from public.catalog_reviews) then raise exception 'Review queue leaked to member'; end if;
   if exists(select 1 from public.catalog_changes) then raise exception 'History leaked to member'; end if;
-  if exists(select 1 from public.products where not catalog_visible) then raise exception 'Unpublished product leaked to member'; end if;
+  if exists(select 1 from public.products p where p.archived_at is not null and not exists (select 1 from public.user_wardrobe_items w where w.product_id=p.id and w.user_id=auth.uid())) then raise exception 'Archived product leaked to member'; end if;
   begin
     perform public.save_catalog_product('{"name":"Unauthorized"}', '[]', null, null, null);
     raise exception 'Non-admin save accepted';

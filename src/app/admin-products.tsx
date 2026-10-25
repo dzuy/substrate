@@ -116,7 +116,7 @@ export default function AdminProductsScreen() {
         const [brandResult, ingredientResult, productResult, recordResult, reviewResult] = await Promise.all([
           listBrands(),
           listIngredients(),
-          listCatalogProducts({ includeArchived: true, includeUnpublished: true }),
+          listCatalogProducts({ includeArchived: true }),
           listCatalogRecords(),
           listCatalogReviews(),
         ]);

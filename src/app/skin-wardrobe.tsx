@@ -31,6 +31,7 @@ import {
   createBrand,
   createIngredient,
   listCatalogProducts,
+  searchCatalogProducts,
   listUserWardrobe,
   removeWardrobeItem,
   saveProductWithIngredients,
@@ -357,6 +358,8 @@ export function AddProductsScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [catalogQuery, setCatalogQuery] = useState("");
+  const [catalogLimit, setCatalogLimit] = useState(24);
   const [selectedImage, setSelectedImage] =
     useState<SelectedProductImage | null>(null);
   const [detections, setDetections] = useState<ProductDetectionCandidate[]>([]);
@@ -790,6 +793,18 @@ export function AddProductsScreen() {
     );
   }
 
+  async function addExistingProduct(productId: string) {
+    if (!user || isSaving) return;
+    setIsSaving(true);
+    setMessage("");
+    setErrorMessage("");
+    const result = await addProductToWardrobe(user.id, productId);
+    setIsSaving(false);
+    if (result.error) setErrorMessage(result.error.message);
+    else setMessage(`${catalogProducts.find(product => product.id === productId)?.name ?? "Product"} added to your wardrobe.`);
+  }
+
+  const catalogMatches = searchCatalogProducts(catalogProducts, catalogQuery);
   const canSaveManualProduct =
     Boolean(manualBrand.trim()) &&
     Boolean(manualProductName.trim()) &&
@@ -811,7 +826,7 @@ export function AddProductsScreen() {
       <ScreenHeader
         eyebrow="Skin Wardrobe"
         title="Add products"
-        body="Add one product at a time, either by filling in the product details or by scanning a product photo."
+        body="Search the catalog and add products to your wardrobe, or scan a product photo."
       />
 
       {isLoading ? (
@@ -841,6 +856,16 @@ export function AddProductsScreen() {
           </SubstrateText>
         </Card>
       ) : null}
+
+      {!isLoading ? <Card style={styles.card}>
+        <SubstrateText variant="section">Browse the catalog</SubstrateText>
+        <SubstrateText variant="small" color={t.muted}>Adding a product records what you own. It does not mean its formula has been reviewed or recommended for you.</SubstrateText>
+        <View style={{height:46}}><ProductSearch value={catalogQuery} onChange={value => {setCatalogQuery(value); setCatalogLimit(24);}} placeholder="Search brands, products or aliases"/></View>
+        <SubstrateText variant="small" color={t.muted}>{catalogMatches.length} products{isSaving ? " · Adding…" : ""}</SubstrateText>
+        <ProductGrid products={catalogMatches.slice(0, catalogLimit)} onSelect={addExistingProduct} actionLabel="Add to wardrobe"/>
+        {catalogMatches.length === 0 ? <SubstrateText variant="small">No products match your search.</SubstrateText> : null}
+        {catalogMatches.length > catalogLimit ? <ReportButton secondary label="Show more products" onPress={() => setCatalogLimit(limit => limit + 24)}/> : null}
+      </Card> : null}
 
       {mode !== "photo" ? <Card style={styles.card}>
         <View>

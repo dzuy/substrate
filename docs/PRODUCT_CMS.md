@@ -153,3 +153,87 @@ Thirty-five identity-only issues were resolved. Sixteen issues were marked parti
 The review also corrected an import metadata bug: a held source with a null product ID could inherit the ID of an unrelated null-linked canonical record. Held reviews now point to their own source; confirmed matches point to the correct canonical record. Existing editorial fields are preserved, and a regression test covers the null-ID case.
 
 The ignored `data/catalog/october-2026/held-review/` directory contains the fresh backup, all 65 evidence-backed decisions, expected results, rollback-only validation, applied SQL, readback verification, and `review-report.md`. `scripts/catalog-review-held.mjs` generates SQL only from those explicit decisions. It rejects changed source/review rows, guards all canonical CMS records and mappings, and supports replay of the same decisions without changing review timestamps. The earlier import reports remain historical; the follow-up report records the updated source associations.
+
+## Development catalog availability (2026-10-25, proposed rollout)
+
+Availability is now independent of publication: all nonarchived canonical rows in
+`products` can be browsed, searched and added to a member's wardrobe, regardless of
+formula completeness. This intentionally also includes CMS-authored drafts.
+Held research without a canonical product stays private. Existing archived
+wardrobe references remain readable to their owner, but archives never appear in
+catalog browsing. `catalog_visible` continues to mean publication approval; it is
+not changed by availability. Formula verification, mapping approval and all
+recommendation filters remain unchanged.
+
+The add-products screen now provides a catalog picker. Search covers the entire
+paginated catalog (brand, name and aliases), then renders 24 results at a time with
+Show more. Selecting a product only upserts the member's wardrobe reference. This
+does not fix the separate first-80 photo-recognition candidate limit or the
+unknown/manual product creation path, which still requires catalog admin rights.
+
+`202610250001_development_catalog_availability.sql` proposes changing only the
+existing products SELECT policy. It retains authenticated-only access, admin
+access and owner access to existing archived wardrobe references. No evidence,
+snapshot, review, audit, mutation or recommendation policy changes. No data
+backfill is needed: zero product, formula or mapping rows are updated, and future
+draft imports become available automatically. The importer must keep writing
+`catalog_visible=false`.
+
+Read-only production preview on 2026-10-25, verified through the in-app Supabase
+dashboard: substrate-v1 / main PRODUCTION / kfwzpoeyirnrmsbrynvc.
+
+| Measure | Count |
+| --- | ---: |
+| Total products | 10,762 |
+| Currently nonarchived and published | 5 |
+| Nonarchived after proposed policy | 10,756 |
+| Newly available | 10,751 |
+| Archived, excluded from browse | 6 |
+| Recommendation enabled (unchanged) | 3 |
+| Full verified formulas (unchanged) | 3 |
+
+The live product policy still requires catalog_visible for nonarchived member
+browsing. Evidence/import/review/history SELECT policies require is_catalog_admin().
+The deployed recommendation RPC delegates to recommendation_catalog, whose view
+still requires recommendation_enabled, catalog_visible, verified status, full
+verified formula, topical type, nonbundle and nonarchived, with approved mappings.
+These were read-only inspections, not migration execution.
+
+Validation: `node --test scripts/catalog-availability.test.mjs
+scripts/catalog-brand-import.test.mjs scripts/catalog-incremental.test.mjs
+scripts/catalog-ingredients.test.mjs` (29 tests); `npx tsc --noEmit`;
+`npm run build:web`; `npm run lint` (one pre-existing environment.ts array-style
+warning). SQL fixtures in `supabase/tests/catalog_availability.sql` are prepared
+but not executed: no local Postgres/Supabase/Docker runtime is installed. The
+local in-app-browser check reached the correct add route's sign-in screen, with
+account services unconfigured. Authenticated visual search/add checks therefore
+remain outstanding. No credentials were copied or configured.
+
+Before live rollout: obtain explicit approval for the precise product SELECT
+policy expansion and app deployment; run SQL fixtures plus existing publication
+checks in a disposable migrated Supabase environment; rerun
+`scripts/catalog-availability-preview.sql` on the verified destination; apply only
+the reviewed migration and deploy the app; verify member browse/search/add,
+archive exclusion and private evidence denial using a designated test account.
+Do not blindly apply unrelated pending migrations. Rollback is to restore the
+previous policy predicate `(archived_at is null and catalog_visible)` in place of
+`archived_at is null`, and deploy the prior client. No data rollback is needed.
+
+### Approved production rollout
+
+On 2026-10-25 the user explicitly approved the read-access policy and app
+push/deployment. Applied only migration 202610250001 to the verified production
+project and recorded it in supabase_migrations.schema_migrations in the same
+transaction. Nonadmin authenticated-role assertions passed: 10,756 nonarchived
+products visible, archives excluded except existing owner references, private
+evidence/imports/reviews/history denied, recommendation catalog still 3 products.
+Full-row hashes of products and catalog_engine_expressions were unchanged across
+the policy update. No account or wardrobe rows were created/modified for QA.
+An initial verification query used a nonexistent mapping id and failed before
+the ALTER POLICY; rollback and absent ledger were confirmed before correcting
+the composite-key hash ordering and applying successfully.
+
+Production routing test also passed (requires loopback listen permission).
+Authenticated browser search/add QA remains dependent on an existing signed-in
+app session; no credentials or accounts were created. The fixture-based wardrobe
+write remains a local mocked test, not a production wardrobe mutation.

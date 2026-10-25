@@ -112,7 +112,7 @@ export async function listIngredients() {
   return collectCatalogRows<IngredientRow>((from, to) => supabase.from('ingredients').select('*').order('name').order('id').range(from, to));
 }
 
-export async function listCatalogProducts({ includeArchived = false, includeUnpublished = false } = {}) {
+export async function listCatalogProducts({ includeArchived = false } = {}) {
   let query = supabase
     .from('products')
     .select(
@@ -131,7 +131,8 @@ export async function listCatalogProducts({ includeArchived = false, includeUnpu
     query = query.is('archived_at', null);
   }
 
-  if (!includeUnpublished) query = query.eq('catalog_visible', true);
+  // Development catalog availability is independent of publication/review approval.
+  // RLS still protects archived rows and private research evidence.
 
   const response = await collectCatalogRows<ProductQueryRow>((from, to) => query.order('id').range(from, to));
 
@@ -139,6 +140,15 @@ export async function listCatalogProducts({ includeArchived = false, includeUnpu
     data: response.data?.map(normalizeCatalogProduct) ?? null,
     error: response.error,
   };
+}
+
+/** Search the complete loaded catalog before the UI limits rendered tiles. */
+export function searchCatalogProducts(products: CatalogProduct[], query: string) {
+  const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  return products.filter(product => {
+    const text = `${product.brand?.name ?? ''} ${product.name} ${(product.aliases ?? []).join(' ')}`.toLowerCase();
+    return terms.every(term => text.includes(term));
+  });
 }
 
 export async function createBrand(name: string, websiteUrl?: string | null): Promise<CatalogResult<CatalogBrand>> {
