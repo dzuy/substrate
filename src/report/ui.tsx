@@ -10,6 +10,7 @@ import {
   ScrollView,
   Text,
   View,
+  useWindowDimensions,
   type TextStyle,
   type ViewStyle,
 } from "react-native";
@@ -182,14 +183,19 @@ export function ReportFrame({
   const { theme: t } = useReportTheme();
   const { session } = useAuth();
   const pathname = usePathname();
+  const { width } = useWindowDimensions();
+  const narrow = width < 400;
   const localHeader = !session || pathname === "/style-guide";
   return (
     <CompactLayout.Provider value={compact}><DarkSurface.Provider value={dark}><ScrollView
       scrollEnabled={!fixed}
-      style={{ flex: 1, backgroundColor: dark ? t.ink : t.paper }}
+      alwaysBounceVertical={false}
+      automaticallyAdjustKeyboardInsets
+      keyboardDismissMode="on-drag"
+      style={{ flex: 1, minHeight: 0, minWidth: 0, backgroundColor: dark ? t.ink : t.paper }}
       contentContainerStyle={{
         ...(fixed ? { flex: 1, minHeight: 0 } : {}),
-        paddingHorizontal: compact ? 12 : 18,
+        paddingHorizontal: compact || narrow ? 12 : 18,
         paddingTop: compact ? 12 : 28,
         paddingBottom: fixed ? 12 : compact ? 24 : 48,
       }}
@@ -198,6 +204,7 @@ export function ReportFrame({
       <View
         style={{
           width: "100%",
+          minWidth: 0,
           ...(fixed ? { flex: 1, minHeight: 0 } : {}),
           maxWidth: wide ? 960 : compact ? 520 : 640,
           alignSelf: "center",

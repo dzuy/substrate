@@ -908,7 +908,7 @@ const makeStyles = (t: ReportTheme) =>
       backgroundColor: t.paper,
       color: t.ink,
       fontFamily: fontFamily(t.bodyFont),
-      fontSize: 15 * t.scale,
+      fontSize: Math.max(16, 15 * t.scale),
       fontWeight: "400",
       paddingHorizontal: Spacing.three,
     },

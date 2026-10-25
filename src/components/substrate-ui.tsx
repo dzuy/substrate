@@ -37,10 +37,14 @@ export function AppShell({
   const {theme:t}=useReportTheme();
   return (
     <View style={[styles.viewport,{backgroundColor:t.paper}]}>
-      <SafeAreaView style={[styles.safeArea,{backgroundColor:t.paper}]}>
+      <SafeAreaView edges={['left', 'right']} style={[styles.safeArea,{backgroundColor:t.paper}]}>
         <ScrollView
           style={[styles.scroll,{backgroundColor:t.paper}]}
           contentContainerStyle={[styles.content, contentStyle]}
+          alwaysBounceVertical={false}
+          automaticallyAdjustKeyboardInsets
+          keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           {children}
         </ScrollView>
@@ -253,7 +257,7 @@ export function BottomNav() {
   const { theme: t } = useReportTheme();
 
   return (
-    <SafeAreaView edges={['bottom', 'left', 'right']} style={[styles.navWrap, { backgroundColor: t.ink }]}>
+    <SafeAreaView testID="app-bottom-nav" edges={['bottom', 'left', 'right']} style={[styles.navWrap, { backgroundColor: t.ink }]}>
       <View accessibilityRole="tablist" style={[styles.navBar, { backgroundColor: t.ink, borderColor: t.ink }]}>
         {navItems.map((item) => {
           const isActive = activeItem === item.key;
@@ -318,7 +322,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 14,
     paddingTop: Spacing.two,
-    paddingBottom: 92,
+    paddingBottom: 24,
   },
   header: {
     gap: Spacing.one,
@@ -513,6 +517,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.accent,
   },
   navWrap: {
+    flexShrink: 0,
     alignItems: 'center',
     paddingHorizontal: 14,
     paddingBottom: 2,

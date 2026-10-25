@@ -1,5 +1,6 @@
+import { useMobileViewport } from "@/lib/use-mobile-viewport";
 import { TateDrawerProvider } from "@/components/tate-drawer";
-import { Stack, useGlobalSearchParams, usePathname } from "expo-router";
+import { Redirect, Stack, useGlobalSearchParams, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 
@@ -11,6 +12,7 @@ import { Colors } from "@/constants/theme";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 
 export default function RootLayout() {
+  useMobileViewport();
   return (
     <AuthProvider>
       <ReportThemeProvider>
@@ -22,7 +24,7 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const { isLoading, session } = useAuth();
+  const { isLoading, session, isPasswordRecovery } = useAuth();
   const pathname = usePathname();
   const { onboarding } = useGlobalSearchParams<{ onboarding?: string }>();
   const isOnboarding = pathname === "/onboarding" || (pathname.startsWith("/skin-wardrobe") && onboarding === "1");
@@ -50,7 +52,8 @@ function RootNavigator() {
         ) : null}
         <Stack
           screenLayout={({ children }) => {
-            if (isLandingRoute) return children;
+            if (isPasswordRecovery && !isResetPasswordRoute) return <Redirect href="/reset-password" />;
+            if (isLandingRoute || isResetPasswordRoute) return children;
             if (isLoading) return (
               <View style={styles.loadingScreen}>
                 <ActivityIndicator color={Colors.light.accent} />
@@ -110,6 +113,8 @@ function RootNavigator() {
 const styles = StyleSheet.create({
   appFrame: {
     flex: 1,
+    minHeight: 0,
+    minWidth: 0,
     backgroundColor: Colors.light.background,
   },
   loadingScreen: {

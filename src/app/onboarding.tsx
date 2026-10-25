@@ -1,12 +1,12 @@
 import { useCallback, useId, useRef, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { Image, ImageBackground, Modal, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Image, ImageBackground, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { ClipPath, Defs, Image as SvgImage, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { ArrowLeft, Camera, Check, ChevronRight, CircleUserRound, Droplets, Heart, Leaf, LogOut, ShieldCheck, Sparkles, Sun, Watch } from 'lucide-react-native';
 import { Copy, Notice, ReportButton } from '@/report/ui';
-import { AuthScreen } from '@/components/auth-screen';
+import { AuthModal } from '@/components/auth-modal';
 import { ProfileContent } from '@/components/profile-content';
 import { useAuth } from '@/lib/auth-context';
 import { loadJourney, saveJourney, resolveJourney, type Journey, type JourneyConflict } from '@/services/journey';
@@ -46,10 +46,15 @@ function ProductPlaceholder({ name }: { name: string }) {
   </Svg>;
 }
 export default function Onboarding() {
+
   const { user } = useAuth();
   return <OnboardingFlow key={user?.id || 'guest'} userId={user?.id || ''} email={user?.email || ''} />;
 }
 function OnboardingFlow({ userId, email }: { userId: string; email: string }) {
+  const { height, width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const shortScreen = height < 740;
+
   const router = useRouter();
   const { signOut } = useAuth();
   const { authNext } = useLocalSearchParams<{ authNext?: string }>();
@@ -125,14 +130,14 @@ function OnboardingFlow({ userId, email }: { userId: string; email: string }) {
   const finish = () => void run(async () => { if (!journey) return; await persist({ ...journey, stage: 'complete', completedAt: new Date().toISOString() }); router.replace('/your-day' as Href); });
   const button = (label: string, action: () => Promise<void>, gold = false) => <ReportButton label={label} copper={gold} busy={busy} onPress={() => void run(action)} />;
   const field = (label: string, key: 'displayName' | 'dateOfBirth', placeholder: string) => <View style={styles.field}><Copy kind="small" style={styles.label}>{label}</Copy><TextInput accessibilityLabel={label} value={key === 'dateOfBirth' ? (profile[key] || '').replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$2 / $3 / $1') : profile[key] || ''} placeholder={placeholder} placeholderTextColor="#718094" style={styles.input} onChangeText={value => { setProfile({ ...profile, [key]: value }); setProfileDirty(true); }} /></View>;
-  return <SafeAreaView style={styles.root}><StatusBar style="light" /><ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.scroll}>
-    <View style={styles.shell}>
+  return <SafeAreaView style={styles.root}><StatusBar style="light" /><ScrollView ref={scroll} keyboardShouldPersistTaps="handled" alwaysBounceVertical={false} automaticallyAdjustKeyboardInsets keyboardDismissMode="on-drag" contentContainerStyle={styles.scroll}>
+    <View style={[styles.shell, isWelcome && {paddingBottom:0}]}>
       <View style={styles.header}>{step > 0 ? <Pressable accessibilityRole="button" accessibilityLabel={category !== null ? 'Back to profile' : 'Previous step'} disabled={busy} onPress={() => category !== null ? setCategory(null) : void run(() => go(flow[step - 1]))} style={styles.back}><ArrowLeft size={20} color={paper} /></Pressable> : null}<Copy kind="eyebrow" style={{ color: paper, letterSpacing: 4 }}>SUBSTRATE</Copy>{userId ? <Pressable accessibilityRole="button" accessibilityLabel="Sign out" accessibilityHint="Sign out and return to the welcome screen" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void run(signOut)} style={({ pressed }) => [styles.signOut, { opacity: busy || pressed ? 0.5 : 0.8 }]}><LogOut size={18} strokeWidth={1.5} color={paper} /></Pressable> : null}</View>
       {!isWelcome && stage !== 'summary' ? <View style={styles.progress}>{flow.slice(1, 5).map((name, i) => <View key={name} style={[styles.segment, { backgroundColor: i < step ? '#EFC18E' : '#365061' }]} />)}</View> : null}
       {error ? <Notice>{error}</Notice> : null}
-      {conflict && journey ? <View style={styles.card}><Copy kind="heading">Choose your saved progress</Copy><Copy>Your account has newer progress. Both versions will be backed up before you choose.</Copy>{(['device', 'account'] as const).map(choice => <ReportButton key={choice} label={`Use ${choice} progress`} busy={busy} onPress={() => void run(async () => { const r = await resolveJourney(userId, journey, choice, conflict.revision); setJourney(r.state); setProfile(r.state.profileDraft || profile); setConflict(r.conflict); setLocalOnly(!r.cloud); })} />)}</View> : null}
-      {!journey ? <View style={styles.card}><Copy>Loading your welcome…</Copy></View> : isWelcome ? <ImageBackground resizeMode="stretch" source={require('@/assets/images/onboarding-nautilus-v1.png')} style={styles.hero} imageStyle={{ opacity: 0.95 }}>
-        <View style={styles.heroSpace} />
+      {conflict && journey ? <View style={[styles.card, width < 360 && {padding:16}]}><Copy kind="heading">Choose your saved progress</Copy><Copy>Your account has newer progress. Both versions will be backed up before you choose.</Copy>{(['device', 'account'] as const).map(choice => <ReportButton key={choice} label={`Use ${choice} progress`} busy={busy} onPress={() => void run(async () => { const r = await resolveJourney(userId, journey, choice, conflict.revision); setJourney(r.state); setProfile(r.state.profileDraft || profile); setConflict(r.conflict); setLocalOnly(!r.cloud); })} />)}</View> : null}
+      {!journey ? <View style={[styles.card, width < 360 && {padding:16}]}><Copy>Loading your welcome…</Copy></View> : isWelcome ? <ImageBackground resizeMode="stretch" source={require('@/assets/images/onboarding-nautilus-v1.png')} style={[styles.hero, { minHeight: Math.max(500, height - insets.top - insets.bottom - 62), padding: shortScreen ? 18 : 24 }]} imageStyle={{ opacity: 0.95 }}>
+        <View style={[styles.heroSpace, {minHeight: shortScreen ? 55 : Math.min(245, height * 0.2)}]} />
         <View style={styles.heroContent}>
           <View pointerEvents="none" accessible={false} style={styles.heroScrim}>
             <Svg width="100%" height="100%" aria-hidden>
@@ -146,11 +151,11 @@ function OnboardingFlow({ userId, email }: { userId: string; email: string }) {
               <Rect width="100%" height="100%" fill="url(#welcomeScrim)" />
             </Svg>
           </View>
-        <View style={styles.heroCopy}><Copy kind="title" style={styles.heroTitle}>Beauty{ '\n' }starts within.</Copy><Copy style={{ color: paper, fontSize: 17 }}>Personalized skincare.{ '\n' }Powered by your biology.{ '\n' }Guided by AI.</Copy></View>
-        <View style={styles.benefits}>{[{ Icon: Watch, text: 'Smarter\nroutines' }, { Icon: Sun, text: 'Healthier\nskin' }, { Icon: ShieldCheck, text: 'Inside-out\ninsights' }].map(({ Icon, text }) => <View key={text} style={styles.benefit}><Icon size={27} strokeWidth={1.2} color="#EDB779" /><Copy kind="small" style={{ color: paper, textAlign: 'center' }}>{text}</Copy></View>)}</View>
+        <View style={styles.heroCopy}><Copy kind="title" style={{...styles.heroTitle, fontSize: width < 360 || shortScreen ? 36 : 44, lineHeight: width < 360 || shortScreen ? 39 : 46}}>Beauty{ '\n' }starts within.</Copy><Copy style={{ color: paper, fontSize: 17 }}>Personalized skincare.{ '\n' }Powered by your biology.{ '\n' }Guided by AI.</Copy></View>
+        <View style={[styles.benefits, shortScreen && {marginVertical:16}]}>{[{ Icon: Watch, text: 'Smarter\nroutines' }, { Icon: Sun, text: 'Healthier\nskin' }, { Icon: ShieldCheck, text: 'Inside-out\ninsights' }].map(({ Icon, text }) => <View key={text} style={styles.benefit}><Icon size={27} strokeWidth={1.2} color="#EDB779" /><Copy kind="small" style={{ color: paper, textAlign: 'center' }}>{text}</Copy></View>)}</View>
         </View>
         <View style={styles.priceCard}><Copy style={{ textAlign: 'center', fontSize: 25 }}>$19.99<Copy kind="small"> / month</Copy></Copy><Copy kind="small" style={{ textAlign: 'center', color: '#536478' }}>Cancel anytime.</Copy>{button('Continue', async () => { if (!userId) { router.setParams({ authNext: 'profile' }); setAuthOpen(true); return; } await persist({ ...journey, acknowledged: true, stage: 'profile' }); scroll.current?.scrollTo({ y: 0 }); }, true)}</View>
-      </ImageBackground> : <View style={styles.card}>
+      </ImageBackground> : <View style={[styles.card, width < 360 && {padding:16}]}>
         {stage === 'profile' ? <>
           <Copy kind="title">{category === null ? 'Tell us about you.' : categories[category].title}</Copy><Copy style={styles.subtitle}>A few details help us personalize your experience.</Copy>
           {category !== null ? <ProfileContent key={category} sections={categories[category].sections} onNavigate={() => {}} onSaved={p => void run(async () => { const saved = await getProfile(userId); setProfileVersion(saved.data?.updated_at); setProfile(p); await persist({ ...journey, profileDraft: p }); setCategory(null); scroll.current?.scrollTo({ y: 0 }); })} /> : <>
@@ -204,25 +209,17 @@ function OnboardingFlow({ userId, email }: { userId: string; email: string }) {
       {localOnly ? <Copy kind="small" style={styles.sync}>Progress saved on this device. Account sync is pending.</Copy> : null}
     </View>
   </ScrollView>
-    <Modal visible={authOpen && !userId} transparent animationType="fade" onRequestClose={() => { setAuthOpen(false); router.setParams({ authNext: undefined }); }}>
-      <SafeAreaView style={styles.authBackdrop}>
-        <View accessibilityViewIsModal style={styles.authModal}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close account dialog" onPress={() => { setAuthOpen(false); router.setParams({ authNext: undefined }); }} style={styles.authClose}><Copy kind="small">Close ✕</Copy></Pressable>
-          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: 8 }}><AuthScreen embedded initialMode="sign-up" /></ScrollView>
-        </View>
-      </SafeAreaView>
-    </Modal>
+    <AuthModal visible={authOpen && !userId} initialMode="sign-up" onClose={() => { setAuthOpen(false); router.setParams({ authNext: undefined }); }} />
   </SafeAreaView>;
 }
 const styles = StyleSheet.create({
-  authBackdrop: { flex: 1, backgroundColor: '#00121DCC', justifyContent: 'center', alignItems: 'center', padding: 16 }, authModal: { width: '100%', maxWidth: 440, maxHeight: '90%', backgroundColor: paper, borderRadius: 24, overflow: 'hidden' }, authClose: { alignSelf: 'flex-end', paddingHorizontal: 20, minHeight: 44, justifyContent: 'center' },
   root: { flex: 1, backgroundColor: navy }, scroll: { flexGrow: 1, alignItems: 'center' }, shell: { width: '100%', maxWidth: 480, flexGrow: 1, paddingHorizontal: 12, paddingBottom: 16 },
   signOut: { position: 'absolute', right: 0, minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   header: { height: 62, alignItems: 'center', justifyContent: 'center' }, back: { position: 'absolute', left: 0, padding: 12 }, progress: { flexDirection: 'row', gap: 6, marginHorizontal: 10, marginBottom: 12 }, segment: { flex: 1, height: 4, borderRadius: 4 },
   card: { backgroundColor: paper, padding: 22, borderRadius: 23, gap: 14, flexGrow: 1 }, subtitle: { color: '#64758A', fontSize: 13, lineHeight: 20 },
   heroContent: { position: 'relative' }, heroScrim: { position: 'absolute', top: -65, bottom: -12, left: -24, right: -24 },
-  hero: { flexGrow: 1, marginHorizontal: -12, padding: 24, minHeight: 720 }, heroSpace: { minHeight: 245, flexGrow: 1 }, heroCopy: { gap: 14 }, heroTitle: { color: paper, fontSize: 44, lineHeight: 46 }, benefits: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 27 }, benefit: { alignItems: 'center', gap: 9 }, priceCard: { backgroundColor: paper, borderRadius: 22, padding: 17, gap: 9 },
-  field: { borderWidth: 1, borderColor: '#E9E1D6', borderRadius: 13, padding: 12, gap: 5 }, label: { fontWeight: '600', fontSize: 12 }, input: { fontSize: 14, color: navy, minHeight: 28, padding: 0 }, row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' }, chip: { borderRadius: 20, borderWidth: 1, borderColor: '#E9E1D6', paddingVertical: 8, paddingHorizontal: 10 }, category: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 12, borderWidth: 1, borderColor: '#E9E1D6', borderRadius: 14 }, icon: { backgroundColor: '#FFFFFF', padding: 9, borderRadius: 12 }, spacer: { flexGrow: 1, minHeight: 16 },
+  hero: { flexGrow: 1, marginHorizontal: -12, padding: 24 }, heroSpace: { minHeight: 245, flexGrow: 1 }, heroCopy: { gap: 14 }, heroTitle: { color: paper, fontSize: 44, lineHeight: 46 }, benefits: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 27 }, benefit: { alignItems: 'center', gap: 9 }, priceCard: { backgroundColor: paper, borderRadius: 22, padding: 17, gap: 9 },
+  field: { borderWidth: 1, borderColor: '#E9E1D6', borderRadius: 13, padding: 12, gap: 5 }, label: { fontWeight: '600', fontSize: 12 }, input: { fontSize: 16, color: navy, minHeight: 36, padding: 0 }, row: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' }, chip: { borderRadius: 20, borderWidth: 1, borderColor: '#E9E1D6', paddingVertical: 8, paddingHorizontal: 10 }, category: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 12, borderWidth: 1, borderColor: '#E9E1D6', borderRadius: 14 }, icon: { backgroundColor: '#FFFFFF', padding: 9, borderRadius: 12 }, spacer: { flexGrow: 1, minHeight: 16 },
   exampleBadge: { position: 'absolute', bottom: 18, backgroundColor: '#FBF6EEEE', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 }, exampleThumbnail: { width: '100%', height: 64, borderRadius: 8, overflow: 'hidden', backgroundColor: '#EAE1D6' },
   photo: { height: 270, backgroundColor: '#EAE1D6', borderRadius: 15, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', gap: 12 }, faceGuide: { borderWidth: 1, borderColor: '#C6B9A8', width: 145, height: 180, borderRadius: 80, justifyContent: 'center', alignItems: 'center' }, fillImage: { width: '100%', height: '100%', resizeMode: 'contain' }, photoGuide: { position: 'absolute', top: 13, left: 13, bottom: 13, right: 13, borderWidth: 1, borderColor: '#FFFFFF88', borderRadius: 12 }, thumbnail: { flex: 1, minHeight: 100, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E9E1D6', borderRadius: 12, padding: 6, gap: 6 }, tip: { flexDirection: 'row', gap: 10, padding: 14, backgroundColor: '#F0EDE6', borderRadius: 13, alignItems: 'center' },
   manualButton: { flex: 1, minHeight: 52, borderRadius: 28, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E9E1D6', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12 }, productThumbnail: { width: 48, height: 60, borderRadius: 8, overflow: 'hidden', backgroundColor: '#F6F3ED' },

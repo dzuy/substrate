@@ -1,206 +1,113 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  StyleSheet,
-  TextInput,
-  View,
-} from 'react-native';
-
-import { AppShell, Card, PrimaryButton, SubstrateText } from '@/components/substrate-ui';
-import { Colors, Fonts, Spacing } from '@/constants/theme';
+import * as Linking from 'expo-linking';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, TextInput, View } from 'react-native';
+import { AuthScreen } from '@/components/auth-screen';
+import { useAuth } from '@/lib/auth-context';
+import { supabase } from '@/lib/supabase';
 import { updatePassword } from '@/services/auth';
+import { Copy, Notice, Panel, ReportButton, ReportFrame } from '@/report/ui';
+import { fontFamily, useReportTheme } from '@/report/theme';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
+  const { session, isLoading } = useAuth();
+  const { theme: t } = useReportTheme();
+  const url = Linking.useURL();
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [message, setMessage] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
   const [error, setError] = useState('');
+  const [linkError, setLinkError] = useState(false);
+  const [checkingLink, setCheckingLink] = useState(Platform.OS !== 'web');
+  const submitting = useRef(false);
 
-  async function handleSubmit() {
-    setMessage('');
-    setError('');
-
-    if (!password || !confirmPassword) {
-      setError('Enter and confirm your new password.');
+  useEffect(() => {
+    if (!url) {
+      setCheckingLink(false);
       return;
     }
+    setLinkError(false);
+    const parsed = new URL(url);
+    const params = new URLSearchParams(`${parsed.search.slice(1)}&${parsed.hash.slice(1)}`);
+    if (params.has('error') || params.has('error_code')) {
+      setLinkError(true);
+      setCheckingLink(false);
+      return;
+    }
+    // The web client consumes recovery tokens automatically. Native clients do not.
+    if (Platform.OS === 'web') return;
+    const access_token = params.get('access_token');
+    const refresh_token = params.get('refresh_token');
+    if (!access_token || !refresh_token || params.get('type') !== 'recovery') {
+      setCheckingLink(false);
+      return;
+    }
+    let active = true;
+    setCheckingLink(true);
+    void supabase.auth.setSession({ access_token, refresh_token }).then(({ error }) => {
+      if (active) setLinkError(!!error);
+    }).catch(() => {
+      if (active) setLinkError(true);
+    }).finally(() => {
+      if (active) setCheckingLink(false);
+    });
+    return () => { active = false; };
+  }, [url]);
 
+  async function submit() {
+    if (submitting.current || !session || linkError || done) return;
+    setError('');
     if (password.length < 6) {
       setError('Password must be at least 6 characters.');
       return;
     }
-
-    if (password !== confirmPassword) {
+    if (password !== confirmation) {
       setError('Passwords do not match.');
       return;
     }
-
-    setIsSubmitting(true);
-    const { error: updateError } = await updatePassword(password);
-    setIsSubmitting(false);
-
-    if (updateError) {
-      setError(updateError.message);
-      return;
+    submitting.current = true;
+    setBusy(true);
+    try {
+      const result = await updatePassword(password);
+      if (result.error) throw result.error;
+      setPassword('');
+      setConfirmation('');
+      setDone(true);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Unable to update your password. Please try again.');
+    } finally {
+      submitting.current = false;
+      setBusy(false);
     }
-
-    setPassword('');
-    setConfirmPassword('');
-    setMessage('Your password has been updated.');
   }
 
-  return (
-    <AppShell contentStyle={styles.content}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.keyboardView}>
-        <Card style={styles.card}>
-          <View style={styles.header}>
-            <SubstrateText variant="title">Set a new password</SubstrateText>
-            <SubstrateText variant="body" color={Colors.light.textMuted}>
-              Choose a new password for your Substrate account.
-            </SubstrateText>
-          </View>
-
-          <View style={styles.form}>
-            <View style={styles.field}>
-              <SubstrateText variant="small" color={Colors.light.textMuted}>
-                New password
-              </SubstrateText>
-              <TextInput
-                autoCapitalize="none"
-                autoComplete="new-password"
-                onChangeText={setPassword}
-                placeholder="At least 6 characters"
-                placeholderTextColor={Colors.light.textMuted}
-                secureTextEntry
-                style={styles.input}
-                textContentType="newPassword"
-                value={password}
-              />
-            </View>
-
-            <View style={styles.field}>
-              <SubstrateText variant="small" color={Colors.light.textMuted}>
-                Confirm password
-              </SubstrateText>
-              <TextInput
-                autoCapitalize="none"
-                autoComplete="new-password"
-                onChangeText={setConfirmPassword}
-                placeholder="Repeat your new password"
-                placeholderTextColor={Colors.light.textMuted}
-                secureTextEntry
-                style={styles.input}
-                textContentType="newPassword"
-                value={confirmPassword}
-              />
-            </View>
-          </View>
-
-          {error ? (
-            <View style={styles.feedbackError}>
-              <SubstrateText variant="small" color={Colors.light.accentDeep}>
-                {error}
-              </SubstrateText>
-            </View>
-          ) : null}
-
-          {message ? (
-            <View style={styles.feedbackSuccess}>
-              <SubstrateText variant="small" color={Colors.light.textMuted}>
-                {message}
-              </SubstrateText>
-            </View>
-          ) : null}
-
-          <Pressable
-            accessibilityRole="button"
-            disabled={isSubmitting}
-            onPress={handleSubmit}
-            style={isSubmitting && styles.disabled}>
-            <PrimaryButton label="Update Password" />
-          </Pressable>
-
-          <Pressable accessibilityRole="button" onPress={() => router.replace('/')} style={styles.modeButton}>
-            <SubstrateText variant="small" color={Colors.light.accent}>
-              Continue to Substrate
-            </SubstrateText>
-          </Pressable>
-
-          {isSubmitting ? (
-            <View style={styles.loading}>
-              <ActivityIndicator color={Colors.light.accent} />
-            </View>
-          ) : null}
-        </Card>
-      </KeyboardAvoidingView>
-    </AppShell>
-  );
+  const inputStyle = { borderWidth: 1, borderColor: t.line, borderRadius: 12, padding: 16, color: t.ink, backgroundColor: t.surface, fontFamily: fontFamily(t.bodyFont), fontSize: 16 };
+  return <ReportFrame>
+    <View style={{ width: '100%', maxWidth: 440, alignSelf: 'center' }}>
+      {isLoading || checkingLink ? <ActivityIndicator accessibilityLabel="Checking reset link" color={t.ink} /> :
+        linkError || !session ? <View style={{ gap: 16 }}>
+          <Notice>This password reset link is missing, expired, or invalid. Request a new link below.</Notice>
+          <AuthScreen embedded initialMode="forgot-password" />
+        </View> :
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <Panel style={{ gap: 22 }}>
+            <Copy kind="heading">{done ? 'Password updated' : 'Set a new password'}</Copy>
+            {done ? <>
+              <Copy>Your password has been updated. You can now continue to your account.</Copy>
+              <ReportButton label="Continue to Substrate" onPress={() => router.replace('/home')} />
+            </> : <>
+              <Copy kind="small">Choose a new password for your Substrate account.</Copy>
+              <Copy kind="small">New password</Copy>
+              <TextInput accessibilityLabel="New password" autoCapitalize="none" autoComplete="new-password" secureTextEntry editable={!busy} value={password} onChangeText={setPassword} placeholder="At least 6 characters" placeholderTextColor={t.muted} style={inputStyle} />
+              <Copy kind="small">Confirm password</Copy>
+              <TextInput accessibilityLabel="Confirm password" autoCapitalize="none" autoComplete="new-password" secureTextEntry editable={!busy} value={confirmation} onChangeText={setConfirmation} onSubmitEditing={() => void submit()} placeholder="Repeat your new password" placeholderTextColor={t.muted} style={inputStyle} />
+              {error ? <Notice>{error}</Notice> : null}
+              <ReportButton label="Update password" busy={busy} onPress={() => void submit()} />
+            </>}
+          </Panel>
+        </KeyboardAvoidingView>}
+    </View>
+  </ReportFrame>;
 }
-
-const styles = StyleSheet.create({
-  content: {
-    justifyContent: 'center',
-    minHeight: '100%',
-    paddingBottom: Spacing.four,
-  },
-  keyboardView: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  card: {
-    gap: Spacing.three,
-    padding: Spacing.three,
-  },
-  header: {
-    gap: Spacing.one,
-  },
-  form: {
-    gap: Spacing.three,
-  },
-  field: {
-    gap: Spacing.one,
-  },
-  input: {
-    minHeight: 46,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-    backgroundColor: '#FBF8F6',
-    color: Colors.light.text,
-    fontFamily: Fonts.sans,
-    fontSize: 15,
-    fontWeight: '400',
-    paddingHorizontal: Spacing.three,
-  },
-  feedbackError: {
-    borderRadius: 12,
-    backgroundColor: Colors.light.blush,
-    padding: Spacing.two,
-  },
-  feedbackSuccess: {
-    borderRadius: 12,
-    backgroundColor: Colors.light.successSoft,
-    padding: Spacing.two,
-  },
-  disabled: {
-    opacity: 0.65,
-  },
-  modeButton: {
-    minHeight: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loading: {
-    position: 'absolute',
-    right: Spacing.three,
-    bottom: Spacing.three,
-  },
-});

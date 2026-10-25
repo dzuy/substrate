@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import * as Linking from "expo-linking";
 import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { isSupabaseConfigured } from "@/lib/env";
@@ -32,6 +33,7 @@ export function AuthScreen({ admin = false, embedded = false, initialMode = "sig
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const signIn = mode === "sign-in",
@@ -42,10 +44,14 @@ export function AuthScreen({ admin = false, embedded = false, initialMode = "sig
     setMessage("");
   };
   async function submit() {
-    if (busy) return;
+    if (submitting.current) return;
     setError("");
     setMessage("");
-    if (!email.trim() || (!forgot && password.length < 6)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setError("Enter a valid email address.");
+      return;
+    }
+    if (!forgot && password.length < 6) {
       setError(
         forgot
           ? "Enter your email address."
@@ -53,6 +59,7 @@ export function AuthScreen({ admin = false, embedded = false, initialMode = "sig
       );
       return;
     }
+    submitting.current = true;
     setBusy(true);
     try {
       if (forgot) {
@@ -77,6 +84,7 @@ export function AuthScreen({ admin = false, embedded = false, initialMode = "sig
         e instanceof Error ? e.message : "Unable to sign in. Try again.",
       );
     } finally {
+      submitting.current = false;
       setBusy(false);
     }
   }
@@ -90,6 +98,8 @@ export function AuthScreen({ admin = false, embedded = false, initialMode = "sig
     fontSize: 16,
     backgroundColor: t.surface,
   };
+  const { width } = useWindowDimensions();
+  const narrow = width < 480;
   const Frame = embedded ? View : ReportFrame;
   return (
     <Frame {...(!embedded ? { wide: true } : {})}>
@@ -100,15 +110,15 @@ export function AuthScreen({ admin = false, embedded = false, initialMode = "sig
           style={{
             flexDirection: "row",
             flexWrap: "wrap",
-            gap: 40,
+            gap: narrow ? 20 : 40,
             alignItems: "center",
           }}
         >
-          {!embedded ? <View style={{ flexGrow: 1, flexBasis: 280, gap: 22 }}>
+          {!embedded ? <View style={{ flexGrow: 1, flexBasis: narrow ? '100%' : 280, gap: 22 }}>
             <Copy kind="eyebrow" style={{ color: t.gold }}>
               SCIENCE FOR HEALTHIER SKIN
             </Copy>
-            <Copy kind="title" style={{ fontSize: 56 * t.scale }}>
+            <Copy kind="title" style={{ fontSize: (narrow ? 36 : 56) * t.scale }}>
               Understand your skin.{"\n"}Find your direction.
             </Copy>
             <Copy style={{ color: t.muted, maxWidth: 470 }}>
@@ -116,13 +126,13 @@ export function AuthScreen({ admin = false, embedded = false, initialMode = "sig
               connecting what you see to the ingredients and products that
               matter.
             </Copy>
-            <Spiral size={190} />
+            {!narrow ? <Spiral size={190} /> : null}
             <Copy kind="small" style={{ color: t.muted }}>
               Explore your personal skin summary and daily routine. The proposed
               $19.99/month subscription is simulated; no payment is collected.
             </Copy>
           </View> : null}
-          <Panel style={{ flexGrow: 1, flexBasis: 280, gap: 22 }}>
+          <Panel style={{ flexGrow: 1, flexBasis: narrow ? '100%' : 280, gap: 22 }}>
             {embedded && !forgot ? <View style={{ flexDirection: 'row', gap: 8 }}>
               {([{ value: 'sign-up', label: 'Create an Account' }, { value: 'sign-in', label: 'Sign In' }] as const).map(option => <Pressable key={option.value} accessibilityRole="tab" accessibilityState={{ selected: mode === option.value }} disabled={busy} onPress={() => changeMode(option.value)} style={{ flex: 1, paddingVertical: 12, borderBottomWidth: 2, borderColor: mode === option.value ? t.gold : t.line }}><Copy kind="small" style={{ textAlign: 'center', fontWeight: '600' }}>{option.label}</Copy></Pressable>)}
             </View> : null}
@@ -197,6 +207,7 @@ export function AuthScreen({ admin = false, embedded = false, initialMode = "sig
             {signIn ? (
               <Pressable
                 accessibilityRole="button"
+                disabled={busy}
                 onPress={() => changeMode("forgot-password")}
               >
                 <Copy
@@ -209,6 +220,7 @@ export function AuthScreen({ admin = false, embedded = false, initialMode = "sig
             ) : null}
             <Pressable
               accessibilityRole="button"
+              disabled={busy}
               onPress={() => changeMode(signIn ? "sign-up" : "sign-in")}
             >
               <Copy kind="small" style={{ textAlign: "center" }}>

@@ -191,7 +191,7 @@ export default function PhotoScreen() {
       <Pressable accessibilityRole="button" accessibilityLabel="Back to Your Day" onPress={()=>router.replace('/your-day')} style={{flexDirection:'row',gap:7,alignItems:'center',minHeight:44}}><ArrowLeft size={18} color={t.paper}/><Copy kind="small">Your Day</Copy></Pressable>
       <View style={{gap:7,paddingHorizontal:8}}><Copy kind="title">Your daily photo</Copy><Copy kind="small" style={{color:'#D2DCE1'}}>A moment for your skin. Track its changes over time.</Copy>{entryDate?<Copy kind="small" style={{color:t.gold}}>{formatDisplayDate(entryDate)}</Copy>:null}</View>
       <Panel style={{padding:10,borderRadius:22,gap:14}}>
-        <View style={{height:300,borderRadius:16,overflow:'hidden',backgroundColor:'#E5DFD3'}}>
+        <View style={{aspectRatio:1.2,width:'100%',borderRadius:16,overflow:'hidden',backgroundColor:'#E5DFD3'}}>
           <Image source={photoUri?{uri:photoUri}:require('@/assets/images/daily-photo-example-front-v1.png')} accessibilityLabel={photoUri?'Your daily skin photo':'Example: face forward with eyes open and hair pulled back'} contentFit={photoUri?"cover":"contain"} style={{width:'100%',height:'100%'}}/>
 
           {isBusy?<View style={{position:'absolute',inset:0,backgroundColor:'#03172399',alignItems:'center',justifyContent:'center',gap:12}}><ActivityIndicator color={t.gold}/><Copy style={{color:t.paper}}>{isUploading?'Saving your photo…':isAnalyzing?'Reading your skin…':'Loading your photo…'}</Copy></View>:null}

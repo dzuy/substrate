@@ -112,7 +112,7 @@ export function AppHeader() {
   const isTate = pathname === "/ask-tate";
   return (
     <SafeAreaView
-      edges={["top"]}
+      edges={["top", "left", "right"]}
       style={{
         backgroundColor: dailyEntry ? "#031723" : t.ink,
         borderBottomWidth: 1,

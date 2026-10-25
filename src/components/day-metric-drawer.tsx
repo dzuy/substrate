@@ -110,7 +110,7 @@ export function DayMetricDrawer({ metric, data, userId, onClose, onSaved }: {
         <View style={{ width: 36, height: 4, backgroundColor: t.line, borderRadius: 2, alignSelf: 'center' }} />
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><Copy kind="heading" style={{ color: t.ink }}>{metric}</Copy><Pressable accessibilityRole="button" accessibilityLabel="Close metric drawer" disabled={busy} onPress={close} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}><X color={t.ink} size={22} /></Pressable></View>
         <Copy kind="small" style={{ color: t.muted }}>{metric === 'Weather' ? 'Enter a city or ZIP code. We’ll fetch your weather and remember this location for future days.' : `Enter your ${metric.toLowerCase()} details for today.`}</Copy>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 20, paddingBottom: 8 }}>
+        <ScrollView style={{flexShrink:1,minHeight:0}} alwaysBounceVertical={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 20, paddingBottom: 8 }}>
           {metric === 'Sleep' ? <>{field('sleepHours', 'Hours slept', 'e.g. 7.5')}{choices('sleepQuality', 'How did you sleep?', dailyOptions.sleepQuality)}</> : null}
           {metric === 'HRV' ? field('hrvMs', 'Heart rate variability (ms)', 'e.g. 62') : null}
           {metric === 'Cycle' ? <>{field('cycleDay', 'Cycle day', 'e.g. 16')}{choices('cyclePhase', 'Cycle phase', dailyOptions.cyclePhase)}</> : null}
