@@ -136,6 +136,8 @@ export type ProfileContext = {
 };
 
 export type DailyPlan = {
+  catalogComparedCount?: number;
+  productMatches?: {id: string; name: string; brand: string; matchedIngredients: string[]; note: string}[];
   inputFingerprint?: string;
   analysisSnapshot?: AnalysisSignals;
   id?: string;

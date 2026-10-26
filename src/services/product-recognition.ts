@@ -1,3 +1,4 @@
+import { matchDetectedProduct } from '../../shared/catalog-matching.mjs';
 import { ProductScanError, productScanErrorMessage } from './product-scan-error';
 import { supabase } from '@/lib/supabase';
 import type { CatalogProduct } from '@/services/catalog';
@@ -87,13 +88,7 @@ export const openAiProductRecognitionService: ProductRecognitionService = {
     const invokeScan = () => supabase.functions.invoke<OpenAiProductDetectionResponse>('analyze-products', {
       body: {
         imageDataUrl,
-        catalogProducts: catalogProducts.map((product) => ({
-          id: product.id,
-          brand: product.brand?.name,
-          name: product.name,
-          category: product.category,
-          aliases: product.aliases,
-        })),
+        catalogProducts: [],
       },
     });
 
@@ -119,20 +114,22 @@ export const openAiProductRecognitionService: ProductRecognitionService = {
     }
 
     return (
-      response.data?.detections?.map((detection, index) => ({
+      response.data?.detections?.map((detection, index) => {
+        const matchedProductId = matchDetectedProduct(detection, catalogProducts);
+        return ({
         id: buildLocalDetectionId(index),
         sourceImageUri,
         detectedBrand: detection.detectedBrand ?? undefined,
         detectedProductName: detection.detectedProductName ?? undefined,
-        matchedProductId: detection.matchedProductId ?? undefined,
+        matchedProductId: matchedProductId ?? undefined,
         confidence: detection.confidence ?? undefined,
-        status: detection.status ?? (detection.matchedProductId ? 'needs_confirmation' : 'unknown'),
+        status: matchedProductId ? 'needs_confirmation' : 'unknown',
         rawResponse: {
           provider: response.data?.provider ?? 'openai',
           model: response.data?.model,
           detection: detection.rawResponse,
         },
-      })) ?? []
+      }); }) ?? []
     );
   },
 };

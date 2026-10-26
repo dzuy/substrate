@@ -6,7 +6,7 @@ import { listUserWardrobe, type UserWardrobeItem } from '@/services/catalog';
 import { Platform, ScrollView, View, Pressable } from 'react-native';
 import { useReportTheme } from '@/report/theme';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth } from '@/lib/auth-context';
 import { supabase } from '@/lib/supabase';
 import { Copy, Notice, Panel, ReportButton, ReportFrame } from '@/report/ui';
@@ -18,6 +18,7 @@ export default function YourDay() { const { user } = useAuth(); return user ? <D
 function Day({ userId }: {
     userId: string;
 }) {
+    const router = useRouter();
     const {openDayEditor,dayVersion} = useTate();
     const [activities,setActivities]=useState<string[]>([]);
     const [catalog,setCatalog]=useState<RoutineCatalogProduct[]>([]);
@@ -116,6 +117,17 @@ function Day({ userId }: {
             </View>;
           })}
           {!refreshing&&!stale&&!rows.length&&!catalogLoading&&!catalogError?<Copy kind="small" style={{padding:16,color:t.muted}}>No steps saved for this part of your day.</Copy>:null}
+          {!refreshing && !stale && !!plan?.catalogComparedCount ? <View style={{gap:12,paddingVertical:16}}>
+            <Copy kind="heading">Product matches</Copy>
+            <Copy kind="small" style={{color:t.muted}}>Compared {plan.catalogComparedCount?.toLocaleString()} catalog products. These are alternatives to explore, not extra routine steps.</Copy>
+            {!plan.productMatches?.length ? <Copy kind="small" style={{color:t.muted}}>No ingredient matches with enough catalog information for today’s plan.</Copy> : null}
+            {plan.productMatches?.map(product => <View key={product.id} style={{gap:4,paddingVertical:8}}>
+              <Copy>{product.brand} {product.name}</Copy>
+              <Copy kind="small" style={{color:t.muted}}>Matching ingredients: {product.matchedIngredients.join(', ')}</Copy>
+              <Copy kind="small" style={{color:t.muted}}>{product.note}</Copy>
+            </View>)}
+            <ReportButton secondary label="Browse products" onPress={()=>router.push('/shop')}/>
+          </View> : null}
           </ScrollView>
           <View style={{gap:10,paddingTop:12,flexShrink:0,borderTopWidth:1,borderColor:t.line}}>
             {!preview?<ReportButton copper label={full?'View Selected Routine':'View Full Routine'} busy={busy} onPress={()=>setFull(v=>!v)}/>:null}

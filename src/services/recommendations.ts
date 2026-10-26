@@ -1,5 +1,7 @@
+import { matchDailyProducts } from '../../shared/catalog-matching.mjs';
 import { listUserWardrobe } from '@/services/catalog';
 import { stableInput, ownedRoutine } from '../../shared/journey.mjs';
+import { collectCatalogRows } from '@/services/catalog-pagination';
 import { supabase } from '@/lib/supabase';
 import { getEnvironmentSnapshot, toEnvironmentSnapshot } from '@/services/environment';
 import { analyzeDailyPhoto, toPhotoAnalysis } from '@/services/photos';
@@ -90,9 +92,14 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
     priorScore
   );
 
+  const catalog = await collectCatalogRows((from, to) => supabase.from('products')
+    .select('id,name,category,formula_status,product_type,is_bundle,brand:brands(name),product_ingredients(ingredient:ingredients(name,inci_name))')
+    .is('archived_at', null).order('id').range(from, to));
+  if (catalog.error || !catalog.data) return {data:null,error:catalog.error || new Error('Product catalog unavailable. Please retry.')};
+  const productMatches = matchDailyProducts(catalog.data, generated.dailyPlan.ingredientsToFavor, generated.dailyPlan.ingredientsToAvoid);
   const owned = ownedRoutine(inputs.data.wardrobe,entry.data.check_in);
   const previousItems=existing.data?.dailyPlan.items||[];
-  generated.dailyPlan={...generated.dailyPlan,inputFingerprint:inputs.data.fingerprint,analysisSnapshot:generated.analysis,
+  generated.dailyPlan={...generated.dailyPlan,productMatches,catalogComparedCount:catalog.data.length,inputFingerprint:inputs.data.fingerprint,analysisSnapshot:generated.analysis,
     items:[...owned,...generated.dailyPlan.items.filter(i=>!owned.some(o=>o.moment===i.moment && /cleanser|moisturiz|spf/i.test(i.label)))].map(i=>({...i,completed:previousItems.some(old=>old.id===i.id && old.label===i.label && old.completed)}))};
   const current=await readPlanInputs(userId,dailyEntryId);
   if(current.error || current.data?.fingerprint!==inputs.data.fingerprint) return {data:null,error:new Error('Your inputs changed while the plan was building. Generate it again.')};
@@ -899,6 +906,6 @@ export async function readPlanInputs(userId:string,entryId:string) {
  ]);
  const error=entry.error||photo.error||profile.error||environment.error||wardrobe.error;
  if(error)return {data:null,error};
- const fingerprint=stableInput({policy:'daily-owned-v1',checkIn:entry.data.check_in,photo:photo.data,profile:profile.data,environment:environment.data,wardrobe:wardrobe.data});
+ const fingerprint=stableInput({policy:'daily-full-catalog-v3',checkIn:entry.data.check_in,photo:photo.data,profile:profile.data,environment:environment.data,wardrobe:wardrobe.data});
  return {data:{fingerprint,wardrobe:wardrobe.data||[],entry:entry.data},error:null};
 }
