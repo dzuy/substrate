@@ -7,12 +7,15 @@ import { ArrowLeft, Camera, Sun, ScanFace, Check } from 'lucide-react-native';
 import { Copy, Notice, Panel, ReportButton, ReportFrame } from '@/report/ui';
 import { useReportTheme } from '@/report/theme';
 import { useAuth } from '@/lib/auth-context';
+import { useOnboardingPhoto } from '@/hooks/use-onboarding-photo';
 import { formatDisplayDate, getActiveEntryDate, getOrCreateDailyEntry } from '@/services/daily-entries';
 import { analyzeDailyPhoto, getLatestDailyPhoto, toPhotoAnalysis, uploadDailyPhoto } from '@/services/photos';
 import type { PhotoAnalysis } from '@/types/database';
 
 export default function PhotoScreen() {
   const router = useRouter();
+  const { pickPhoto, cameraDialog } = useOnboardingPhoto();
+  const [isCapturing, setIsCapturing] = useState(false);
   const { theme: t } = useReportTheme();
   const { user } = useAuth();
   const [entryId, setEntryId] = useState<string | null>(null);
@@ -99,22 +102,19 @@ export default function PhotoScreen() {
   );
 
   async function capturePhoto() {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-
-    if (!permission.granted) {
-      setErrorMessage('Camera permission is required to take your daily photo.');
-      return;
+    if (isCapturing) return;
+    setIsCapturing(true);
+    setErrorMessage('');
+    try {
+      const photo = await pickPhoto(true);
+      if (photo) await savePhoto({ uri: photo, base64: photo.split(',')[1], mimeType: 'image/jpeg' });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : 'Unable to take your photo. Please try again.');
+    } finally {
+      setIsCapturing(false);
+      setIsUploading(false);
+      setIsAnalyzing(false);
     }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [3, 4],
-      quality: 0.85,
-      base64: true,
-    });
-
-    await handlePickerResult(result);
   }
 
   async function choosePhoto() {
@@ -134,12 +134,15 @@ export default function PhotoScreen() {
       return;
     }
 
+    await savePhoto(result.assets[0]);
+  }
+
+  async function savePhoto(image: Parameters<typeof uploadDailyPhoto>[0]['image']) {
     if (!entryId || !user) {
       setErrorMessage('Daily entry is not ready yet. Try again in a moment.');
       return;
     }
 
-    const image = result.assets[0];
     setPhotoUri(image.uri);
     setIsUploading(true);
     setPhotoAnalysis(null);
@@ -185,7 +188,7 @@ export default function PhotoScreen() {
   }
 
   const hasPhoto = Boolean(photoUri);
-  const isBusy = isLoading || isUploading || isAnalyzing;
+  const isBusy = isLoading || isUploading || isAnalyzing || isCapturing;
   return <ReportFrame compact dark footer={false} showStyleGuide={false}>
     <View style={{width:'100%',maxWidth:390,alignSelf:'center',gap:14}}>
       <Pressable accessibilityRole="button" accessibilityLabel="Back to Your Day" onPress={()=>router.replace('/your-day')} style={{flexDirection:'row',gap:7,alignItems:'center',minHeight:44}}><ArrowLeft size={18} color={t.paper}/><Copy kind="small">Your Day</Copy></Pressable>
@@ -207,5 +210,6 @@ export default function PhotoScreen() {
       {photoAnalysis?<Panel><Copy kind="heading">Photo quality</Copy><View style={{flexDirection:'row',flexWrap:'wrap',gap:8}}>{[['Face',photoAnalysis.faceDetected?'Detected':'Retake'],['Light',photoAnalysis.lighting],['Sharpness',photoAnalysis.sharpness],['Framing',photoAnalysis.framing]].map(([label,value])=><View key={label} style={{flexBasis:'47%',flexGrow:1,padding:12,borderRadius:12,backgroundColor:t.paper,borderWidth:1,borderColor:t.line,gap:4}}><Copy kind="small" style={{color:t.muted}}>{label}</Copy><Copy>{typeof value==='number'?Math.round(value):value??'—'}</Copy></View>)}</View>{photoAnalysis.summary?<Copy kind="small" style={{color:t.muted}}>{photoAnalysis.summary}</Copy>:null}</Panel>:<Panel><Copy kind="heading">For a clearer picture</Copy>{[{icon:Sun,text:'Use natural light. Avoid harsh shadows.'},{icon:ScanFace,text:'Face the camera and keep your face centered.'},{icon:Camera,text:'Use the same angle each day.'}].map(({icon:Icon,text})=><View key={text} style={{flexDirection:'row',gap:12,alignItems:'center'}}><Icon size={21} color={t.gold}/><Copy kind="small" style={{flex:1,color:t.muted}}>{text}</Copy></View>)}</Panel>}
       <Pressable accessibilityRole="button" onPress={()=>router.replace('/your-day')} disabled={isBusy} style={{minHeight:44,alignItems:'center',justifyContent:'center'}}><Copy kind="small" style={{color:'#D2DCE1'}}>{hasPhoto?'Back to Your Day':'Skip for now'}</Copy></Pressable>
     </View>
+    {cameraDialog}
   </ReportFrame>;
 }

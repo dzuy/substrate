@@ -215,7 +215,7 @@ export async function unlockReport(userId: string, report: SkinReport) {
   }
   return result;
 }
-export async function pickReportPhoto(camera = false): Promise<string | null> {
+export async function pickReportPhoto(camera = false, frontCamera = true): Promise<string | null> {
   if (camera && Platform.OS !== "web") {
     const p = await ImagePicker.requestCameraPermissionsAsync();
     if (!p.granted)
@@ -223,7 +223,7 @@ export async function pickReportPhoto(camera = false): Promise<string | null> {
   }
   const result = await (
     camera ? ImagePicker.launchCameraAsync : ImagePicker.launchImageLibraryAsync
-  )({ mediaTypes: ["images"], quality: 0.9 });
+  )({ mediaTypes: ["images"], quality: 0.9, cameraType: frontCamera ? ImagePicker.CameraType.front : ImagePicker.CameraType.back });
   if (result.canceled) return null;
   const asset = result.assets[0];
   const context = ImageManipulator.manipulate(asset.uri);

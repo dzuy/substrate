@@ -38,7 +38,7 @@ function Day({ userId }: {
     const [refreshRetry, setRefreshRetry] = useState(0);
     const [error, setError] = useState('');
     const [busy, setBusy] = useState(false);
-    const [legacy, setLegacy] = useState(false);const [entryDate,setEntryDate]=useState('');
+    const [entryDate,setEntryDate]=useState('');
     const lock = useRef(false);
     useFocusEffect(useCallback(() => {
         // Reload the saved activities whenever Tate confirms a change.
@@ -53,7 +53,7 @@ function Day({ userId }: {
         setActivities([]);
         setPlan(null);
         return;
-    } setActivities(savedDailyActivities(e.data.check_in)); setId(e.data.id);setEntryDate(e.data.entry_date); setLegacy(e.data.check_in.journeyVersion !== 1); const [saved, inputs] = await Promise.all([getLatestRecommendation(userId, e.data.id), readPlanInputs(userId, e.data.id)]); if (!alive)
+    } setActivities(savedDailyActivities(e.data.check_in)); setId(e.data.id);setEntryDate(e.data.entry_date); const [saved, inputs] = await Promise.all([getLatestRecommendation(userId, e.data.id), readPlanInputs(userId, e.data.id)]); if (!alive)
         return; if (saved.error || inputs.error)
         throw saved.error || inputs.error;
         const needsUpdate = !saved.data || saved.data.dailyPlan.inputFingerprint !== inputs.data?.fingerprint;
@@ -99,7 +99,6 @@ function Day({ userId }: {
           <ScrollView key={`${moment}-${full}`} style={{flex:1,minHeight:0}} contentContainerStyle={{paddingBottom:8}} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
           {error?<Notice>{error}</Notice>:null}
           {activities.length ? <View style={{gap:8,padding:12,marginBottom:12,borderBottomWidth:1,borderColor:t.line}}><Copy style={{fontWeight:'600'}}>Your plan for today</Copy>{activities.map((activity,index)=><Copy key={`${index}-${activity}`} kind="small" style={{color:t.muted}}>• {activity}</Copy>)}</View> : null}
-          {legacy&&!preview?<Notice>Confirm a new daily check-in to update this older routine.</Notice>:null}
           {refreshing?<Copy kind="small" style={{padding:12,color:t.muted}}>Updating your routine…</Copy>:null}
           {!refreshing&&preview&&catalogLoading?<Copy kind="small" style={{padding:12,color:t.muted}}>Loading products…</Copy>:null}
           {preview&&catalogError?<View style={{gap:8}}><Notice>{catalogError}</Notice><ReportButton secondary label="Retry products" onPress={()=>setCatalogRetry(v=>v+1)}/></View>:null}
@@ -113,7 +112,7 @@ function Day({ userId }: {
                 <View style={{flex:1,gap:3}}><Copy style={{fontSize:13,lineHeight:18,fontWeight:'600',color:t.ink}}>{item.label}</Copy><Copy kind="small" style={{fontSize:11,lineHeight:16,color:t.muted}}>{product?`${product.brand?.name||''} ${product.name}`.trim():preview?item.reason:item.completed?'Completed':'Tap for details'}</Copy></View>
                 {expanded===item.id?<ChevronDown size={16} color={t.muted}/>:<ChevronRight size={16} color={t.muted}/>} 
               </Pressable>
-              {expanded===item.id?<View style={{padding:12,gap:10}}><Copy kind="small" style={{color:t.muted}}>{item.reason||product?.name||'Follow the product’s directions.'}</Copy>{!preview?<ReportButton secondary label={item.completed?'Completed · undo':'Mark complete'} disabled={stale||legacy} busy={busy} onPress={()=>void run(async()=>{if(!plan)return;const current=await readPlanInputs(userId,id);if(current.error)throw current.error;if(current.data?.fingerprint!==plan.inputFingerprint){setStale(true);setRefreshRetry(v=>v+1);return;}const next={...plan,items:plan.items?.map(i=>i.id===item.id?{...i,completed:!i.completed}:i)};const saved=await saveTodayRecommendationPlan(userId,id,next);if(saved.error)throw saved.error;setPlan(next);})}/>:null}</View>:null}
+              {expanded===item.id?<View style={{padding:12,gap:10}}><Copy kind="small" style={{color:t.muted}}>{item.reason||product?.name||'Follow the product’s directions.'}</Copy>{!preview?<ReportButton secondary label={item.completed?'Completed · undo':'Mark complete'} disabled={stale} busy={busy} onPress={()=>void run(async()=>{if(!plan)return;const current=await readPlanInputs(userId,id);if(current.error)throw current.error;if(current.data?.fingerprint!==plan.inputFingerprint){setStale(true);setRefreshRetry(v=>v+1);return;}const next={...plan,items:plan.items?.map(i=>i.id===item.id?{...i,completed:!i.completed}:i)};const saved=await saveTodayRecommendationPlan(userId,id,next);if(saved.error)throw saved.error;setPlan(next);})}/>:null}</View>:null}
             </View>;
           })}
           {!refreshing&&!stale&&!rows.length&&!catalogLoading&&!catalogError?<Copy kind="small" style={{padding:16,color:t.muted}}>No steps saved for this part of your day.</Copy>:null}

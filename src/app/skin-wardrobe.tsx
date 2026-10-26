@@ -1,10 +1,11 @@
+import { ProductScanError, productScanErrorMessage } from '@/services/product-scan-error';
 import {Copy, ReportButton, ReportFrame} from '@/report/ui';
 import { takeProductPhotoDraft } from '@/services/product-photo-draft';
 import { ProductGrid, ProductSearch } from '@/components/product-grid';
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter, useLocalSearchParams, type Href } from "expo-router";
-import { Trash2 } from "lucide-react-native";
+import { ArrowLeft, Trash2 } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -353,6 +354,7 @@ export default function SkinWardrobeScreen() {
 
 export function AddProductsScreen() {
   const {onboarding, mode}=useLocalSearchParams<{onboarding?:string; mode?:string}>();
+  const onboardingPhoto = onboarding === "1" && mode === "photo";
   const { theme: t } = useReportTheme();
   const styles = makeStyles(t);
   const { user } = useAuth();
@@ -493,6 +495,7 @@ export function AddProductsScreen() {
     }
 
     setIsAnalyzing(true);
+    setDetections([]);
     setMessage("");
     setErrorMessage("");
 
@@ -502,26 +505,29 @@ export function AddProductsScreen() {
         imageDataUrl: selectedImage.dataUrl,
         catalogProducts,
       });
+      if (!candidates.length) {
+        setMessage('We couldn’t identify any products in this photo. Try a close-up of your products with the labels facing the camera in good light, or add them manually.');
+        return;
+      }
       const saved = await saveProductDetections(user.id, candidates);
       setIsAnalyzing(false);
 
       if (saved.error || !saved.data) {
         setErrorMessage(
-          saved.error?.message ?? "Product candidates could not be saved.",
+          "We found possible products, but couldn’t save the results. Please try scanning again.",
         );
         return;
       }
 
       setDetections(saved.data);
-      setMessage("OpenAI returned product candidates for confirmation.");
+      setMessage("We found possible matches. Review them below before adding them to your wardrobe.");
     } catch (error) {
       setIsAnalyzing(false);
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "OpenAI product analysis failed.",
+        error instanceof ProductScanError ? error.message : productScanErrorMessage(),
       );
-      return;
+    } finally {
+      setIsAnalyzing(false);
     }
   }
 
@@ -812,22 +818,24 @@ export function AddProductsScreen() {
     !isSaving;
 
   return (
-    <AppShell>
-      {onboarding ? <ReportButton secondary label="Return to onboarding" onPress={()=>router.push("/onboarding" as Href)}/> : null}
+    <AppShell footer={!onboardingPhoto}>
+      {onboarding && !onboardingPhoto ? <ReportButton secondary label="Return to onboarding" onPress={()=>router.push("/onboarding" as Href)}/> : null}
       <Pressable
         accessibilityRole="button"
-        onPress={() => router.back()}
-        style={styles.backButton}
+        accessibilityLabel={onboardingPhoto ? "Back to onboarding" : "Back to Wardrobe"}
+        onPress={() => onboardingPhoto ? router.replace("/onboarding") : router.back()}
+        style={onboardingPhoto ? { minHeight: 44, minWidth: 44, alignSelf: "flex-start", alignItems: "center", justifyContent: "center" } : styles.backButton}
       >
-        <SubstrateText variant="small" color={t.ink}>
+        {onboardingPhoto ? <ArrowLeft size={24} color={t.ink} /> : <SubstrateText variant="small" color={t.ink}>
           Back to Wardrobe
-        </SubstrateText>
+        </SubstrateText>}
       </Pressable>
-      <ScreenHeader
+      {onboardingPhoto ? <ScreenHeader title="Add Products from Photo" /> : null}
+      {!onboardingPhoto ? <ScreenHeader
         eyebrow="Skin Wardrobe"
         title="Add products"
         body="Search the catalog and add products to your wardrobe, or scan a product photo."
-      />
+      /> : null}
 
       {isLoading ? (
         <View style={styles.loading}>
@@ -849,7 +857,7 @@ export function AddProductsScreen() {
       {errorMessage ? (
         <Card style={styles.errorCard}>
           <SubstrateText variant="section">
-            Wardrobe needs attention
+            {mode === 'photo' ? 'Let’s try that again' : 'Wardrobe needs attention'}
           </SubstrateText>
           <SubstrateText variant="small" color={t.ink}>
             {errorMessage}
@@ -1033,7 +1041,7 @@ export function AddProductsScreen() {
       </Card> : null}
 
       <Card style={styles.card}>
-        <View>
+        {!onboardingPhoto ? <View>
           <SubstrateText variant="section">
             Identify products from photo
           </SubstrateText>
@@ -1041,9 +1049,9 @@ export function AddProductsScreen() {
             Upload or take a product photo, review possible matches, then
             confirm before anything is added.
           </SubstrateText>
-        </View>
+        </View> : null}
 
-        <View style={styles.photoActions}>
+        {!onboardingPhoto ? <View style={styles.photoActions}>
           <Pressable
             accessibilityRole="button"
             disabled={isSaving || isAnalyzing}
@@ -1064,8 +1072,9 @@ export function AddProductsScreen() {
               Take Photo
             </SubstrateText>
           </Pressable>
-        </View>
+        </View> : null}
 
+        {onboardingPhoto && !selectedImage ? <SubstrateText variant="small" color={t.muted}>Your photo is unavailable. Use the back arrow to take another photo.</SubstrateText> : null}
         {selectedImage ? (
           <View style={styles.previewWrap}>
             <Image
@@ -1085,7 +1094,7 @@ export function AddProductsScreen() {
               {isAnalyzing ? (
                 <LoadingPrimaryButton label="Finding Products" />
               ) : (
-                <PrimaryButton label="Find Products" />
+                <PrimaryButton label={onboardingPhoto ? "Identify Products from Photo" : "Find Products"} />
               )}
             </Pressable>
           </View>
@@ -1109,6 +1118,18 @@ export function AddProductsScreen() {
           </View>
         ) : null}
       </Card>
+      {onboardingPhoto ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Continue"
+          accessibilityState={{ disabled: isAnalyzing || isSaving }}
+          disabled={isAnalyzing || isSaving}
+          onPress={() => router.replace("/onboarding")}
+          style={(isAnalyzing || isSaving) && styles.disabled}
+        >
+          <PrimaryButton label="Continue" />
+        </Pressable>
+      ) : null}
     </AppShell>
   );
 }

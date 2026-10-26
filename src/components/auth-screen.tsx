@@ -27,7 +27,7 @@ import { fontFamily, useReportTheme } from "@/report/theme";
 
 type AuthMode = "sign-in" | "sign-up" | "forgot-password";
 export function AuthScreen({ admin = false, embedded = false, initialMode = "sign-in" }: { admin?: boolean; embedded?: boolean; initialMode?: AuthMode }) {
-  const { user } = useAuth();
+  const { user, completeSignIn } = useAuth();
   const { theme: t } = useReportTheme();
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
@@ -78,6 +78,7 @@ export function AuthScreen({ admin = false, embedded = false, initialMode = "sig
         if (!signIn && !result.data.session)
           setMessage("Check your email to confirm your account, then sign in.");
         setPassword("");
+        if (result.data.session) completeSignIn();
       }
     } catch (e) {
       setError(

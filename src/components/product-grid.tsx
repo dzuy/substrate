@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, TextInput, View, type StyleProp } from 'react-native';
+import { Platform, Pressable, TextInput, View, type StyleProp } from 'react-native';
 import { Image, type ImageStyle } from 'expo-image';
 import { ChevronRight, Search, X } from 'lucide-react-native';
 import { Copy } from '@/report/ui';
@@ -36,5 +36,5 @@ export function ProductGrid({products,onSelect,actionLabel}:{products:ProductTil
 
 export function ProductSearch({value,onChange,placeholder='Search product names'}:{value:string;onChange:(value:string)=>void;placeholder?:string}) {
   const {theme:t}=useReportTheme();
-  return <View style={{flex:1,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:13,borderRadius:24,backgroundColor:'#FFFAF2',minHeight:46}}><Search size={19} color={t.muted}/><TextInput accessibilityLabel="Search products" placeholder={placeholder} placeholderTextColor={t.muted} value={value} onChangeText={onChange} style={{flex:1,minWidth:0,minHeight:46,fontFamily:fontFamily(t.bodyFont),fontSize:16,color:t.ink}}/>{value?<Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={()=>onChange('')} style={{width:32,height:44,alignItems:'center',justifyContent:'center'}}><X size={16} color={t.ink}/></Pressable>:null}</View>;
+  return <View style={{flex:1,flexDirection:'row',alignItems:'center',gap:9,paddingHorizontal:13,borderRadius:24,backgroundColor:'#FFFAF2',minHeight:46}}><Search size={19} color={t.muted}/><TextInput accessibilityLabel="Search products" placeholder={placeholder} placeholderTextColor={t.muted} value={value} onChangeText={onChange} style={{...(Platform.OS === 'web' ? {outlineWidth:0} : {}),flex:1,minWidth:0,minHeight:46,fontFamily:fontFamily(t.bodyFont),fontSize:16,color:t.ink}}/>{value?<Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={()=>onChange('')} style={{width:32,height:44,alignItems:'center',justifyContent:'center'}}><X size={16} color={t.ink}/></Pressable>:null}</View>;
 }

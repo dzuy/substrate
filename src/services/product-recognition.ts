@@ -1,3 +1,4 @@
+import { ProductScanError, productScanErrorMessage } from './product-scan-error';
 import { supabase } from '@/lib/supabase';
 import type { CatalogProduct } from '@/services/catalog';
 import type { Database, Json, ProductDetectionStatus } from '@/types/database';
@@ -80,10 +81,10 @@ export const mockProductRecognitionService: ProductRecognitionService = {
 export const openAiProductRecognitionService: ProductRecognitionService = {
   async analyzeImage({ catalogProducts, imageDataUrl, sourceImageUri }) {
     if (!imageDataUrl) {
-      throw new Error('Image data is required for OpenAI product recognition.');
+      throw new ProductScanError('Your photo is unavailable. Go back and take or upload another photo.');
     }
 
-    const response = await supabase.functions.invoke<OpenAiProductDetectionResponse>('analyze-products', {
+    const invokeScan = () => supabase.functions.invoke<OpenAiProductDetectionResponse>('analyze-products', {
       body: {
         imageDataUrl,
         catalogProducts: catalogProducts.map((product) => ({
@@ -96,8 +97,25 @@ export const openAiProductRecognitionService: ProductRecognitionService = {
       },
     });
 
+    let response = await invokeScan();
+    if (response.error?.context instanceof Response && response.error.context.status === 401) {
+      // Retry once with a refreshed session; never loop on a revoked session.
+      const refreshed = await supabase.auth.refreshSession();
+      if (refreshed.error || !refreshed.data.session) {
+        throw new ProductScanError('Your sign-in is no longer valid. Please sign in again, then retry your photo.');
+      }
+      response = await invokeScan();
+    }
+
     if (response.error) {
-      throw response.error;
+      const status = response.error.context instanceof Response ? response.error.context.status : undefined;
+      if (__DEV__ && response.error.context instanceof Response) {
+        console.warn('Product scan request failed with status', status);
+      }
+      throw new ProductScanError(productScanErrorMessage(status));
+    }
+    if (!Array.isArray(response.data?.detections)) {
+      throw new ProductScanError(productScanErrorMessage(502));
     }
 
     return (

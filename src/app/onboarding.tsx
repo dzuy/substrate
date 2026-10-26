@@ -1,6 +1,6 @@
 import { useCallback, useId, useRef, useState } from 'react';
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { Image, ImageBackground, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Image, ImageBackground, Pressable, ScrollView, StyleSheet, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import Svg, { ClipPath, Defs, Image as SvgImage, LinearGradient, Rect, Stop } from 'react-native-svg';
@@ -12,7 +12,7 @@ import { useAuth } from '@/lib/auth-context';
 import { loadJourney, saveJourney, resolveJourney, type Journey, type JourneyConflict } from '@/services/journey';
 import { getProfile, saveProfileContext, toProfileContext } from '@/services/profile';
 import { listUserWardrobe } from '@/services/catalog';
-import { pickReportPhoto } from '@/report/service';
+import { useOnboardingPhoto } from '@/hooks/use-onboarding-photo';
 import { stageProductPhoto } from '@/services/product-photo-draft';
 import { downloadBaselineView, uploadBaselineView } from '@/services/photos';
 import type { ProfileContext } from '@/types/database';
@@ -51,6 +51,7 @@ export default function Onboarding() {
   return <OnboardingFlow key={user?.id || 'guest'} userId={user?.id || ''} email={user?.email || ''} />;
 }
 function OnboardingFlow({ userId, email }: { userId: string; email: string }) {
+  const { pickPhoto, cameraDialog } = useOnboardingPhoto();
   const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const shortScreen = height < 740;
@@ -67,8 +68,37 @@ function OnboardingFlow({ userId, email }: { userId: string; email: string }) {
   const [profileDirty, setProfileDirty] = useState(false);
   const [category, setCategory] = useState<number | null>(null);
   const [photoView, setPhotoView] = useState<PhotoView>('front');
+  const [savedPreviews, setSavedPreviews] = useState<Partial<Record<PhotoView, { path: string; uri?: string; error?: boolean }>>>({});
+  const frontPath = journey?.baselineRefs?.front;
+  const leftPath = journey?.baselineRefs?.left;
+  const rightPath = journey?.baselineRefs?.right;
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    setSavedPreviews({});
+    if (!userId) return;
+    const paths = { front: frontPath, left: leftPath, right: rightPath };
+    for (const view of ['front', 'left', 'right'] as const) {
+      const path = paths[view];
+      if (!path) continue;
+      void downloadBaselineView(userId, path).then(uri => {
+        if (active) setSavedPreviews(current => ({ ...current, [view]: { path, uri } }));
+      }).catch(() => {
+        if (active) setSavedPreviews(current => ({ ...current, [view]: { path, error: true } }));
+      });
+    }
+    return () => { active = false; };
+  }, [userId, frontPath, leftPath, rightPath]));
+  function previewFor(view: PhotoView) {
+    const saved = savedPreviews[view];
+    return journey?.photos?.[view] || (saved?.path === journey?.baselineRefs?.[view] ? saved?.uri : undefined);
+  }
+  function savedPreviewFailed(view: PhotoView) {
+    return savedPreviews[view]?.path === journey?.baselineRefs?.[view] && savedPreviews[view]?.error;
+  }
+
   const [products, setProducts] = useState<{ id: string; name: string; brand: string }[]>([]);
   const [busy, setBusy] = useState(false);
+  const [productPhotoAction, setProductPhotoAction] = useState<'camera' | 'upload' | null>(null);
   const [error, setError] = useState('');
   const [localOnly, setLocalOnly] = useState(false);
   const [conflict, setConflict] = useState<JourneyConflict | null>(null);
@@ -119,10 +149,23 @@ function OnboardingFlow({ userId, email }: { userId: string; email: string }) {
   }
   async function pick(camera: boolean) {
     if (!journey) return;
-    const photo = await pickReportPhoto(camera); if (!photo) return;
+    const photo = await pickPhoto(camera); if (!photo) return;
     const draft = await persist({ ...journey, photos: { ...journey.photos, [photoView]: photo }, baselineRefs: { ...journey.baselineRefs, [photoView]: undefined } });
     const path = await uploadBaselineView(userId, photoView, photo);
     await persist({ ...draft, baselineRefs: { ...draft.baselineRefs, [photoView]: path } });
+  }
+  async function pickProductPhoto(camera: boolean) {
+    if (!journey) return;
+    setProductPhotoAction(camera ? 'camera' : 'upload');
+    try {
+      const photo = await pickPhoto(camera, false);
+      if (!photo) return;
+      await persist(journey);
+      stageProductPhoto(userId, photo);
+      router.push('/skin-wardrobe/add-products?onboarding=1&mode=photo' as Href);
+    } finally {
+      setProductPhotoAction(null);
+    }
   }
   const stage = journey && ['wellness', 'complete'].includes(journey.stage) ? 'summary' : journey?.stage || 'welcome';
   const step = flow.indexOf(stage);
@@ -169,11 +212,10 @@ function OnboardingFlow({ userId, email }: { userId: string; email: string }) {
         </> : null}
         {stage === 'photos' ? <>
           <Copy kind="title">Take your skin photos.</Copy><Copy style={styles.subtitle}>We&apos;ll use these to personalize your routine and track progress</Copy>
-          <View style={styles.photo}>{journey.photos?.[photoView] ? <Image source={{ uri: journey.photos[photoView] }} accessibilityLabel={`${photoView} baseline`} style={styles.fillImage} /> : <><PhotoExample view={photoView} /><View style={styles.exampleBadge}><Copy kind="small" style={{ fontSize: 11 }}>Example · {photoView} view</Copy></View></>}<View pointerEvents="none" style={styles.photoGuide} /></View>
-          <View style={styles.row}>{(['front', 'left', 'right'] as const).map(view => <Pressable accessibilityRole="tab" accessibilityState={{ selected: photoView === view }} key={view} onPress={() => setPhotoView(view)} style={[styles.thumbnail, photoView === view && { borderColor: '#C39460', backgroundColor: '#F3E6D6' }]}>{journey.photos?.[view] ? <Image source={{ uri: journey.photos[view] }} style={{ height: 64, width: '100%', borderRadius: 8 }} /> : <View style={styles.exampleThumbnail}><PhotoExample view={view} /></View>}<Copy kind="small" style={{ textTransform: 'capitalize' }}>{view}{journey.baselineRefs?.[view] ? ' ✓' : ''}</Copy></Pressable>)}</View>
+          <View style={styles.photo}>{previewFor(photoView) ? <Image source={{ uri: previewFor(photoView) }} accessibilityLabel={`${photoView} baseline`} style={styles.fillImage} /> : journey.baselineRefs?.[photoView] ? <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20 }}>{savedPreviewFailed(photoView) ? <Copy kind="small">Unable to load your saved photo. Reopen onboarding to try again.</Copy> : <ActivityIndicator accessibilityLabel="Loading saved photo" color="#60758A" />}</View> : <><PhotoExample view={photoView} /><View style={styles.exampleBadge}><Copy kind="small" style={{ fontSize: 11 }}>Example · {photoView} view</Copy></View></>}<View pointerEvents="none" style={styles.photoGuide} /></View>
+          <View style={styles.row}>{(['front', 'left', 'right'] as const).map(view => <Pressable accessibilityRole="tab" accessibilityState={{ selected: photoView === view }} key={view} onPress={() => setPhotoView(view)} style={[styles.thumbnail, photoView === view && { borderColor: '#C39460', backgroundColor: '#F3E6D6' }]}>{previewFor(view) ? <Image source={{ uri: previewFor(view) }} style={{ height: 64, width: '100%', borderRadius: 8 }} /> : journey.baselineRefs?.[view] ? <View style={[styles.exampleThumbnail, { alignItems: 'center', justifyContent: 'center' }]}>{savedPreviewFailed(view) ? <Copy kind="small">Unavailable</Copy> : <ActivityIndicator accessibilityLabel={`Loading saved ${view} photo`} color="#60758A" />}</View> : <View style={styles.exampleThumbnail}><PhotoExample view={view} /></View>}<Copy kind="small" style={{ textTransform: 'capitalize' }}>{view}{journey.baselineRefs?.[view] ? ' ✓' : ''}</Copy></Pressable>)}</View>
           <View style={styles.tip}><Sun size={20} color="#60758A" /><Copy kind="small" style={{ flex: 1, color: '#536478' }}>Natural light works best. Remove makeup if possible, and keep your face in the frame.</Copy></View>
           <View style={styles.row}><View style={{ flex: 1 }}>{button('Take photo', () => pick(true))}</View><View style={{ flex: 1 }}><ReportButton secondary busy={busy} label="Upload photo" onPress={() => void run(() => pick(false))} /></View></View>
-          {journey.baselineRefs?.[photoView] && !journey.photos?.[photoView] ? button('View saved photo', async () => { const uri = await downloadBaselineView(userId, journey.baselineRefs![photoView]!); await persist({ ...journey, photos: { ...journey.photos, [photoView]: uri } }); }) : null}
           {journey.photos?.[photoView] && !journey.baselineRefs?.[photoView] ? button('Retry saving photo to account', async () => { const path = await uploadBaselineView(userId, photoView, journey.photos![photoView]!); await persist({ ...journey, baselineRefs: { ...journey.baselineRefs, [photoView]: path } }); }) : null}
           <View style={styles.spacer} />{button('Continue', () => go('wardrobe'))}<Pressable accessibilityRole="link" accessibilityState={{ disabled: busy }} disabled={busy} onPress={() => void run(() => go('wardrobe'))} style={({ pressed }) => ({ minHeight: 44, alignItems: 'center', justifyContent: 'center', opacity: busy || pressed ? 0.5 : 1 })}><Copy kind="small" style={{ color: '#536478', textDecorationLine: 'underline' }}>Skip for now</Copy></Pressable>
         </> : null}
@@ -181,15 +223,10 @@ function OnboardingFlow({ userId, email }: { userId: string; email: string }) {
           <Copy kind="title">Add your products.</Copy><Copy style={styles.subtitle}>Build your Skin Wardrobe. Add photos or enter your products manually to keep your routine in one place.</Copy>
           <Image source={require('@/assets/images/skincare-still-life-v1.png')} style={styles.productHero} />
           <View style={styles.row}>
-            <View style={{ flex: 1 }}>{button('Take Photo', async () => {
-              const photo = await pickReportPhoto(true);
-              if (!photo) return;
-              await persist(journey);
-              stageProductPhoto(userId, photo);
-              router.push('/skin-wardrobe/add-products?onboarding=1&mode=photo' as Href);
-            })}</View>
-            <Pressable accessibilityRole="button" disabled={busy} accessibilityState={{ disabled: busy }} onPress={() => void run(async () => { await persist(journey); router.push('/skin-wardrobe/add-products?onboarding=1&mode=manual' as Href); })} style={({ pressed }) => [styles.manualButton, { opacity: busy || pressed ? 0.6 : 1 }]}><Copy kind="small" style={{ fontWeight: '600' }}>Add Manually</Copy></Pressable>
+            <View style={{ flex: 1 }}><ReportButton label="Take Photo" busy={productPhotoAction === 'camera'} disabled={busy && productPhotoAction !== 'camera'} onPress={() => void run(() => pickProductPhoto(true))} /></View>
+            <View style={{ flex: 1 }}><ReportButton secondary busy={productPhotoAction === 'upload'} disabled={busy && productPhotoAction !== 'upload'} label="Upload Photo" onPress={() => void run(() => pickProductPhoto(false))} /></View>
           </View>
+            <Pressable accessibilityRole="button" disabled={busy} accessibilityState={{ disabled: busy }} onPress={() => void run(async () => { await persist(journey); router.push('/skin-wardrobe/add-products?onboarding=1&mode=manual' as Href); })} style={({ pressed }) => [styles.manualButton, { opacity: busy || pressed ? 0.6 : 1 }]}><Copy kind="small" style={{ fontWeight: '600' }}>Add Manually</Copy></Pressable>
           <Copy kind="small" style={styles.label}>Your products ({products.length})</Copy>{products.length ? products.map(product => <View style={styles.productRow} key={product.id}><View style={styles.productThumbnail}><ProductPlaceholder name={product.name} /></View><View style={{ flex: 1 }}><Copy kind="small">{product.name}</Copy><Copy kind="small" style={styles.subtitle}>{product.brand}</Copy></View><Check size={18} color="#4D9A65" /></View>) : <Copy kind="small" style={styles.subtitle}>No products added yet. You can always add them later.</Copy>}
           <View style={styles.spacer} />{button('Continue', () => go('subscription'))}<Pressable accessibilityRole="link" disabled={busy} accessibilityState={{ disabled: busy }} onPress={() => void run(() => go('subscription'))} style={({ pressed }) => ({ minHeight: 44, alignItems: 'center', justifyContent: 'center', opacity: busy || pressed ? 0.5 : 1 })}><Copy kind="small" style={{ color: '#536478', textDecorationLine: 'underline' }}>Skip for now</Copy></Pressable>
         </> : null}
@@ -209,6 +246,7 @@ function OnboardingFlow({ userId, email }: { userId: string; email: string }) {
       {localOnly ? <Copy kind="small" style={styles.sync}>Progress saved on this device. Account sync is pending.</Copy> : null}
     </View>
   </ScrollView>
+    {cameraDialog}
     <AuthModal visible={authOpen && !userId} initialMode="sign-up" onClose={() => { setAuthOpen(false); router.setParams({ authNext: undefined }); }} />
   </SafeAreaView>;
 }

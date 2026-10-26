@@ -38,3 +38,18 @@ test('activity edits supply current plans and request a complete reviewable prop
   assert.match(providerBody.instructions, /retaining unchanged activities/);
   assert.match(result.data.notice, /confirm before saving/);
 });
+
+test('day chat distinguishes questions from updates and retains existing activities for edits', async () => {
+  for (const shouldUpdateDay of [false, true]) {
+    let providerBody;
+    const result = await invoke({ body: { mode: 'plan-day-chat', editing: true, note: shouldUpdateDay ? 'Move gym to 5 PM' : 'Why use sunscreen?', currentActivities: ['Work', 'Gym at 4 PM'] }, fetcher: async (url, options) => {
+      if (url.includes('/auth/')) return new Response(JSON.stringify({ id: 'owner' }));
+      providerBody = JSON.parse(options.body);
+      return new Response(JSON.stringify({ output: [{ content: [{ type: 'output_text', text: JSON.stringify({ shouldUpdateDay, dailyActivities: ['Work', 'Gym at 5 PM'] }) }] }] }));
+    } });
+    assert.equal(result.status, 200);
+    assert.equal(result.data.shouldUpdateDay, shouldUpdateDay);
+    assert.deepEqual(JSON.parse(providerBody.input).currentActivities, ['Work', 'Gym at 4 PM']);
+    assert.ok(providerBody.text.format.schema.required.includes('shouldUpdateDay'));
+  }
+});

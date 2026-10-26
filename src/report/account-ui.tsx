@@ -10,8 +10,8 @@ import {
 import { ArrowRight } from "lucide-react-native";
 import { Copy, Panel, ReportFrame } from "./ui";
 import { useReportTheme } from "./theme";
-export function AppShell({ children }: PropsWithChildren) {
-  return <ReportFrame showStyleGuide={false}>{children}</ReportFrame>;
+export function AppShell({ children, footer = true }: PropsWithChildren<{ footer?: boolean }>) {
+  return <ReportFrame showStyleGuide={false} footer={footer}>{children}</ReportFrame>;
 }
 export function SubstrateText({
   children,

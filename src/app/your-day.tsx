@@ -6,7 +6,7 @@ import { cleanDailyDraft, savedDailyActivities } from '../../shared/daily-draft.
 import { localDate } from '../../shared/journey.mjs';
 import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect, useRouter, type Href } from 'expo-router';
-import { Platform, View, Pressable } from 'react-native';
+import { ActivityIndicator, Platform, View, Pressable } from 'react-native';
 import { Image } from 'expo-image';
 import { Moon, Heart, Droplet, Sun, Camera, CircleCheck, Pencil, CalendarDays, ArrowRight } from 'lucide-react-native';
 import { useAuth } from '@/lib/auth-context';
@@ -20,10 +20,12 @@ export default function YourDay() {
 }
 function Dashboard({userId}:{userId:string}) {
   const router = useRouter();
-  const { openDayEditor, dayVersion } = useTate();
+  const { openDayEditor, planDay, dayVersion } = useTate();
   const {theme:t} = useReportTheme();
   const [data,setData] = useState<DayData|null>(null);
   const [error,setError] = useState('');
+  const [loadedPhotoUrl, setLoadedPhotoUrl] = useState('');
+  const [failedPhotoUrl, setFailedPhotoUrl] = useState('');
   const [updatingSkin,setUpdatingSkin] = useState(true);
   const [retry,setRetry] = useState(0);
   const [metric, setMetric] = useState<DayMetric | null>(null);
@@ -64,11 +66,14 @@ function Dashboard({userId}:{userId:string}) {
       const raw = await AsyncStorage.getItem(key);
       const saved = raw ? JSON.parse(raw) : {};
       await AsyncStorage.setItem(key, JSON.stringify({ ...saved, draft: saved.draft || cleanDailyDraft(checkIn || {}), note }));
-      go('/daily-check-in?review=1');
+      planDay(note.trim());
+      setNote('');
     } catch { setError('Your note could not be saved. Please try again.'); }
     finally { sendingRef.current = false; setSending(false); }
   }
   const temperature = data?.environment?.temperatureF;
+  const photoUrl = data?.photo?.signedUrl;
+  const photoLoading = photoUrl ? loadedPhotoUrl !== photoUrl && failedPhotoUrl !== photoUrl : updatingSkin;
   return <ReportFrame compact dark footer={false} showStyleGuide={false}>
     <View style={{width:'100%',maxWidth:390,alignSelf:'center',gap:12}}>
       <View style={{paddingHorizontal:13,paddingTop:5,gap:18}}>
@@ -116,7 +121,8 @@ function Dashboard({userId}:{userId:string}) {
         <Copy style={{fontSize:14,fontWeight:'600'}}>Your Skin Today</Copy>
         <View style={{flexDirection:'row',gap:13,alignItems:'center'}}>
           <View style={{width:'39%',height:108,borderRadius:12,overflow:'hidden'}}>
-            <Image source={data?.photo?{uri:data.photo.signedUrl}:require('@/assets/images/daily-photo-example-front-v1.png')} accessibilityLabel={data?.photo?'Your saved photo from today':'Example front-facing skin photo'} contentFit="cover" style={{width:'100%',height:'100%'}}/>
+            {photoUrl ? <Image key={photoUrl} source={{uri:photoUrl}} accessibilityLabel="Your saved photo from today" contentFit="cover" onLoad={() => setLoadedPhotoUrl(photoUrl)} onError={() => setFailedPhotoUrl(photoUrl)} style={{width:'100%',height:'100%',opacity:loadedPhotoUrl === photoUrl ? 1 : 0}}/> : !updatingSkin && data && !error ? <Image source={require('@/assets/images/daily-photo-example-front-v1.png')} accessibilityLabel="Example front-facing skin photo" contentFit="cover" style={{width:'100%',height:'100%'}}/> : null}
+            {photoLoading ? <View style={{position:'absolute',inset:0,alignItems:'center',justifyContent:'center'}}><ActivityIndicator accessibilityLabel="Loading your photo" color={t.muted}/></View> : (photoUrl && failedPhotoUrl === photoUrl) || (!data && error) ? <View style={{position:'absolute',inset:0,alignItems:'center',justifyContent:'center',padding:8}}><Copy kind="small" style={{color:t.muted,textAlign:'center'}}>Photo unavailable</Copy></View> : null}
           </View>
           <View style={{flex:1,gap:8}}>
             {updatingSkin?<Copy kind="small" style={{fontSize:12,lineHeight:18,color:t.muted}}>Updating your skin insights…</Copy>:analysisError?<View style={{gap:8}}><Copy kind="small" style={{color:t.muted}}>{analysisError}</Copy><ReportButton secondary label="Retry skin update" onPress={()=>setRetry(v=>v+1)}/></View>:skinSummary?<Copy kind="small" style={{fontSize:12,lineHeight:18,color:t.muted}}>{skinSummary}</Copy>:<Copy kind="small" style={{fontSize:12,lineHeight:18,color:t.muted}}>{data?.photo?'Photo saved. Create your routine to see your skin observations.':'Add a selfie to see today’s skin observations.'}</Copy>}

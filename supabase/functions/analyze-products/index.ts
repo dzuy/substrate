@@ -64,19 +64,23 @@ Deno.serve(async (request) => {
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  const supabaseAnonKey = request.headers.get('apikey') || Deno.env.get('SUPABASE_ANON_KEY');
   const authorization = request.headers.get('Authorization') ?? '';
 
   if (!supabaseUrl || !supabaseAnonKey || !authorization) {
     return jsonResponse({ error: 'Missing Supabase auth context' }, 401);
   }
 
+  const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (!token) return jsonResponse({ error: 'Unauthorized' }, 401);
+
   const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authorization } },
+    auth: { persistSession: false, autoRefreshToken: false },
   });
-  const user = await supabase.auth.getUser();
+  const user = await supabase.auth.getUser(token);
 
   if (user.error || !user.data.user) {
+    console.warn('Product scan authentication failed', user.error?.code, user.error?.message);
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
 

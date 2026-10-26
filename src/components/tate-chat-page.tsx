@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRouter } from 'expo-router';
+import { saveDayWithTate } from '@/services/tate-day';
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -13,15 +15,28 @@ import { supabase } from "@/lib/supabase";
 import { Copy, Notice, ReportButton } from "@/report/ui";
 import { fontFamily, useReportTheme } from "@/report/theme";
 
-type Message = {
+export type Message = {
+  routineLink?: boolean;
   role: "user" | "assistant";
   content: string;
   sources?: { id: string; name: string; brand: string }[];
   followUps?: { label: string; question: string }[];
 };
-export function TateChatPage({ initialPrompt = "" }: { initialPrompt?: string }) {
+export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onMessagesChange, dayMode = false, dayRequest, onDayRequestHandled, onDaySaved, onNavigate }: {
+  initialPrompt?: string;
+  messages?: Message[];
+  onMessagesChange?: Dispatch<SetStateAction<Message[]>>;
+  dayMode?: boolean;
+  dayRequest?: {id: number; text: string} | null;
+  onDayRequestHandled?: () => void;
+  onDaySaved?: () => void;
+  onNavigate?: () => void;
+}) {
+  const router = useRouter();
   const { theme: t } = useReportTheme();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
+  const messages = sharedMessages ?? localMessages;
+  const setMessages = onMessagesChange ?? setLocalMessages;
   const prompt = initialPrompt;
   const [question, setQuestion] = useState(prompt || "");
   useEffect(()=>{if(prompt)setQuestion(prompt);},[prompt]);
@@ -38,7 +53,7 @@ export function TateChatPage({ initialPrompt = "" }: { initialPrompt?: string })
     },
     [],
   );
-  async function send(text = question) {
+  async function send(text = question, newDay = false) {
     if (lock.current || !text.trim()) return;
     lock.current = true;
     setBusy(true);
@@ -58,6 +73,16 @@ export function TateChatPage({ initialPrompt = "" }: { initialPrompt?: string })
     controller.current = request;
     const timeout = setTimeout(() => request.abort(), 175000);
     try {
+      if (dayMode || newDay) {
+        const saved = await saveDayWithTate(text.trim(), !newDay, request.signal);
+        if (saved) {
+        onDaySaved?.();
+        setMessages([...next, { role: 'assistant', content: saved.routineReady
+          ? `Great, I’ve set this as your plan for today and updated your routine.${saved.activities.length ? '\n\n' + saved.activities.map(activity => '• ' + activity).join('\n') : ''}`
+          : 'Your day is saved. I couldn’t refresh your routine just yet—open Routine to retry the update.', routineLink: true }]);
+        return;
+        }
+      }
       const { data } = await supabase.auth.getSession();
       if (!data.session) throw Error("Sign in again to ask Tate.");
       const endpoint =
@@ -109,6 +134,15 @@ export function TateChatPage({ initialPrompt = "" }: { initialPrompt?: string })
       setBusy(false);
     }
   }
+  const sendRef = useRef(send);
+  useEffect(() => { sendRef.current = send; });
+  const handledRequest = useRef<number | null>(null);
+  useEffect(() => {
+    if (!dayRequest || handledRequest.current === dayRequest.id || lock.current) return;
+    handledRequest.current = dayRequest.id;
+    onDayRequestHandled?.();
+    void sendRef.current(dayRequest.text, true);
+  }, [dayRequest, onDayRequestHandled, busy]);
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -134,15 +168,14 @@ export function TateChatPage({ initialPrompt = "" }: { initialPrompt?: string })
         >
           {!messages.length ? (
             <View style={{ gap: 16 }}>
-              <Copy kind="heading">What would you like to understand?</Copy>
+              <Copy kind="heading">{dayMode ? "What would you like to change about your day?" : "What would you like to understand?"}</Copy>
               <Copy style={{ color: t.muted }}>
-                Explore your wardrobe, understand your reports, and connect the
-                dots with your profile.
+                {dayMode ? 'Tell me what to add or change. I’ll save your plans and update your routine, or answer any questions you have.' : 'Explore your wardrobe, understand your reports, and connect the dots with your profile.'}
               </Copy>
-              {[
+              {(dayMode ? [] : [
                 "How do the products in my wardrobe relate to my latest report?",
                 "How many reports have I done, and what does my latest one say?",
-              ].map((q) => (
+              ]).map((q) => (
                 <ReportButton
                   key={q}
                   secondary
@@ -169,6 +202,7 @@ export function TateChatPage({ initialPrompt = "" }: { initialPrompt?: string })
                 {m.role === "user" ? "YOU" : "TATE"}
               </Copy>
               <Copy>{m.content}</Copy>
+              {m.routineLink ? <ReportButton copper label="View Routine" disabled={busy} onPress={() => { onNavigate?.(); router.push("/routine"); }}/> : null}
               {m.sources?.length ? (
                 <View
                   style={{
@@ -208,7 +242,7 @@ export function TateChatPage({ initialPrompt = "" }: { initialPrompt?: string })
               style={{ flexDirection: "row", gap: 12, alignItems: "center" }}
             >
               <ActivityIndicator color={t.gold} />
-              <Copy kind="small">Tate is looking into your question…</Copy>
+              <Copy kind="small">{dayMode ? 'Tate is updating your day and routine…' : 'Tate is looking into your question…'}</Copy>
             </View>
           ) : null}
         </ScrollView>

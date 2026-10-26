@@ -1,3 +1,4 @@
+import { useTate } from '@/components/tate-drawer';
 import { GoldButtonSurface } from "@/components/gold-button-surface";
 import { DailyNoteInput } from '@/components/daily-note-input';
 import { skipDailyStart } from '@/services/daily-start';
@@ -23,6 +24,7 @@ function DailyEditor({ userId }: {
     userId: string;
 }) {
     const router = useRouter();
+    const { planDay } = useTate();
     const { review: reviewParam } = useLocalSearchParams<{ review?: string }>();
     const directReview = reviewParam === '1';
     const autoReviewStarted = useRef(false);
@@ -33,7 +35,7 @@ function DailyEditor({ userId }: {
     const [date, setDate] = useState(localDate());
     const [draft, setDraft] = useState<CheckInResponses>({});
     const [note, setNote] = useState('');
-    const [preparedNote,setPreparedNote]=useState('');
+    const preparedNote = '';
     const [error, setError] = useState('');
     const [message, setMessage] = useState('');
     const [busy, setBusy] = useState(false);
@@ -60,10 +62,6 @@ function DailyEditor({ userId }: {
     } }
     async function cache(next = draft, text = note) { await AsyncStorage.setItem(key, JSON.stringify({ draft: next, note: text })); }
     function change(next: CheckInResponses) { setDraft(next); void cache(next).catch(() => setError('Draft is in this session only. Device storage is unavailable.')); }
-    async function suggest() { await cache(); const { data } = await supabase.auth.getSession(); if (!data.session)
-        throw Error('Sign in again.'); const endpoint = Platform.OS === 'web' ? (__DEV__ ? `http://${window.location.hostname}:4318/api/daily-draft` : '/api/daily-draft') : process.env.EXPO_PUBLIC_DAILY_DRAFT_API_URL; if (!endpoint)
-        throw Error('Tate drafting is not configured here. Use the manual form.'); const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` }, body: JSON.stringify({ note }), signal: AbortSignal.timeout(60000) }); const result = await res.json(); if (!res.ok)
-        throw Error(result.error); const next = { ...draft, ...cleanDailyDraft(result.draft) }; setDraft(next); setPreparedNote(note); await cache(next); setDetails(false); setMessage('Tate prepared suggestions from your note. Correct any mistakes; nothing has been saved to your daily entry.'); }
     async function confirm() { if (localDate() !== date)
         throw Error('The date changed. Reopen Daily Check-in before saving.'); const clean = cleanDailyDraft(draft); const entry = await getOrCreateDailyEntry(userId, date); if (entry.error || !entry.data)
         throw Error(entry.error?.message || 'Daily entry unavailable'); if (revision && entry.data.updated_at !== revision)
@@ -76,9 +74,14 @@ function DailyEditor({ userId }: {
     async function skip() { if(localDate()!==date)throw Error('The date changed. Reopen Your Day.'); await cache(); await skipDailyStart(userId); router.replace('/your-day'); }
     const addPhoto = () => void run(async () => { await cache(); router.push('/photo' as Href); });
     const continueDay = () => void run(async () => {
-        setReview(true);
-        if (note.trim() && note !== preparedNote) await suggest();
-        else await cache();
+        if (note.trim()) {
+          await cache();
+          setReview(false);
+          planDay(note.trim());
+          router.replace('/your-day');
+          return;
+        }
+        await cache();
         setReview(true);
     });
     const continueDayRef = useRef(continueDay);
@@ -129,6 +132,7 @@ function DailyEditor({ userId }: {
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{padding:20,gap:14}}>
               {busy || !ready && !error ? <><ActivityIndicator color={t.gold}/><Copy>{ready ? 'Tate is preparing your day…' : 'Loading your day…'}</Copy></>:null}
               {error?<Notice>{error}</Notice>:null}
+              {error && ready && note.trim() && note !== preparedNote ? <ReportButton secondary label="Try again" disabled={busy} onPress={continueDay}/> : null}
               {message&&!busy?<Copy kind="small">{message}</Copy>:null}
               {Object.entries(cleanDailyDraft(draft)).map(([k,v])=><Copy key={k}>{({sleepQuality:'Sleep',stressLevel:'Stress',cyclePhase:'Cycle',skinFeelToday:'Skin feel',dailyActivities:'Activities',movementPlan:'Activity context',movementPlanNote:'Your plans',yesterdayNote:'Observations'} as Record<string,string>)[k]||k}: {Array.isArray(v)?v.join(', '):String(v)}</Copy>)}
               {!busy&&!Object.keys(cleanDailyDraft(draft)).length?<Copy>No details added yet. You can continue or add them below.</Copy>:null}

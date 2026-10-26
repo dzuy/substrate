@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useMobileViewport } from "@/lib/use-mobile-viewport";
 import { TateDrawerProvider } from "@/components/tate-drawer";
 import { Redirect, Stack, useGlobalSearchParams, usePathname } from "expo-router";
@@ -24,8 +25,13 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const { isLoading, session, isPasswordRecovery } = useAuth();
+  const { isLoading, session, isPasswordRecovery, pendingOnboarding, clearOnboardingRedirect } = useAuth();
   const pathname = usePathname();
+  useEffect(() => {
+    if (session && pathname === "/onboarding" && pendingOnboarding) {
+      clearOnboardingRedirect();
+    }
+  }, [session, pathname, pendingOnboarding, clearOnboardingRedirect]);
   const { onboarding } = useGlobalSearchParams<{ onboarding?: string }>();
   const isOnboarding = pathname === "/onboarding" || (pathname.startsWith("/skin-wardrobe") && onboarding === "1");
   const isLandingRoute = pathname === "/";
@@ -53,6 +59,7 @@ function RootNavigator() {
         <Stack
           screenLayout={({ children }) => {
             if (isPasswordRecovery && !isResetPasswordRoute) return <Redirect href="/reset-password" />;
+            if (session && pendingOnboarding && pathname !== "/onboarding") return <Redirect href="/onboarding" />;
             if (isLandingRoute || isResetPasswordRoute) return children;
             if (isLoading) return (
               <View style={styles.loadingScreen}>

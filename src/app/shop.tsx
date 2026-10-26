@@ -40,7 +40,7 @@ export default function Shop() {
   useEffect(()=>{
     let alive=true;setBusy(true);setError('');setRows([]);
     let q=supabase.from('products').select('id,name,category,image_url,brand:brands(name)',{count:'exact'})
-      .eq('catalog_visible',true).is('archived_at',null).order('name').order('id').range(page*pageSize,(page+1)*pageSize-1);
+      .is('archived_at',null).order('name').order('id').range(page*pageSize,(page+1)*pageSize-1);
     if(search)q=q.ilike('name',`%${search.replace(/[%_\\]/g,'')}%`);
     if(category!=='all')q=q.eq('category',category);
     Promise.resolve(q).then(r=>{if(!alive)return;if(r.error)throw r.error;setRows((r.data||[]) as unknown as Row[]);setCount(r.count||0);})
