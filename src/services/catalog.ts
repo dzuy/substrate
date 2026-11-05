@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { invalidateCatalogDiscovery } from './catalog-discovery';
 import { collectCatalogRows } from './catalog-pagination';
 import type {
   Database,
@@ -143,7 +144,7 @@ export async function listCatalogProducts({ includeArchived = false } = {}) {
 }
 
 /** Search the complete loaded catalog before the UI limits rendered tiles. */
-export function searchCatalogProducts(products: CatalogProduct[], query: string) {
+export function searchCatalogProducts<T extends { name: string; aliases?: string[] | null; brand: { name: string } | null }>(products: T[], query: string) {
   const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
   return products.filter(product => {
     const text = `${product.brand?.name ?? ''} ${product.name} ${(product.aliases ?? []).join(' ')}`.toLowerCase();
@@ -205,6 +206,7 @@ export async function saveProductWithIngredients(input: ProductInput) {
     return { data: null, error: productResponse.error ?? new Error('Product could not be saved.') };
   }
 
+  invalidateCatalogDiscovery();
   const productId = productResponse.data.id;
   const deleteResponse = await supabase.from('product_ingredients').delete().eq('product_id', productId);
 
@@ -236,6 +238,7 @@ export async function saveProductWithIngredients(input: ProductInput) {
 }
 
 export async function archiveProduct(productId: string) {
+  invalidateCatalogDiscovery();
   return supabase
     .from('products')
     .update({ archived_at: new Date().toISOString(), status: 'draft',catalog_visible:false,recommendation_enabled:false })

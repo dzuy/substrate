@@ -1,7 +1,7 @@
 import { matchDetectedProduct } from '../../shared/catalog-matching.mjs';
 import { ProductScanError, productScanErrorMessage } from './product-scan-error';
 import { supabase } from '@/lib/supabase';
-import type { CatalogProduct } from '@/services/catalog';
+import type { CatalogDiscoveryProduct } from './catalog-discovery';
 import type { Database, Json, ProductDetectionStatus } from '@/types/database';
 
 export type ProductDetectionCandidate = {
@@ -18,7 +18,7 @@ export type ProductDetectionCandidate = {
 export type ProductRecognitionInput = {
   imageDataUrl?: string;
   sourceImageUri: string;
-  catalogProducts: CatalogProduct[];
+  catalogProducts: CatalogDiscoveryProduct[];
 };
 
 export interface ProductRecognitionService {

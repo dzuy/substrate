@@ -1,5 +1,6 @@
 import { getProfile, toProfileContext } from '@/services/profile';
 import { useOnboardingPhoto } from "@/hooks/use-onboarding-photo";
+import { listCatalogDiscoveryProducts, type CatalogDiscoveryProduct } from '@/services/catalog-discovery';
 import { ProductScanError, productScanErrorMessage } from '@/services/product-scan-error';
 import {Copy, ReportButton, ReportFrame} from '@/report/ui';
 import { takeProductPhotoDraft } from '@/services/product-photo-draft';
@@ -33,7 +34,7 @@ import {
   addProductToWardrobe,
   createPersonalProduct,
   createIngredient,
-  listCatalogProducts,
+  getCatalogProduct,
   searchCatalogProducts,
   listUserWardrobe,
   removeWardrobeItem,
@@ -369,8 +370,9 @@ export function AddProductsScreen() {
   const { theme: t } = useReportTheme();
   const styles = makeStyles(t);
   const { user } = useAuth();
+  const userId = user?.id;
   const router = useRouter();
-  const [catalogProducts, setCatalogProducts] = useState<CatalogProduct[]>([]);
+  const [catalogProducts, setCatalogProducts] = useState<CatalogDiscoveryProduct[]>([]);
   const [catalogQuery, setCatalogQuery] = useState("");
   const [catalogLimit, setCatalogLimit] = useState(24);
   const [selectedImage, setSelectedImage] =
@@ -400,43 +402,41 @@ export function AddProductsScreen() {
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [catalogError, setCatalogError] = useState("");
+  const [catalogReady, setCatalogReady] = useState(false);
+  const [catalogRetry, setCatalogRetry] = useState(0);
+  const [matchedProducts, setMatchedProducts] = useState<CatalogProduct[]>([]);
+
   useFocusEffect(
     useCallback(() => {
-      let isMounted = true;
-
-      async function loadCatalog() {
-        if (!user) {
-          setIsLoading(false);
-          return;
-        }
-
-        setIsLoading(true);
-        setErrorMessage("");
-
-        const catalogResult = await listCatalogProducts();
-
-        if (!isMounted) {
-          return;
-        }
-
-        if (catalogResult.error) {
-          setErrorMessage(
-            catalogResult.error.message ??
-              "Product catalog could not be loaded.",
-          );
-        } else {
-          setCatalogProducts(catalogResult.data ?? []);
-        }
-
-        setIsLoading(false);
+      // Retry intentionally reruns this focused load after a failure.
+      void catalogRetry;
+      const controller = new AbortController();
+      setCatalogReady(false);
+      setCatalogError("");
+      setIsLoading(Boolean(userId));
+      if (!userId) {
+        setCatalogProducts([]);
+        return () => controller.abort();
       }
-
-      loadCatalog();
-
-      return () => {
-        isMounted = false;
-      };
-    }, [user]),
+      async function loadCatalog() {
+        try {
+          const result = await listCatalogDiscoveryProducts(userId!, controller.signal);
+          if (controller.signal.aborted) return;
+          if (result.error) throw new Error(result.error.message);
+          setCatalogProducts(result.data ?? []);
+          setCatalogReady(true);
+        } catch (error) {
+          if (!controller.signal.aborted) {
+            setCatalogError(error instanceof Error ? error.message : "Product catalog could not be loaded.");
+          }
+        } finally {
+          if (!controller.signal.aborted) setIsLoading(false);
+        }
+      }
+      void loadCatalog();
+      return () => controller.abort();
+    }, [userId, catalogRetry]),
   );
 
   async function chooseImage() {
@@ -481,7 +481,7 @@ export function AddProductsScreen() {
   }
 
   async function analyzeSelectedImage() {
-    if (!user || !selectedImage) {
+    if (!user || !selectedImage || !catalogReady) {
       return;
     }
 
@@ -500,6 +500,13 @@ export function AddProductsScreen() {
         setMessage('We couldn’t identify any products in this photo. Try a close-up of your products with the labels facing the camera in good light, or add them manually.');
         return;
       }
+      // Fetch formulas only for identified matches, before opening editable review cards.
+      const matchedIds = [...new Set(candidates.flatMap(candidate => candidate.matchedProductId ? [candidate.matchedProductId] : []))];
+      const details = await Promise.all(matchedIds.map(getCatalogProduct));
+      if (details.some(result => result.error || !result.data)) {
+        throw new ProductScanError('Matched product details could not be loaded. Please try again.');
+      }
+      setMatchedProducts(details.flatMap(result => result.data ? [result.data] : []));
       const saved = await saveProductDetections(user.id, candidates);
       setIsAnalyzing(false);
 
@@ -764,7 +771,7 @@ export function AddProductsScreen() {
     finally { addLock.current = false; setIsSaving(false); }
   }
 
-  const catalogMatches = searchCatalogProducts(catalogProducts, catalogQuery);
+  const catalogMatches = useMemo(() => searchCatalogProducts(catalogProducts, catalogQuery), [catalogProducts, catalogQuery]);
   const canSaveManualProduct =
     Boolean(manualBrand.trim()) &&
     Boolean(manualProductName.trim()) &&
@@ -795,7 +802,7 @@ export function AddProductsScreen() {
         <View style={styles.loading}>
           <ActivityIndicator color={t.gold} />
           <SubstrateText variant="small" color={t.muted}>
-            Loading product tools
+            Loading the full product catalog…
           </SubstrateText>
         </View>
       ) : null}
@@ -819,7 +826,12 @@ export function AddProductsScreen() {
         </Card>
       ) : null}
 
-      {!isLoading ? <Card style={styles.card}>
+      {catalogError ? <Card style={styles.errorCard}>
+        <SubstrateText variant="small">{catalogError}</SubstrateText>
+        <ReportButton secondary label="Retry loading catalog" onPress={() => setCatalogRetry(value => value + 1)} />
+      </Card> : null}
+
+      {catalogReady ? <Card style={styles.card}>
         <SubstrateText variant="section">Browse the catalog</SubstrateText>
         <SubstrateText variant="small" color={t.muted}>Adding a product records what you own. It does not mean its formula has been reviewed or recommended for you.</SubstrateText>
         <View style={{height:46}}><ProductSearch value={catalogQuery} onChange={value => {setCatalogQuery(value); setCatalogLimit(24);}} placeholder="Search brands, products or aliases"/></View>
@@ -1038,17 +1050,17 @@ export function AddProductsScreen() {
             />
             <Pressable
               accessibilityRole="button"
-              disabled={isAnalyzing || isSaving}
+              disabled={isAnalyzing || isSaving || !catalogReady}
               onPress={analyzeSelectedImage}
               style={[
                 styles.analyzeButton,
-                (isAnalyzing || isSaving) && styles.disabled,
+                (isAnalyzing || isSaving || !catalogReady) && styles.disabled,
               ]}
             >
               {isAnalyzing ? (
                 <LoadingPrimaryButton label="Finding Products" />
               ) : (
-                <PrimaryButton label={onboardingPhoto ? "Identify Products from Photo" : "Find Products"} />
+                <PrimaryButton label={!catalogReady ? "Waiting for catalog" : onboardingPhoto ? "Identify Products from Photo" : "Find Products"} />
               )}
             </Pressable>
           </View>
@@ -1060,7 +1072,7 @@ export function AddProductsScreen() {
             {detections.map((detection) => (
               <DetectionCard
                 key={detection.id}
-                catalogProducts={catalogProducts}
+                catalogProducts={matchedProducts}
                 detection={detection}
                 disabled={isSaving}
                 onConfirm={(reviewDraft) =>
@@ -1760,7 +1772,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function upsertCatalogProduct(
-  products: CatalogProduct[],
+  products: CatalogDiscoveryProduct[],
   nextProduct: CatalogProduct,
 ) {
   const existingIndex = products.findIndex(

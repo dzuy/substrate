@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type PropsWithChildren } from 'react';
-import { Animated, Easing, Keyboard, Modal, Platform, Pressable, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
 import { TateChatPage, type Message } from './tate-chat-page';
@@ -39,7 +39,7 @@ export function TateDrawerProvider({ children }: PropsWithChildren) {
   return <TateContext.Provider value={{openTate,openDayEditor,planDay,dayVersion}}>
     {children}
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={close}>
-      <View style={{flex:1,justifyContent:'flex-end'}}>
+      <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':undefined} style={{flex:1,justifyContent:'flex-end'}}>
         <Animated.View pointerEvents="none" style={{position:'absolute',top:0,left:0,right:0,bottom:0,backgroundColor:'#000',opacity:progress.interpolate({inputRange:[0,1],outputRange:[0,0.5]})}}/>
         <Pressable accessibilityRole="button" accessibilityLabel="Dismiss Tate chat" onPress={close} style={{position:'absolute',top:0,left:0,right:0,bottom:0}}/>
         <Animated.View accessibilityViewIsModal style={{height:'90%',width:'100%',maxWidth:620,alignSelf:'center',borderTopLeftRadius:26,borderTopRightRadius:26,overflow:'hidden',backgroundColor:t.paper,transform:[{translateY:progress.interpolate({inputRange:[0,1],outputRange:[height,0]})}]}}>
@@ -47,7 +47,7 @@ export function TateDrawerProvider({ children }: PropsWithChildren) {
           <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingLeft:23,paddingRight:10,paddingVertical:4,borderBottomWidth:1,borderColor:t.line}}><Copy kind="heading" style={{color:t.ink,fontSize:25}}>Ask Tate</Copy><Pressable accessibilityRole="button" accessibilityLabel="Close Tate chat" onPress={close} style={{width:44,height:44,alignItems:'center',justifyContent:'center'}}><X size={23} color={t.ink}/></Pressable></View>
           <SafeAreaView edges={['bottom']} style={{flex:1,minHeight:0}}><TateChatPage initialPrompt={prompt} messages={messages} onMessagesChange={setMessages} dayMode={editingDay} dayRequest={dayRequest} onDayRequestHandled={()=>setDayRequest(null)} onDaySaved={()=>setDayVersion(v=>v+1)} onNavigate={close}/></SafeAreaView>
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   </TateContext.Provider>;
 }

@@ -95,7 +95,7 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
 
   const catalog = await collectCatalogRows((from, to) => supabase.from('products')
     .select('id,name,category,formula_status,product_type,is_bundle,brand:brands(name),product_ingredients(ingredient:ingredients(name,inci_name))')
-    .is('archived_at', null).order('id').range(from, to));
+    .is('archived_at', null).order('id').range(from, to), 4);
   if (catalog.error || !catalog.data) return {data:null,error:catalog.error || new Error('Product catalog unavailable. Please retry.')};
   const productMatches = matchDailyProducts(catalog.data, generated.dailyPlan.ingredientsToFavor, generated.dailyPlan.ingredientsToAvoid);
   const owned = ownedRoutine(inputs.data.wardrobe,entry.data.check_in);

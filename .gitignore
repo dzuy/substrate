@@ -63,3 +63,13 @@ data/catalog/brand-import-report.json
 
 data/catalog/library-expansion-report.json
 data/catalog/october-2026/
+
+# Local iOS release artifacts and private QA inputs
+*.xcarchive/
+*.ipa
+*.dSYM/
+DerivedData/
+DeviceDerivedData/
+/archives/
+/artifacts/ios/
+/private-test-assets/

@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "substrate",
+    "name": "Substrate Beta",
     "slug": "substrate",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -8,11 +8,15 @@
     "scheme": "substrate",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
+      "icon": "./assets/images/substrate-beta-icon.png",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Substrate uses your microphone when you choose voice input for Tate.",
         "NSSpeechRecognitionUsageDescription": "Substrate uses speech recognition to turn your voice into editable text for Tate."
-      }
+      },
+      "bundleIdentifier": "com.dzuylinh.substrate.beta",
+      "buildNumber": "2",
+      "appleTeamId": "MB6W7WXD2R",
+      "supportsTablet": false
     },
     "android": {
       "adaptiveIcon": {
@@ -31,7 +35,12 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "origin": "https://www.substrate-skin.com"
+        }
+      ],
       [
         "expo-image-picker",
         {
@@ -49,9 +58,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#FBF6EE",
+          "image": "./assets/images/substrate-beta-icon.png",
+          "imageWidth": 220
         }
       ]
     ],

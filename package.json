@@ -60,7 +60,10 @@
     "start:production": "node server/production.mjs",
     "test:production": "node --test server/production.test.mjs",
     "test:report": "npm run build:ingredient-engine && node --test server/*report*.test.mjs",
-    "report:server": "npm run build:ingredient-engine && node --env-file-if-exists=.env --env-file-if-exists=.env.local server/tate-dev.mjs"
+    "report:server": "npm run build:ingredient-engine && node --env-file-if-exists=.env --env-file-if-exists=.env.local server/tate-dev.mjs",
+    "ios:check": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/check-ios-env.mjs",
+    "ios:prebuild": "expo prebuild --platform ios --no-install",
+    "ios:native": "expo run:ios"
   },
   "private": true,
   "engines": {

@@ -4,7 +4,6 @@ import { prepareDayWithTate, confirmDayWithTate, type DayProposal } from '@/serv
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   ScrollView,
   TextInput,
@@ -155,8 +154,7 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
     void sendRef.current(dayRequest.text, true);
   }, [dayRequest, onDayRequestHandled, busy]);
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    <View
       style={{ flex: 1, backgroundColor: t.paper }}
     >
       <View
@@ -175,6 +173,7 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
             conversation.current?.scrollToEnd({ animated: true })
           }
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
           contentContainerStyle={{ padding: 24, gap: 20 }}
         >
           {!messages.length ? (
@@ -339,6 +338,6 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
           </View>
         </View>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
