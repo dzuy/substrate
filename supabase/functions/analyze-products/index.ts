@@ -206,7 +206,8 @@ Deno.serve(async (request) => {
 function buildInstructions() {
   return [
     'You identify skincare, sunscreen, cosmetic, and aesthetic-care product packaging from a user-submitted image.',
-    'Use visible label text, brand marks, packaging, and product names. Multiple products may be visible.',
+    'Transcribe visible brand and product-name text exactly. Do not expand, paraphrase, normalize, or invent words (for example, do not change Cell to Cellular).',
+    'Use visible label text and brand marks. Multiple products may be visible. If the name is not readable, return null rather than infer it from package shape or descriptive marketing copy.',
     'Match to the supplied canonical catalog only when the brand/product clearly corresponds to a catalog item or alias.',
     'Never create new catalog records. Unknown products should have matchedProductId null and status unknown.',
     'Confidence is 0 to 1 and should reflect visual/OCR certainty, not product quality.',

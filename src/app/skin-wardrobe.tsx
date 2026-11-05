@@ -1190,10 +1190,16 @@ function DetectionCard({
         </View>
         <View style={styles.confidenceChip}>
           <SubstrateText variant="small" color={t.ink}>
-            Confidence {formatConfidence(detection.confidence) ?? "N/A"}
+            {detection.detectedBrand?.trim() && detection.detectedProductName?.trim() ? "Review label" : "Incomplete identity"}
           </SubstrateText>
         </View>
       </View>
+
+      <SubstrateText variant="small" color={t.muted}>
+        {detection.detectedBrand?.trim() && detection.detectedProductName?.trim()
+          ? "Possible identity, not verified. Check the exact brand and product name against the label before accepting."
+          : "The photo did not establish a complete product identity. Add a clearer front-label photo or enter the missing details yourself."}
+      </SubstrateText>
 
       <View style={styles.candidateFields}>
         <View style={[styles.fieldGroup, styles.editableFieldGroup]}>
@@ -1726,11 +1732,7 @@ function formatCatalogLabel(value: string) {
     .join(" ");
 }
 
-function formatConfidence(confidence?: number) {
-  return typeof confidence === "number"
-    ? `${Math.round(confidence * 100)}%`
-    : undefined;
-}
+
 
 function toWardrobeRoutineRole(
   category?: CatalogProduct["category"],

@@ -1,0 +1,1 @@
+{"platforms":["apple","android"],"apple":{"modules":["SubstrateSpeechModule"]},"android":{"modules":["expo.modules.substratespeech.SubstrateSpeechModule"]}}
