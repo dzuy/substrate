@@ -1,3 +1,4 @@
+import { createSupplementLabelHandler } from './supplement-label.mjs';
 import http from "node:http";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
@@ -33,6 +34,7 @@ export function createProductionServer({
   faceScan = createHandler(),
   report = createReportHandler(),
   dailyDraft = createDailyDraftHandler(),
+  supplementLabel = createSupplementLabelHandler(),
 } = {}) {
   const send = (res, status, text) => {
     res.writeHead(status, {
@@ -48,6 +50,7 @@ export function createProductionServer({
       const pathname = decodeURIComponent(
         new URL(req.url, "http://localhost").pathname,
       );
+      if (pathname === "/api/supplement-label") return await supplementLabel(req,res);
       if (pathname === "/api/daily-draft") return await dailyDraft(req,res);
       if (pathname === "/api/skin-report") return await report(req, res);
       if (pathname === "/api/ask-tate") return await tate(req, res);

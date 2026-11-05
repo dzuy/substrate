@@ -1,3 +1,4 @@
+import { createSupplementLabelHandler } from './supplement-label.mjs';
 import { createReportHandler } from "./skin-report.mjs";
 import http from "node:http";
 import { createTateHandler } from "./ask-tate.mjs";
@@ -29,6 +30,7 @@ http
       res.end();
       return;
     }
+    if (req.url?.split("?")[0] === "/api/supplement-label") { void createSupplementLabelHandler({allowLocalOrigins:true})(req,res); return; }
     if (req.url?.split("?")[0] === "/api/daily-draft") { void dailyDraft(req,res); return; }
     if (req.url?.split("?")[0] === "/api/skin-report") {
       void report(req, res);

@@ -274,23 +274,24 @@ export async function addProductToWardrobe(
   productId: string,
   metadata: WardrobeMetadataInput = {}
 ) {
-  return supabase
-    .from('user_wardrobe_items')
-    .upsert(
-      {
-        user_id: userId,
-        product_id: productId,
-        status: metadata.status ?? 'active',
-        notes: normalizeText(metadata.notes),
-        routine_timing: metadata.routineTiming ?? 'either',
-        frequency: metadata.frequency ?? 'daily',
-        routine_role: metadata.routineRole ?? 'other',
-        avoid_when_irritated: metadata.avoidWhenIrritated ?? false,
-      },
-      { onConflict: 'user_id,product_id' }
-    )
-    .select('*')
-    .single();
+  // Ignore repeat inserts so adding an owned product cannot erase its notes or settings.
+  const inserted = await supabase.from('user_wardrobe_items').upsert({
+    user_id: userId, product_id: productId, status: metadata.status ?? 'active',
+    notes: normalizeText(metadata.notes), routine_timing: metadata.routineTiming ?? 'either',
+    frequency: metadata.frequency ?? 'daily', routine_role: metadata.routineRole ?? 'other',
+    avoid_when_irritated: metadata.avoidWhenIrritated ?? false,
+  }, {onConflict:'user_id,product_id',ignoreDuplicates:true});
+  if(inserted.error)return {data:null,error:inserted.error};
+  const saved = await supabase.from('user_wardrobe_items').select('*').eq('user_id',userId).eq('product_id',productId).single();
+  if(saved.error || !saved.data || !Object.keys(metadata).length)return saved;
+  const updated = await updateWardrobeItem(saved.data.id,metadata);
+  return updated.error ? {data:null,error:updated.error} : saved;
+}
+
+export async function createPersonalProduct(input:{brand:string;productName:string;description:string;ingredients:string[]}) {
+  const result = await supabase.rpc('save_personal_wardrobe_product', {brand:input.brand.trim(),product_name:input.productName.trim(),description:input.description.trim(),ingredients:input.ingredients});
+  if(result.error || !result.data)return {data:null,error:result.error || {message:'Product could not be saved.'}};
+  return getCatalogProduct(result.data);
 }
 
 export async function updateWardrobeItem(

@@ -1,3 +1,4 @@
+import { getOrCreateTodayRecommendation } from '@/services/recommendations';
 import { DayMetricDrawer, type DayMetric } from '@/components/day-metric-drawer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTate } from '@/components/tate-drawer';
@@ -28,6 +29,8 @@ function Dashboard({userId}:{userId:string}) {
   const [failedPhotoUrl, setFailedPhotoUrl] = useState('');
   const [updatingSkin,setUpdatingSkin] = useState(true);
   const [retry,setRetry] = useState(0);
+  const [routineBusy, setRoutineBusy] = useState(false);
+  const routineLock = useRef(false);
   const [metric, setMetric] = useState<DayMetric | null>(null);
   const [note, setNote] = useState('');
   const [sending, setSending] = useState(false);
@@ -55,7 +58,7 @@ function Dashboard({userId}:{userId:string}) {
     {label:'Weather',value:data?.environment?.temperatureF!=null?`${Math.round(data.environment.temperatureF)}°F`:'Not added',icon:Sun,color:'#E9BC87'},
   ];
   const serif = Platform.OS==='web'? '"Times New Roman", serif':Platform.OS==='ios'?'Times New Roman':'serif';
-  const skinSummary = !data?.stale ? data?.recommendation?.skinStory.summary || data?.recommendation?.analysis.photoAnalysis?.summary : undefined;
+  const skinSummary = data?.recommendation?.skinStory.summary || data?.recommendation?.analysis.photoAnalysis?.summary;
   const analysisError = data && 'analysisError' in data ? data.analysisError : '';
   const hasCheckIn = !!checkIn?.confirmedAt && [checkIn.sleepQuality, checkIn.stressLevel, checkIn.cyclePhase, checkIn.skinFeelToday, checkIn.movementPlanNote, checkIn.yesterdayNote, ...(checkIn.movementPlan || []), ...(checkIn.dailyActivities || [])].some(value => typeof value === 'string' && value.trim().length > 0);
   async function continueWithTate() {
@@ -95,6 +98,19 @@ function Dashboard({userId}:{userId:string}) {
       {data && 'weatherError' in data && data.weatherError ? <Notice>{data.weatherError}</Notice> : null}
       {error?<><Notice>{error}</Notice><ReportButton secondary label="Try again" onPress={()=>setRetry(v=>v+1)}/></>:null}
       {!data&&!error?<Copy kind="small">Loading your day…</Copy>:null}
+      {data?.entry ? <View style={{gap:8}}>
+        {data.stale ? <Copy kind="small">Your inputs are saved. Update your routine when you’re ready. The previous routine remains available.</Copy> : null}
+        <ReportButton label="Update my routine" busy={routineBusy} onPress={async () => {
+          if (routineLock.current || !data.entry) return;
+          routineLock.current = true; setRoutineBusy(true); setError('');
+          try {
+            const result = await getOrCreateTodayRecommendation(userId, data.entry.id);
+            if (result.error || !result.data) throw Error('Routine unavailable');
+            setRetry(v => v + 1);
+          } catch { setError('Your inputs are saved. Your routine could not be updated; try Update my routine again.'); }
+          finally { routineLock.current = false; setRoutineBusy(false); }
+        }}/>
+      </View> : null}
       {hasCheckIn ? <Panel>
         <View style={{flexDirection:'row',alignItems:'center',gap:10}}>
           <View style={{width:39,height:39,borderRadius:20,backgroundColor:'#031723',alignItems:'center',justifyContent:'center'}}><Image source={require('@/assets/images/nautilus-daily-v4.png')} contentFit="contain" accessible={false} style={{width:33,height:33}}/></View>

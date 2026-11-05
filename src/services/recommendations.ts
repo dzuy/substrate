@@ -1,3 +1,4 @@
+import { activityRoutineItems } from '../../shared/activity-routine.mjs';
 import { matchDailyProducts } from '../../shared/catalog-matching.mjs';
 import { listUserWardrobe } from '@/services/catalog';
 import { stableInput, ownedRoutine } from '../../shared/journey.mjs';
@@ -100,7 +101,7 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
   const owned = ownedRoutine(inputs.data.wardrobe,entry.data.check_in);
   const previousItems=existing.data?.dailyPlan.items||[];
   generated.dailyPlan={...generated.dailyPlan,productMatches,catalogComparedCount:catalog.data.length,inputFingerprint:inputs.data.fingerprint,analysisSnapshot:generated.analysis,
-    items:[...owned,...generated.dailyPlan.items.filter(i=>!owned.some(o=>o.moment===i.moment && /cleanser|moisturiz|spf/i.test(i.label)))].map(i=>({...i,completed:previousItems.some(old=>old.id===i.id && old.label===i.label && old.completed)}))};
+    items:[...activityRoutineItems(entry.data.check_in),...owned,...generated.dailyPlan.items.filter(i=>!owned.some(o=>o.moment===i.moment && /cleanser|moisturiz|spf/i.test(i.label)))].map(i=>({...i,completed:previousItems.some(old=>old.id===i.id && old.label===i.label && old.completed)}))};
   const current=await readPlanInputs(userId,dailyEntryId);
   if(current.error || current.data?.fingerprint!==inputs.data.fingerprint) return {data:null,error:new Error('Your inputs changed while the plan was building. Generate it again.')};
   if (existing.data) {
@@ -890,6 +891,7 @@ function getRoutineContext(checkIn: CheckInResponses) {
   return [
     checkIn.routineNote,
     checkIn.movementPlanNote,
+    ...(checkIn.dailyActivities || []),
     checkIn.yesterdayNote,
     checkIn.routineChange,
   ]

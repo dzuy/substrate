@@ -1,3 +1,4 @@
+import { SupplementLabelCapture } from "@/components/supplement-label-capture";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Link, type Href } from "expo-router";
 import type { ReactNode } from "react";
@@ -34,7 +35,6 @@ type MultiSelectProfileKey =
   | "skinGoals"
   | "skinHistory"
   | "medicalHistory"
-  | "reproductiveHormonalStatus"
   | "typicalDiet"
   | "supplements"
   | "proceduresHistory";
@@ -177,7 +177,7 @@ export function ProfileContent({ onNavigate, sections, onSaved }: { onNavigate: 
       {!sections ? <ScreenHeader
         eyebrow="Profile"
         title="Your skin, in context."
-        body="Your background, your habits, your goals. Keep your details up to date as your skin story evolves."
+        body="These questions help personalize your skin guidance using the background, habits and goals you share."
       /> : null}
 
       {!sections ? <Card style={styles.card}>
@@ -243,6 +243,8 @@ export function ProfileContent({ onNavigate, sections, onSaved }: { onNavigate: 
             updateProfileContext({ skinAncestry })
           }
         />
+        <SubstrateText variant="small">Skin tone — choose the closest swatch</SubstrateText>
+        <View style={styles.pillGroup}>{['#F6DCCB','#EAC3A5','#D5A17B','#B77E56','#885537','#513426'].map((color, index) => <Pressable key={color} accessibilityRole="radio" accessibilityLabel={`Skin tone ${index + 1}`} accessibilityState={{checked: profileContext.skinTone === String(index + 1)}} onPress={() => updateProfileContext({skinTone: String(index + 1)})} style={{width:48,height:48,borderRadius:24,backgroundColor:color,borderWidth:profileContext.skinTone === String(index + 1) ? 4 : 1,borderColor:t.ink}} />)}</View>
         <OptionGroup
           label="Skin type"
           options={skinTypeOptions}
@@ -290,18 +292,21 @@ export function ProfileContent({ onNavigate, sections, onSaved }: { onNavigate: 
       </ProfileSection>
 
       <ProfileSection title="Hormones">
+        <OptionGroup label="Include cycle and hormone context?" options={['Yes', 'Not tracking', 'Not applicable']} selected={profileContext.hormoneContext} onSelect={(hormoneContext) => updateProfileContext({hormoneContext})}/>
+        {profileContext.hormoneContext === 'Yes' ? <>
         <OptionGroup
           label="Regular cycles?"
           options={regularCycleOptions}
           selected={profileContext.regularCycles}
           onSelect={(regularCycles) => updateProfileContext({ regularCycles })}
         />
+        {!['Not tracking', 'Not applicable'].includes(profileContext.regularCycles || '') ? <>
         <View style={styles.twoColumn}>
           <View style={styles.columnField}>
             <ProfileInput
               label="Average cycle length"
               value={profileContext.averageCycleLength}
-              placeholder="28 days"
+              placeholder="Your usual length, if known"
               inputMode="numeric"
               onChangeText={(averageCycleLength) =>
                 updateProfileContext({ averageCycleLength })
@@ -319,6 +324,7 @@ export function ProfileContent({ onNavigate, sections, onSaved }: { onNavigate: 
             />
           </View>
         </View>
+        </> : null}
         <OptionGroup
           label="Perimenopause?"
           options={yesNoUnknownOptions}
@@ -357,20 +363,12 @@ export function ProfileContent({ onNavigate, sections, onSaved }: { onNavigate: 
             updateProfileContext({ glp1Medications })
           }
         />
-        <OptionGroup
-          label="Reproductive & hormonal status"
-          multi
-          options={reproductiveStatusOptions}
-          selectedValues={profileContext.reproductiveHormonalStatus}
-          onToggle={(value) =>
-            toggleMultiValue("reproductiveHormonalStatus", value)
-          }
-        />
+        </> : null}
       </ProfileSection>
 
       <ProfileSection title="Allergies">
-        <OptionGroup label="Known skincare ingredient allergies" options={['None known','Yes','Unsure','Prefer not to say']} selected={profileContext.ingredientAllergy} onSelect={(value)=>updateProfileContext({ingredientAllergy:value as ProfileContext['ingredientAllergy']})}/>
-        <ProfileInput label="Allergy details (optional)" value={profileContext.allergyNotes} placeholder="Ingredient or reaction, if known" onChangeText={(allergyNotes)=>updateProfileContext({allergyNotes})}/>
+        <OptionGroup label="Known skincare ingredient allergies" options={['None known','Yes','Unsure']} selected={profileContext.ingredientAllergy} onSelect={(value)=>updateProfileContext({ingredientAllergy:value as ProfileContext['ingredientAllergy']})}/>
+        {profileContext.ingredientAllergy === "Yes" ? <ProfileInput label="Allergy details" value={profileContext.allergyNotes} placeholder="Ingredient or reaction, if known" onChangeText={(allergyNotes)=>updateProfileContext({allergyNotes})}/> : null}
       </ProfileSection>
       <ProfileSection title="Lifestyle">
         <OptionGroup
@@ -411,17 +409,11 @@ export function ProfileContent({ onNavigate, sections, onSaved }: { onNavigate: 
           selected={profileContext.sunExposure}
           onSelect={(sunExposure) => updateProfileContext({ sunExposure })}
         />
-        <OptionGroup
-          label="SPF use"
-          options={spfOptions}
-          selected={profileContext.spfUse}
-          onSelect={(spfUse) => updateProfileContext({ spfUse })}
-        />
       </ProfileSection>
 
       <ProfileSection title="Nutrition">
         <OptionGroup
-          label="Typical diet"
+          label="Food preferences and restrictions"
           multi
           options={dietOptions}
           selectedValues={profileContext.typicalDiet}
@@ -449,31 +441,12 @@ export function ProfileContent({ onNavigate, sections, onSaved }: { onNavigate: 
             />
           </View>
         </View>
-        <View style={styles.twoColumn}>
-          <View style={styles.columnField}>
-            <ProfileInput
-              label="Average daily fruit"
-              value={profileContext.dailyFruit}
-              placeholder="2 servings"
-              onChangeText={(dailyFruit) =>
-                updateProfileContext({ dailyFruit })
-              }
-            />
-          </View>
-          <View style={styles.columnField}>
-            <ProfileInput
-              label="Average daily vegetables"
-              value={profileContext.dailyVegetables}
-              placeholder="4 servings"
-              onChangeText={(dailyVegetables) =>
-                updateProfileContext({ dailyVegetables })
-              }
-            />
-          </View>
-        </View>
+        {profileContext.typicalDiet?.includes('Other') ? <ProfileInput label="Other food preferences or restrictions" value={profileContext.foodPreferencesNote} placeholder="Tell us what you avoid or prefer" onChangeText={foodPreferencesNote => updateProfileContext({foodPreferencesNote})}/> : null}
       </ProfileSection>
 
       <ProfileSection title="Supplements">
+        <SupplementLabelCapture onConfirm={text => updateProfileContext({supplementNote: [profileContext.supplementNote, text].filter(Boolean).join('\n')})}/>
+
         <OptionGroup
           label="Select from library"
           multi
@@ -503,24 +476,8 @@ export function ProfileContent({ onNavigate, sections, onSaved }: { onNavigate: 
       </ProfileSection>
 
       <ProfileSection title="Skincare">
-        <ProfileInput
-          label="Current products"
-          value={profileContext.skincareProducts}
-          placeholder="Paste or type product names"
-          multiline
-          onChangeText={(skincareProducts) =>
-            updateProfileContext({ skincareProducts })
-          }
-        />
-        <ProfileInput
-          label="Products to search"
-          value={profileContext.skincareSearch}
-          placeholder="Add products or search terms"
-          multiline
-          onChangeText={(skincareSearch) =>
-            updateProfileContext({ skincareSearch })
-          }
-        />
+        <Link href="/skin-wardrobe" onPress={onNavigate}><SubstrateText>Manage products in Skin Wardrobe</SubstrateText></Link>
+        {profileContext.skincareProducts || profileContext.skincareSearch ? <SubstrateText variant="small">Previously saved product notes: {[profileContext.skincareProducts, profileContext.skincareSearch].filter(Boolean).join(' · ')}</SubstrateText> : null}
         <ProfileInput
           label="Anything else?"
           value={profileContext.skinContextNote}
@@ -789,12 +746,9 @@ const medicalHistoryOptions = [
   "PCOS",
   "Autoimmune disease",
   "Endometriosis",
-  "Migraine",
-  "Pregnancy",
-  "Breastfeeding",
 ];
 const yesNoUnknownOptions = ["No", "Yes", "Not sure"];
-const regularCycleOptions = ["Yes", "No", "Not tracking"];
+const regularCycleOptions = ["Yes", "No", "Not tracking", "Not applicable"];
 const birthControlOptions = [
   "No",
   "Pill",
@@ -803,22 +757,11 @@ const birthControlOptions = [
   "Ring / Patch",
   "Other",
 ];
-const reproductiveStatusOptions = [
-  "Pregnant or trying to conceive",
-  "Breastfeeding",
-  "Perimenopause",
-  "Menopause",
-  "HRT",
-  "Birth control",
-  "Testosterone",
-  "GLP-1 medications",
-];
 const smokingOptions = ["No", "Sometimes", "Daily"];
 const alcoholOptions = ["None", "Light", "Moderate", "High"];
 const exerciseOptions = ["Rarely", "1-2x/week", "3-4x/week", "5+x/week"];
 const frequencyOptions = ["No", "Sometimes", "Often"];
 const exposureOptions = ["Low", "Moderate", "High"];
-const spfOptions = ["Daily", "Most days", "Sometimes", "Rarely"];
 const dietOptions = [
   "Mediterranean",
   "Vegetarian",
@@ -828,6 +771,9 @@ const dietOptions = [
   "High protein",
   "Gluten free",
   "Dairy free",
+  "No red meat",
+  "No fish",
+  "Other",
 ];
 const supplementOptions = [
   "Vitamin D",
@@ -839,6 +785,7 @@ const supplementOptions = [
   "Multivitamin",
   "Biotin",
   "Iron",
+  "Other",
 ];
 const procedureOptions = [
   "Botox",

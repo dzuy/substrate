@@ -1,3 +1,5 @@
+import { getProfile, toProfileContext } from '@/services/profile';
+import { useOnboardingPhoto } from "@/hooks/use-onboarding-photo";
 import { ProductScanError, productScanErrorMessage } from '@/services/product-scan-error';
 import {Copy, ReportButton, ReportFrame} from '@/report/ui';
 import { takeProductPhotoDraft } from '@/services/product-photo-draft';
@@ -6,7 +8,7 @@ import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useFocusEffect, useRouter, useLocalSearchParams, type Href } from "expo-router";
 import { ArrowLeft, Trash2 } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
@@ -29,7 +31,7 @@ import { fontFamily, useReportTheme, type ReportTheme } from "@/report/theme";
 import { useAuth } from "@/lib/auth-context";
 import {
   addProductToWardrobe,
-  createBrand,
+  createPersonalProduct,
   createIngredient,
   listCatalogProducts,
   searchCatalogProducts,
@@ -83,6 +85,7 @@ export default function SkinWardrobeScreen() {
   const styles = makeStyles(t);
   const { user } = useAuth();
   const router = useRouter();
+  const [legacyNotes, setLegacyNotes] = useState('');
   const [wardrobeItems, setWardrobeItems] = useState<UserWardrobeItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -106,7 +109,11 @@ export default function SkinWardrobeScreen() {
         setIsLoading(true);
         setErrorMessage("");
 
-        const wardrobeResult = await listUserWardrobe(user.id);
+        const [wardrobeResult, profileResult] = await Promise.all([listUserWardrobe(user.id), getProfile(user.id)]);
+        if (isMounted && profileResult.data) {
+          const profile = toProfileContext(profileResult.data);
+          setLegacyNotes([profile.skincareProducts, profile.skincareSearch].filter(Boolean).join(' · '));
+        }
 
         if (!isMounted) {
           return;
@@ -293,6 +300,7 @@ export default function SkinWardrobeScreen() {
         </View>
       ) : null}
 
+      {legacyNotes ? <Card><SubstrateText variant="section">Your saved product notes</SubstrateText><SubstrateText>{legacyNotes}</SubstrateText><SubstrateText variant="small">These notes remain as entered. Add products below to organize them in your wardrobe.</SubstrateText></Card> : null}
       {message ? (
         <Card style={styles.noticeCard}>
           <SubstrateText variant="small" color={t.muted}>
@@ -353,6 +361,9 @@ export default function SkinWardrobeScreen() {
 }
 
 export function AddProductsScreen() {
+  const {pickPhoto, cameraDialog} = useOnboardingPhoto();
+  const addLock = useRef(false);
+  const [addedIds, setAddedIds] = useState<string[]>([]);
   const {onboarding, mode}=useLocalSearchParams<{onboarding?:string; mode?:string}>();
   const onboardingPhoto = onboarding === "1" && mode === "photo";
   const { theme: t } = useReportTheme();
@@ -461,32 +472,12 @@ export function AddProductsScreen() {
   }
 
   async function takePhoto() {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-
-    if (!permission.granted) {
-      setErrorMessage("Camera permission is needed to take a product photo.");
-      return;
-    }
-
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: false,
-      base64: true,
-      quality: 1,
-    });
-
-    if (!result.canceled && result.assets[0]?.uri) {
-      const selected = toSelectedProductImage(result.assets[0]);
-
-      if (!selected) {
-        setErrorMessage("This image could not be prepared for analysis.");
-        return;
-      }
-
-      setSelectedImage(selected);
-      setDetections([]);
-      setMessage("");
-      setErrorMessage("");
-    }
+    try {
+      const photo = await pickPhoto(true, false);
+      if (!photo) return;
+      setSelectedImage({uri: photo, dataUrl: photo});
+      setDetections([]); setMessage(""); setErrorMessage("");
+    } catch (error) { setErrorMessage(error instanceof Error ? error.message : 'Camera unavailable. Try again or choose a file.'); }
   }
 
   async function analyzeSelectedImage() {
@@ -632,52 +623,7 @@ export function AddProductsScreen() {
     metadata?: ProductReviewDraft["metadata"];
     productName: string;
   }) {
-    const brand = await createBrand(reviewDraft.brand);
-
-    if (brand.error || !brand.data) {
-      return {
-        data: null,
-        error: brand.error ?? { message: "Brand could not be created." },
-      };
-    }
-
-    const ingredientResults = await Promise.all(
-      reviewDraft.ingredients
-        .map((ingredient) => ingredient.trim())
-        .filter(Boolean)
-        .map((ingredient) => createIngredient(ingredient)),
-    );
-    const ingredientError = ingredientResults.find(
-      (result) => result.error,
-    )?.error;
-
-    if (ingredientError) {
-      return { data: null, error: ingredientError };
-    }
-
-    return saveProductWithIngredients({
-      brandId: brand.data.id,
-      name: reviewDraft.productName,
-      category: toProductCategory(reviewDraft.metadata),
-      description: reviewDraft.description,
-      aliases: [],
-      status: "verified",
-      ingredients: ingredientResults
-        .map((result, index) =>
-          result.data
-            ? {
-                ingredientId: result.data.id,
-                ingredientOrder: index + 1,
-              }
-            : null,
-        )
-        .filter(
-          (
-            ingredient,
-          ): ingredient is { ingredientId: string; ingredientOrder: number } =>
-            Boolean(ingredient),
-        ),
-    });
+    return createPersonalProduct(reviewDraft);
   }
 
   async function rejectDetection(detection: ProductDetectionCandidate) {
@@ -724,6 +670,14 @@ export function AddProductsScreen() {
   }
 
   async function saveManualProduct() {
+    if (addLock.current) return;
+    addLock.current = true;
+    try { await saveManualProductDraft(); }
+    catch { setErrorMessage('Product could not be saved. Your details are still here; please retry.'); }
+    finally { addLock.current = false; setIsSaving(false); }
+  }
+
+  async function saveManualProductDraft() {
     if (!user) {
       return;
     }
@@ -746,11 +700,10 @@ export function AddProductsScreen() {
 
     if (
       !reviewDraft.brand.trim() ||
-      !reviewDraft.productName.trim() ||
-      !reviewDraft.description.trim()
+      !reviewDraft.productName.trim()
     ) {
       setErrorMessage(
-        "Brand, product, and description are required before adding.",
+        "Brand and product name are required before adding.",
       );
       return;
     }
@@ -800,25 +753,26 @@ export function AddProductsScreen() {
   }
 
   async function addExistingProduct(productId: string) {
-    if (!user || isSaving) return;
-    setIsSaving(true);
-    setMessage("");
-    setErrorMessage("");
-    const result = await addProductToWardrobe(user.id, productId);
-    setIsSaving(false);
-    if (result.error) setErrorMessage(result.error.message);
-    else setMessage(`${catalogProducts.find(product => product.id === productId)?.name ?? "Product"} added to your wardrobe.`);
+    if (!user || addLock.current || addedIds.includes(productId)) return;
+    addLock.current = true; setIsSaving(true); setMessage(""); setErrorMessage("");
+    try {
+      const result = await addProductToWardrobe(user.id, productId);
+      if (result.error || !result.data) throw result.error || Error('Product could not be saved.');
+      setAddedIds(ids => [...ids, productId]);
+      setMessage(`${catalogProducts.find(product => product.id === productId)?.name ?? "Product"} added to your wardrobe.`);
+    } catch { setErrorMessage('Product could not be added. Please try again.'); }
+    finally { addLock.current = false; setIsSaving(false); }
   }
 
   const catalogMatches = searchCatalogProducts(catalogProducts, catalogQuery);
   const canSaveManualProduct =
     Boolean(manualBrand.trim()) &&
     Boolean(manualProductName.trim()) &&
-    Boolean(manualDescription.trim()) &&
     !isSaving;
 
   return (
     <AppShell footer={!onboardingPhoto}>
+      {cameraDialog}
       {onboarding && !onboardingPhoto ? <ReportButton secondary label="Return to onboarding" onPress={()=>router.push("/onboarding" as Href)}/> : null}
       <Pressable
         accessibilityRole="button"
@@ -870,7 +824,7 @@ export function AddProductsScreen() {
         <SubstrateText variant="small" color={t.muted}>Adding a product records what you own. It does not mean its formula has been reviewed or recommended for you.</SubstrateText>
         <View style={{height:46}}><ProductSearch value={catalogQuery} onChange={value => {setCatalogQuery(value); setCatalogLimit(24);}} placeholder="Search brands, products or aliases"/></View>
         <SubstrateText variant="small" color={t.muted}>{catalogMatches.length} products{isSaving ? " · Adding…" : ""}</SubstrateText>
-        <ProductGrid products={catalogMatches.slice(0, catalogLimit)} onSelect={addExistingProduct} actionLabel="Add to wardrobe"/>
+        <ProductGrid products={catalogMatches.slice(0, catalogLimit)} onSelect={addExistingProduct} disabled={isSaving} addedIds={addedIds} actionLabel={isSaving ? "Adding…" : "Add to wardrobe"}/>
         {catalogMatches.length === 0 ? <SubstrateText variant="small">No products match your search.</SubstrateText> : null}
         {catalogMatches.length > catalogLimit ? <ReportButton secondary label="Show more products" onPress={() => setCatalogLimit(limit => limit + 24)}/> : null}
       </Card> : null}
@@ -919,7 +873,7 @@ export function AddProductsScreen() {
 
         <View style={styles.fieldGroup}>
           <SubstrateText variant="small" color={t.muted}>
-            Description
+            Description (optional)
           </SubstrateText>
           <TextInput
             autoCapitalize="sentences"
@@ -1278,7 +1232,7 @@ function DetectionCard({
       <View style={styles.candidateDetails}>
         <View style={styles.fieldGroup}>
           <SubstrateText variant="small" color={t.muted}>
-            Description
+            Description (optional)
           </SubstrateText>
           <TextInput
             autoCapitalize="sentences"
@@ -1776,12 +1730,6 @@ function formatConfidence(confidence?: number) {
   return typeof confidence === "number"
     ? `${Math.round(confidence * 100)}%`
     : undefined;
-}
-
-function toProductCategory(
-  metadata?: ProductReviewDraft["metadata"],
-): CatalogProduct["category"] {
-  return metadata?.routineRole ?? "other";
 }
 
 function toWardrobeRoutineRole(

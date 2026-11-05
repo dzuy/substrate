@@ -16,7 +16,7 @@ export type CheckInResponses = {
   sleepQuality?: 'Poor' | 'Okay' | 'Rested';
   stressLevel?: 'Low' | 'Medium' | 'High';
   alcoholConsumption?: 'None' | 'Light' | 'Moderate' | 'High';
-  cyclePhase?: 'Follicular' | 'Ovulatory' | 'Luteal' | 'Menstrual' | 'Not tracking';
+  cyclePhase?: 'Follicular' | 'Ovulatory' | 'Luteal' | 'Menstrual' | 'Not tracking' | 'Not applicable';
   routineNote?: string;
   movementPlan?: ('Yoga' | 'Pilates' | 'Indoors' | 'Outdoors')[];
   movementPlanNote?: string;
@@ -99,6 +99,9 @@ export type ProfileContext = {
   ageRange?: string;
   height?: string;
   skinAncestry?: string;
+  skinTone?: string;
+  hormoneContext?: string;
+  foodPreferencesNote?: string;
   skinType?: string;
   sensitivityLevel?: string;
   skinGoals?: string[];
@@ -731,6 +734,7 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      save_personal_wardrobe_product: { Args: {brand:string;product_name:string;description:string;ingredients:string[]}; Returns: string };
       set_admin_user_roles: { Args: { target_user_id: string; assigned_roles: string[] }; Returns: undefined };
       delete_admin_user: { Args: { target_user_id: string }; Returns: undefined };
       list_admin_users: { Args: { page_index: number; page_size: number; search_query: string }; Returns: Json };

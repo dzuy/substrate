@@ -59,13 +59,8 @@ function Day({ userId }: {
         throw saved.error || inputs.error;
         const needsUpdate = !saved.data || saved.data.dailyPlan.inputFingerprint !== inputs.data?.fingerprint;
         setStale(needsUpdate);
-        if (needsUpdate) {
-            const updated = await getOrCreateTodayRecommendation(userId, e.data.id);
-            if (!alive) return;
-            if (updated.error || !updated.data) throw updated.error || Error('Routine unavailable.');
-            setPlan(updated.data.dailyPlan);
-        } else setPlan(saved.data.dailyPlan);
-        setStale(false);
+        setPlan(saved.data?.dailyPlan ?? null);
+
     })().catch(() => { if (alive) { setStale(true); setError('Your routine could not be updated. Please try again.'); } })
       .finally(() => { if (alive) setRefreshing(false); });
     return () => { alive = false; }; }, [userId,dayVersion,refreshRetry]));
@@ -91,16 +86,16 @@ function Day({ userId }: {
       const product=(moment==='evening'?matches[1]:undefined)||matches[0];
       return product?[{id:`catalog-${moment}-${product.id}`,label,reason:product.description||'',completed:false,moment,product}]:[];
     });
-    const rows = refreshing || stale ? [] : preview ? catalogRows : plan.items!.filter(i=>full||i.moment===moment).map(i=>({...i,product:wardrobe.find(w=>w.product&&i.label.toLowerCase().includes(w.product.name.toLowerCase()))?.product}));
+    const rows = preview ? (refreshing ? [] : catalogRows) : plan.items!.filter(i=>full||i.moment===moment).map(i=>({...i,product:wardrobe.find(w=>w.product&&i.label.toLowerCase().includes(w.product.name.toLowerCase()))?.product}));
     return <ReportFrame compact dark fixed footer={false} showStyleGuide={false}>
       <View style={{width:'100%',maxWidth:390,alignSelf:'center',gap:12,flex:1,minHeight:0}}>
         <Copy kind="title" style={{paddingHorizontal:12,paddingTop:5,fontSize:32,lineHeight:36,fontWeight:'400',fontFamily:Platform.OS==='web'?'"Times New Roman", serif':Platform.OS==='ios'?'Times New Roman':'serif'}}>Your Routine</Copy>
         <Panel style={{padding:12,gap:0,borderRadius:20,flex:1,minHeight:0,overflow:'hidden'}}>
-          <View accessibilityRole="tablist" style={{flexDirection:'row',gap:5,marginBottom:13}}>{(['morning','day','evening'] as const).map(m=><Pressable key={m} accessibilityRole="tab" accessibilityState={{selected:moment===m&&!full}} aria-selected={moment===m&&!full} onPress={()=>{setMoment(m);setFull(false);setExpanded(null);}} style={{flex:1,minHeight:38,alignItems:'center',justifyContent:'center',borderRadius:24,borderWidth:1,borderColor:moment===m&&!full?t.ink:'#EEE7DD',backgroundColor:moment===m&&!full?t.ink:'transparent'}}><Copy kind="small" style={{fontSize:11,color:moment===m&&!full?t.paper:t.ink}}>{m==='morning'?'Morning':m==='day'?'Pre-workout':'Evening'}</Copy></Pressable>)}</View>
+          <View accessibilityRole="tablist" style={{flexDirection:'row',gap:5,marginBottom:13}}>{(['morning','day','evening'] as const).map(m=><Pressable key={m} accessibilityRole="tab" accessibilityState={{selected:moment===m&&!full}} aria-selected={moment===m&&!full} onPress={()=>{setMoment(m);setFull(false);setExpanded(null);}} style={{flex:1,minHeight:38,alignItems:'center',justifyContent:'center',borderRadius:24,borderWidth:1,borderColor:moment===m&&!full?t.ink:'#EEE7DD',backgroundColor:moment===m&&!full?t.ink:'transparent'}}><Copy kind="small" style={{fontSize:11,color:moment===m&&!full?t.paper:t.ink}}>{m==='morning'?'Morning':m==='day'?'Daytime':'Evening'}</Copy></Pressable>)}</View>
           <ScrollView key={`${moment}-${full}`} style={{flex:1,minHeight:0}} contentContainerStyle={{paddingBottom:8}} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>
           {error?<Notice>{error}</Notice>:null}
           {activities.length ? <View style={{gap:8,padding:12,marginBottom:12,borderBottomWidth:1,borderColor:t.line}}><Copy style={{fontWeight:'600'}}>Your plan for today</Copy>{activities.map((activity,index)=><Copy key={`${index}-${activity}`} kind="small" style={{color:t.muted}}>• {activity}</Copy>)}</View> : null}
-          {refreshing?<Copy kind="small" style={{padding:12,color:t.muted}}>Updating your routine…</Copy>:null}
+          {refreshing?<Copy kind="small" style={{padding:12,color:t.muted}}>Loading your saved routine…</Copy>:null}
           {!refreshing&&preview&&catalogLoading?<Copy kind="small" style={{padding:12,color:t.muted}}>Loading products…</Copy>:null}
           {preview&&catalogError?<View style={{gap:8}}><Notice>{catalogError}</Notice><ReportButton secondary label="Retry products" onPress={()=>setCatalogRetry(v=>v+1)}/></View>:null}
           {rows.map((item,index)=>{
@@ -131,7 +126,7 @@ function Day({ userId }: {
           </ScrollView>
           <View style={{gap:10,paddingTop:12,flexShrink:0,borderTopWidth:1,borderColor:t.line}}>
             {!preview?<ReportButton copper label={full?'View Selected Routine':'View Full Routine'} busy={busy} onPress={()=>setFull(v=>!v)}/>:null}
-            {stale&&!refreshing?<ReportButton secondary label="Retry routine update" busy={busy} onPress={()=>setRefreshRetry(v=>v+1)}/>:null}
+            {stale&&!refreshing?<ReportButton secondary label="Update my routine" busy={busy} onPress={()=>void run(async()=>{const result=await getOrCreateTodayRecommendation(userId,id);if(result.error||!result.data)throw Error("Your inputs are saved. Routine update failed; please try again.");setPlan(result.data.dailyPlan);setStale(false);})}/>:null}
             <Pressable accessibilityRole="button" accessibilityLabel="Adjust with Tate" onPress={openDayEditor} style={{minHeight:49,borderRadius:28,backgroundColor:'#031723',flexDirection:'row',alignItems:'center',paddingHorizontal:12,gap:12}}><Image source={require('@/assets/images/nautilus-daily-v4.png')} accessible={false} contentFit="contain" style={{width:32,height:32}}/><Copy style={{flex:1,textAlign:'center',marginRight:32,fontSize:13,color:'#FFFAF2'}}>Adjust with Tate</Copy></Pressable>
           </View>
         </Panel>

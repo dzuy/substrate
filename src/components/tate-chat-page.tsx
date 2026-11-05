@@ -1,5 +1,6 @@
+import { DailyMicrophone } from '@/components/daily-microphone';
 import { useRouter } from 'expo-router';
-import { saveDayWithTate } from '@/services/tate-day';
+import { prepareDayWithTate, confirmDayWithTate, type DayProposal } from '@/services/tate-day';
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import {
   ActivityIndicator,
@@ -40,6 +41,8 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
   const prompt = initialPrompt;
   const [question, setQuestion] = useState(prompt || "");
   useEffect(()=>{if(prompt)setQuestion(prompt);},[prompt]);
+  const [proposal, setProposal] = useState<DayProposal | null>(null);
+  const [activitiesText, setActivitiesText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const lock = useRef(false);
@@ -53,6 +56,16 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
     },
     [],
   );
+  async function confirmPlan() {
+    if (!proposal || lock.current) return;
+    lock.current = true; setBusy(true); setError('');
+    try {
+      const saved = await confirmDayWithTate(proposal, activitiesText);
+      setProposal(null); onDaySaved?.();
+      setMessages(current => [...current, {role:'assistant', content: saved.routineReady ? 'Your reviewed day and routine are saved.' : 'Your day is saved. Open Routine to retry the routine update.', routineLink:true}]);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Could not save. Your plan is still here.'); }
+    finally {lock.current = false; setBusy(false);}
+  }
   async function send(text = question, newDay = false) {
     if (lock.current || !text.trim()) return;
     lock.current = true;
@@ -74,13 +87,11 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
     const timeout = setTimeout(() => request.abort(), 175000);
     try {
       if (dayMode || newDay) {
-        const saved = await saveDayWithTate(text.trim(), !newDay, request.signal);
-        if (saved) {
-        onDaySaved?.();
-        setMessages([...next, { role: 'assistant', content: saved.routineReady
-          ? `Great, I’ve set this as your plan for today and updated your routine.${saved.activities.length ? '\n\n' + saved.activities.map(activity => '• ' + activity).join('\n') : ''}`
-          : 'Your day is saved. I couldn’t refresh your routine just yet—open Routine to retry the update.', routineLink: true }]);
-        return;
+        const prepared = await prepareDayWithTate(text.trim(), !newDay, request.signal);
+        if (prepared) {
+          setProposal(prepared); setActivitiesText(prepared.activities.join('\n'));
+          setMessages([...next, {role: 'assistant', content: 'Review my interpretation below. Edit activities and times before applying it.'}]);
+          return;
         }
       }
       const { data } = await supabase.auth.getSession();
@@ -170,7 +181,7 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
             <View style={{ gap: 16 }}>
               <Copy kind="heading">{dayMode ? "What would you like to change about your day?" : "What would you like to understand?"}</Copy>
               <Copy style={{ color: t.muted }}>
-                {dayMode ? 'Tell me what to add or change. I’ll save your plans and update your routine, or answer any questions you have.' : 'Explore your wardrobe, understand your reports, and connect the dots with your profile.'}
+                {dayMode ? 'Tell me what to add or change. I’ll prepare your plans for review, or answer any questions you have.' : 'Explore your wardrobe, understand your reports, and connect the dots with your profile.'}
               </Copy>
               {(dayMode ? [] : [
                 "How do the products in my wardrobe relate to my latest report?",
@@ -242,10 +253,16 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
               style={{ flexDirection: "row", gap: 12, alignItems: "center" }}
             >
               <ActivityIndicator color={t.gold} />
-              <Copy kind="small">{dayMode ? 'Tate is updating your day and routine…' : 'Tate is looking into your question…'}</Copy>
+              <Copy kind="small">{dayMode ? 'Tate is preparing your day…' : 'Tate is looking into your question…'}</Copy>
             </View>
           ) : null}
-        </ScrollView>
+          {proposal ? <View style={{padding:16,gap:12}}>
+          <Copy>Activities and timing — one per line</Copy>
+          <TextInput accessibilityLabel="Review activities and timing" multiline editable={!busy} value={activitiesText} onChangeText={setActivitiesText} style={{minHeight:140,padding:12,color:t.ink,backgroundColor:t.surface,borderWidth:1,borderColor:t.line,fontSize:16}}/>
+          <ReportButton label="Apply reviewed day" busy={busy} onPress={() => void confirmPlan()}/>
+          <ReportButton secondary label="Discard proposal" disabled={busy} onPress={() => setProposal(null)}/>
+        </View> : null}
+      </ScrollView>
         <View
           style={{
             padding: 20,
@@ -255,7 +272,8 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
             backgroundColor: t.surface,
           }}
         >
-          {error ? <Notice>{error}</Notice> : null}
+          <DailyMicrophone disabled={busy} onTranscript={text => setQuestion(current => [current.trim(), text].filter(Boolean).join(' '))}/>
+        {error ? <Notice>{error}</Notice> : null}
           <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
             <TextInput
               ref={input}

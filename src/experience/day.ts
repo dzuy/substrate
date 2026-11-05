@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { getProfile, toProfileContext, toProfileLocation } from '@/services/profile';
-import { getLatestRecommendation, readPlanInputs, getOrCreateTodayRecommendation } from '@/services/recommendations';
+import { getLatestRecommendation, readPlanInputs } from '@/services/recommendations';
 import { getLatestDailyPhoto } from '@/services/photos';
 import { getEnvironmentSnapshot, toEnvironmentSnapshot, captureEnvironmentSnapshot } from '@/services/environment';
 import { getOrCreateDailyEntry } from '@/services/daily-entries';
@@ -29,19 +29,9 @@ export async function loadDay(userId:string) {
       else weather = fetched.data;
     } catch { weatherError = 'Weather could not be refreshed. Tap Weather to try again.'; }
   }
-  let currentRecommendation = recommendation.data;
-  let stale = !!currentRecommendation && (weather !== environment.data || currentRecommendation.dailyPlan.inputFingerprint !== inputs.data?.fingerprint);
-  let analysisError = '';
-  if (stale || (!currentRecommendation && (entry.data.check_in.confirmedAt || photo.data))) {
-    try {
-      const updated = await getOrCreateTodayRecommendation(userId, entry.data.id);
-      if (updated.error || !updated.data) throw updated.error || Error('Analysis unavailable.');
-      currentRecommendation = updated.data;
-      stale = false;
-    } catch {
-      analysisError = 'Your skin update could not be loaded. Please try again.';
-    }
-  }
+  const currentRecommendation = recommendation.data;
+  const stale = !!currentRecommendation && (weather !== environment.data || currentRecommendation.dailyPlan.inputFingerprint !== inputs.data?.fingerprint);
+  const analysisError = '';
   return {...base,weatherError,analysisError,recommendation:currentRecommendation,photo:photo.data,environment:toEnvironmentSnapshot(weather),stale};
 }
 export type DayData = Awaited<ReturnType<typeof loadDay>>;

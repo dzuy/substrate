@@ -1,3 +1,4 @@
+import { useOnboardingPhoto } from '@/hooks/use-onboarding-photo';
 import { getProfile, toProfileContext } from "@/services/profile";
 import { profileReportAnswers } from "../../shared/profile-report-answers.mjs";
 import { photoQualityIssue } from "../../shared/photo-quality.mjs";
@@ -27,7 +28,7 @@ import {
   Spiral,
 } from "@/report/ui";
 import { fontFamily, useReportTheme } from "@/report/theme";
-import { pickReportPhoto, reportApi, saveReport } from "@/report/service";
+import { reportApi, saveReport } from "@/report/service";
 import type { ReportDraft, ScanResult, SkinReport } from "@/report/types";
 
 const empty: ReportDraft = {
@@ -42,6 +43,7 @@ export default function Assessment() {
   return user ? <AssessmentForUser key={user.id} userId={user.id} /> : null;
 }
 function AssessmentForUser({ userId }: { userId: string }) {
+  const {pickPhoto, cameraDialog} = useOnboardingPhoto();
   const { theme: t } = useReportTheme();
   const router = useRouter();
   const key = `substrate-assessment-v1:${userId}`;
@@ -167,7 +169,7 @@ function AssessmentForUser({ userId }: { userId: string }) {
   };
   const choosePhoto = (camera: boolean) =>
     execute("Preparing your photo", async () => {
-      const photo = await pickReportPhoto(camera);
+      const photo = await pickPhoto(camera);
       if (photo && alive.current) {
         patch({ photo, scan: undefined });
         setGenerated(null);
@@ -289,6 +291,7 @@ function AssessmentForUser({ userId }: { userId: string }) {
   };
   return (
     <ReportFrame key={draft.step}>
+      {cameraDialog}
       <View style={{ flexDirection: "row", gap: 8 }}>
         {["Your photo", "Your context", "Your products", "Your report"].map(
           (label, i) => (

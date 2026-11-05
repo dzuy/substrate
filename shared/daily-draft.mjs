@@ -1,4 +1,4 @@
-export const dailyOptions = { sleepQuality: ['Poor', 'Okay', 'Rested'], stressLevel: ['Low', 'Medium', 'High'], cyclePhase: ['Follicular', 'Ovulatory', 'Luteal', 'Menstrual', 'Not tracking'], skinFeelToday: ['Dry', 'Itchy', 'Oily', 'Normal'] };
+export const dailyOptions = { sleepQuality: ['Poor', 'Okay', 'Rested'], stressLevel: ['Low', 'Medium', 'High'], cyclePhase: ['Follicular', 'Ovulatory', 'Luteal', 'Menstrual', 'Not tracking', 'Not applicable'], skinFeelToday: ['Dry', 'Itchy', 'Oily', 'Normal'] };
 export function cleanDailyDraft(input) {
     if (!input || typeof input !== 'object' || Array.isArray(input))
         throw Error('Invalid daily draft');
@@ -25,6 +25,10 @@ export function cleanDailyDraft(input) {
         if (!Array.isArray(input.dailyActivities) || input.dailyActivities.length > 20 || input.dailyActivities.some(value => typeof value !== 'string' || value.length > 300))
             throw Error('Invalid daily activities');
         out.dailyActivities = [...new Set(input.dailyActivities.map(value => value.trim()).filter(Boolean))];
+    }
+    if (input.cycleDay != null) {
+        if (!Number.isInteger(input.cycleDay) || input.cycleDay < 1 || input.cycleDay > 120) throw Error("Cycle day must be between 1 and 120");
+        out.cycleDay = input.cycleDay;
     }
     return out;
 }

@@ -33,6 +33,7 @@ function CameraDialog({ onFinish, faceGuide }: { onFinish: (photo: string | null
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    if (photo) return;
     let disposed = false;
     let stream: MediaStream | undefined;
     const player = video.current;
@@ -60,7 +61,7 @@ function CameraDialog({ onFinish, faceGuide }: { onFinish: (photo: string | null
       stream?.getTracks().forEach(track => track.stop());
       if (player) player.srcObject = null;
     };
-  }, [attempt, faceGuide]);
+  }, [attempt, faceGuide, photo]);
 
   function capture() {
     const player = video.current;

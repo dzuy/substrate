@@ -20,7 +20,7 @@ export const reportQuestions = [
     options: ["Under 18", "18–29", "30–49", "50+", "Prefer not to say"],
   },
   ...scanQuestions
-    .filter((q) => q.id !== "conditions")
+    .filter((q) => !["conditions", "reproductive"].includes(q.id))
     .map((q) => ({
       ...q,
       group: ["goal", "feel", "duration", "blemishes", "oil", "marks"].includes(
@@ -54,18 +54,19 @@ export const reportQuestions = [
     ],
   },
   {
-    id: "cycle",
+    id: "cycleTracking",
     title: "Cycle context, if relevant",
     group: "Your everyday",
-    options: [
-      "Menstrual",
-      "Follicular",
-      "Ovulatory",
-      "Luteal",
-      "Not tracking / not applicable",
-      "Prefer not to say",
-    ],
+    options: ["Tracking", "Not tracking", "Not applicable"],
     optional: true,
+  },
+  {
+    id: "cycleDay", title: "What day of your cycle are you on?", group: "Your everyday",
+    input: "text", optional: true, placeholder: "Cycle day, if known", when: a => a.cycleTracking === 'Tracking',
+  },
+  {
+    id: "allergyNotes", title: "Allergy details", group: "Your routine & context",
+    input: "text", placeholder: "Ingredient or reaction, if known", when: a => a.allergy === 'Yes',
   },
   {
     id: "country",
@@ -127,6 +128,7 @@ export function validateReportAnswers(input) {
         (!q.optional && !v.trim())
       )
         throw Error(`Check your answer: ${q.title}`);
+      if (q.id === "cycleDay" && !/^(?:[1-9]|[1-9][0-9]|1[01][0-9]|120)$/.test(v.trim())) throw Error("Enter a cycle day from 1 to 120, or leave it blank if unknown.");
       clean[q.id] = v.trim();
     } else {
       const values = q.multi ? v : [v];
@@ -149,6 +151,6 @@ export function validateReportAnswers(input) {
 export function engineAnswers(answers) {
   const keys = new Set(scanQuestions.map((q) => q.id));
   return validateAnswers(
-    Object.fromEntries(Object.entries(answers).filter(([k]) => keys.has(k))),
+    Object.fromEntries(Object.entries(answers).filter(([k]) => keys.has(k) && k !== "reproductive")),
   );
 }

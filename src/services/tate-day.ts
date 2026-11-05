@@ -6,7 +6,7 @@ import { getOrCreateTodayRecommendation } from '@/services/recommendations';
 import { cleanDailyDraft, savedDailyActivities } from '../../shared/daily-draft.mjs';
 import { localDate } from '../../shared/journey.mjs';
 
-export async function saveDayWithTate(note: string, editing: boolean, signal: AbortSignal) {
+export async function prepareDayWithTate(note: string, editing: boolean, signal: AbortSignal) {
   const date = localDate();
   const { data } = await supabase.auth.getSession();
   if (!data.session) throw Error('Sign in again to plan your day.');
@@ -31,12 +31,21 @@ export async function saveDayWithTate(note: string, editing: boolean, signal: Ab
   const checkIn = editing
     ? { ...entry.data.check_in, dailyActivities: draft.dailyActivities || [], movementPlanNote: (draft.dailyActivities || []).join('; '), movementPlan: [] }
     : { ...entry.data.check_in, ...draft };
+  return {userId, entry: entry.data, date, checkIn, activities: savedDailyActivities(checkIn)};
+}
+
+export type DayProposal = NonNullable<Awaited<ReturnType<typeof prepareDayWithTate>>>;
+export async function confirmDayWithTate(proposal: DayProposal, activitiesText: string) {
+  const {userId, entry, date} = proposal;
+  if (date !== localDate()) throw Error('The date changed. Prepare today’s plan again.');
+  const activities = cleanDailyDraft({dailyActivities: activitiesText.split('\n')}).dailyActivities || [];
+  const checkIn = {...proposal.checkIn, dailyActivities: activities, movementPlanNote: activities.join('; '), movementPlan: []};
   const saved = await supabase.from('daily_entries').update({
     check_in: { ...checkIn, journeyVersion: 1, confirmedAt: new Date().toISOString(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone },
     status: 'check_in_added',
-  }).eq('id', entry.data.id).eq('user_id', userId).eq('updated_at', entry.data.updated_at).select('id').single();
+  }).eq('id', entry.id).eq('user_id', userId).eq('updated_at', entry.updated_at).select('id').single();
   if (saved.error) throw Error('Your day changed elsewhere or could not be saved. Please try again.');
   await AsyncStorage.removeItem(`substrate:daily-draft:v1:${userId}:${date}`).catch(() => {});
-  const routine = await getOrCreateTodayRecommendation(userId, entry.data.id).catch(() => null);
+  const routine = await getOrCreateTodayRecommendation(userId, entry.id).catch(() => null);
   return { activities: savedDailyActivities(checkIn), routineReady: !!routine?.data && !routine.error };
 }

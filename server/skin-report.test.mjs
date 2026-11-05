@@ -103,15 +103,17 @@ function setup() {
 test("combined questionnaire retains safety gates and daily context, removes hidden stale answers", () => {
   for (const id of [
     "allergy",
-    "reproductive",
     "treatments",
     "sleep",
     "stress",
     "activity",
-    "cycle",
+    "cycleTracking",
+    "cycleDay",
     "ageBand",
   ])
     assert.ok(reportQuestions.some((q) => q.id === id));
+  assert.ok(!reportQuestions.some(q => q.id === "reproductive"));
+  assert.equal(validateReportAnswers({...fixtureAnswers, reproductive:"None / not applicable"}).reproductive, undefined);
   assert.throws(
     () => validateReportAnswers({ ...fixtureAnswers, allergy: undefined }),
     /allergies/,
