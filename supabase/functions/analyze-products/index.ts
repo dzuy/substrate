@@ -84,105 +84,123 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: 'Unauthorized' }, 401);
   }
 
-  const body = await request.json();
+  let body;
+  try {
+    const text = await request.text();
+    if (text.length > 12_000_000) return jsonResponse({ error: 'Image is too large. Choose a smaller photo.' }, 413);
+    body = JSON.parse(text);
+  } catch {
+    return jsonResponse({ error: 'Invalid JSON request' }, 400);
+  }
+  if (!body || typeof body !== 'object') return jsonResponse({ error: 'Invalid request' }, 400);
   const imageDataUrl = typeof body.imageDataUrl === 'string' ? body.imageDataUrl : null;
   const catalogProducts = Array.isArray(body.catalogProducts)
     ? (body.catalogProducts as CatalogProduct[]).slice(0, 80)
     : [];
 
-  if (!imageDataUrl?.startsWith('data:image/')) {
+  if (!imageDataUrl || !/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(imageDataUrl)) {
     return jsonResponse({ error: 'imageDataUrl is required' }, 400);
   }
 
   const model = Deno.env.get('OPENAI_VISION_MODEL') ?? Deno.env.get('OPENAI_MODEL') ?? 'gpt-5.6-luna';
 
-  const response = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${openAiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      instructions: buildInstructions(),
-      input: [
+  try {
+    const response = await fetch('https://api.openai.com/v1/responses', {
+      signal: AbortSignal.timeout(45_000),
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${openAiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        store: false,
+        instructions: buildInstructions(),
+        input: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'input_text',
+                text: JSON.stringify({
+                  task: 'Identify visible skincare products in this image and match them to the provided canonical catalog when confident.',
+                  catalogProducts,
+                }),
+              },
+              {
+                type: 'input_image',
+                image_url: imageDataUrl,
+                detail: 'high',
+              },
+            ],
+          },
+        ],
+        reasoning: { effort: 'low' },
+        text: {
+          verbosity: 'low',
+          format: {
+            type: 'json_schema',
+            name: 'substrate_product_detections',
+            strict: true,
+            schema: productDetectionSchema,
+          },
+        },
+      }),
+    });
+
+    const rawResponse = await response.json();
+
+    if (!response.ok) {
+      return jsonResponse(
         {
-          role: 'user',
-          content: [
-            {
-              type: 'input_text',
-              text: JSON.stringify({
-                task: 'Identify visible skincare products in this image and match them to the provided canonical catalog when confident.',
-                catalogProducts,
-              }),
-            },
-            {
-              type: 'input_image',
-              image_url: imageDataUrl,
-              detail: 'high',
-            },
-          ],
+          error: 'Product analysis is unavailable. Please try again.',
+          provider: 'openai',
+          model,
         },
-      ],
-      reasoning: { effort: 'low' },
-      text: {
-        verbosity: 'low',
-        format: {
-          type: 'json_schema',
-          name: 'substrate_product_detections',
-          strict: true,
-          schema: productDetectionSchema,
+        502
+      );
+    }
+
+    const outputText = extractOutputText(rawResponse);
+
+    if (!outputText) {
+      return jsonResponse({ error: 'No readable product detections returned. Try another photo.', provider: 'openai', model }, 502);
+    }
+
+    const parsed = JSON.parse(outputText) as { detections: OpenAiDetection[] };
+    if (!Array.isArray(parsed.detections) || parsed.detections.length > 8 || parsed.detections.some(detection =>
+      !detection ||
+      (detection.detectedBrand !== null && typeof detection.detectedBrand !== 'string') ||
+      (detection.detectedProductName !== null && typeof detection.detectedProductName !== 'string') ||
+      typeof detection.confidence !== 'number' || typeof detection.rationale !== 'string'
+    )) throw new Error('Invalid detection response');
+    const catalogIds = new Set(catalogProducts.map((product) => product.id));
+    const detections = parsed.detections.map((detection) => {
+      const matchedProductId =
+        detection.matchedProductId && catalogIds.has(detection.matchedProductId) ? detection.matchedProductId : null;
+
+      return {
+        detectedBrand: detection.detectedBrand,
+        detectedProductName: detection.detectedProductName,
+        matchedProductId,
+        confidence: clampConfidence(detection.confidence),
+        status: matchedProductId ? 'needs_confirmation' : 'unknown',
+        rawResponse: {
+          provider: 'openai',
+          model,
+          rationale: detection.rationale,
         },
-      },
-    }),
-  });
+      };
+    });
 
-  const rawResponse = await response.json();
-
-  if (!response.ok) {
-    return jsonResponse(
-      {
-        error: rawResponse?.error?.message ?? 'OpenAI product analysis failed',
-        provider: 'openai',
-        model,
-        rawResponse,
-      },
-      502
-    );
+    return jsonResponse({
+      detections,
+      provider: 'openai',
+      model,
+    });
+  } catch {
+    return jsonResponse({ error: 'Product analysis could not finish. Please try again or enter the product manually.' }, 502);
   }
-
-  const outputText = extractOutputText(rawResponse);
-
-  if (!outputText) {
-    return jsonResponse({ error: 'OpenAI returned no product detections', provider: 'openai', model, rawResponse }, 502);
-  }
-
-  const parsed = JSON.parse(outputText) as { detections: OpenAiDetection[] };
-  const catalogIds = new Set(catalogProducts.map((product) => product.id));
-  const detections = parsed.detections.map((detection) => {
-    const matchedProductId =
-      detection.matchedProductId && catalogIds.has(detection.matchedProductId) ? detection.matchedProductId : null;
-
-    return {
-      detectedBrand: detection.detectedBrand,
-      detectedProductName: detection.detectedProductName,
-      matchedProductId,
-      confidence: clampConfidence(detection.confidence),
-      status: matchedProductId ? 'needs_confirmation' : 'unknown',
-      rawResponse: {
-        provider: 'openai',
-        model,
-        rationale: detection.rationale,
-      },
-    };
-  });
-
-  return jsonResponse({
-    detections,
-    provider: 'openai',
-    model,
-    rawResponse,
-  });
 });
 
 function buildInstructions() {

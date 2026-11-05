@@ -19,11 +19,13 @@ export function matchDetectedProduct(detection, products) {
   const name = normalize(detection.detectedProductName);
   const brand = normalize(detection.detectedBrand);
   if (!name || !brand) return null;
+  const withoutBrand = value => value.startsWith(`${brand} `) ? value.slice(brand.length + 1) : value;
+  const productName = withoutBrand(name);
   const ranked = products.filter(p => normalize(p.brand?.name ?? p.brand) === brand).map(p => {
-    const names = [p.name, ...(p.aliases || [])].map(normalize);
+    const names = [p.name, ...(p.aliases || [])].map(normalize).map(withoutBrand);
     const score = Math.max(...names.map(n => {
-      if (n === name || `${brand} ${n}` === name) return 1;
-      const a = new Set(n.split(' ')), b = new Set(name.split(' '));
+      if (n === productName) return 1;
+      const a = new Set(n.split(' ')), b = new Set(productName.split(' '));
       const common = [...a].filter(word => b.has(word)).length;
       return common / new Set([...a, ...b]).size;
     }));

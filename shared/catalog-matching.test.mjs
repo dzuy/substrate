@@ -16,3 +16,11 @@ test('daily matching evaluates full catalog and does not require publishing; inc
  assert.deepEqual(matchDailyProducts([{...product,product_ingredients:[...product.product_ingredients,{ingredient:{name:'Retinol'}}]}],['Glycerin']),[]);
  assert.equal(projectCatalogProduct({...product,product_ingredients:[{ingredient:{name:'Sodium ascorbyl phosphate'}}]}).expressions.length,0);
 });
+
+test('identity matches brand-prefixed catalog names but preserves variant ambiguity', () => {
+ const product = { id: 'serum', brand: '(Example)', name: '(Example) Intense Serum' };
+ assert.equal(matchDetectedProduct({ detectedBrand: 'Example', detectedProductName: 'Intense Serum' }, [product]), 'serum');
+ assert.equal(matchDetectedProduct({ detectedBrand: 'Example', detectedProductName: 'Example Intense Serum' }, [{ ...product, name: 'Intense Serum' }]), 'serum');
+ assert.equal(matchDetectedProduct({ detectedBrand: 'Example', detectedProductName: 'Intense Serum' }, [product, { ...product, id: 'duplicate', name: 'Intense Serum' }]), null);
+ assert.equal(matchDetectedProduct({ detectedBrand: 'Other', detectedProductName: 'Intense Serum' }, [product]), null);
+});
