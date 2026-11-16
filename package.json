@@ -63,7 +63,9 @@
     "report:server": "npm run build:ingredient-engine && node --env-file-if-exists=.env --env-file-if-exists=.env.local server/tate-dev.mjs",
     "ios:check": "node --env-file-if-exists=.env --env-file-if-exists=.env.local scripts/check-ios-env.mjs",
     "ios:prebuild": "expo prebuild --platform ios --no-install",
-    "ios:native": "expo run:ios"
+    "ios:native": "expo run:ios",
+    "ios:release:prepare": "node scripts/ios-release-guard.mjs prepare",
+    "ios:release:verify": "node scripts/ios-release-guard.mjs verify"
   },
   "private": true,
   "engines": {

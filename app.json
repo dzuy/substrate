@@ -14,7 +14,7 @@
         "NSSpeechRecognitionUsageDescription": "Substrate uses speech recognition to turn your voice into editable text for Tate."
       },
       "bundleIdentifier": "com.dzuylinh.substrate.beta",
-      "buildNumber": "2026.11.16",
+      "buildNumber": "2026.11.17",
       "appleTeamId": "MB6W7WXD2R",
       "supportsTablet": false
     },

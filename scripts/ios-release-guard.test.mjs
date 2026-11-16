@@ -1,0 +1,2 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';import {uuidFromOutput,assertReleaseHermes} from './ios-release-guard.mjs';
+test('archive guard rejects debug Hermes and unknown binary identity',()=>{assert.throws(()=>assertReleaseHermes('DEBUG','RELEASE'),/Release blocked/);assert.doesNotThrow(()=>assertReleaseHermes('RELEASE','RELEASE'));assert.throws(()=>uuidFromOutput(''));assert.equal(uuidFromOutput('UUID: 80d5528f-2c78-3b90-b90f-747e89a9f880 (arm64) file'),'80D5528F-2C78-3B90-B90F-747E89A9F880');});
