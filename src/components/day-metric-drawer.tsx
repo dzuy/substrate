@@ -1,8 +1,11 @@
+import { Image } from 'expo-image';
+import { useOnboardingPhoto } from '@/hooks/use-onboarding-photo';
+import { uploadDailyPhoto } from '@/services/photos';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Keyboard, useWindowDimensions, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { X } from 'lucide-react-native';
-import { Copy, Notice, ReportButton } from '@/report/ui';
+import { Copy, Notice, ReportButton, ReportSurface } from '@/report/ui';
 import { useReportTheme } from '@/report/theme';
 import { getOrCreateDailyEntry } from '@/services/daily-entries';
 import { geocodeLocation, captureEnvironmentSnapshot } from '@/services/environment';
@@ -13,12 +16,13 @@ import type { CheckInResponses } from '@/types/database';
 import { dailyOptions } from '../../shared/daily-draft.mjs';
 import { localDate } from '../../shared/journey.mjs';
 
-export type DayMetric = 'Sleep' | 'HRV' | 'Cycle' | 'Weather';
+export type DayMetric = 'Sleep' | 'HRV' | 'Cycle' | 'Weather' | 'Photo';
 export function DayMetricDrawer({ metric, data, userId, onClose, onSaved }: {
   metric: DayMetric; data: DayData; userId: string; onClose: () => void; onSaved: () => void;
 }) {
   const { theme: t } = useReportTheme();
   const { height } = useWindowDimensions();
+  const { pickPhoto, cameraDialog } = useOnboardingPhoto();
   const progress = useRef(new Animated.Value(0)).current;
   const closing = useRef(false);
   useEffect(() => {
@@ -81,6 +85,21 @@ export function DayMetricDrawer({ metric, data, userId, onClose, onSaved }: {
     } catch (e) { setError(e instanceof Error ? e.message : 'Please try again.'); }
     finally { lock.current = false; setBusy(false); }
   }
+  async function savePhoto(camera: boolean) {
+    if (lock.current || closing.current) return;
+    lock.current = true; setBusy(true); setError('');
+    try {
+      const uri = await pickPhoto(camera);
+      if (!uri) return;
+      if (date !== localDate()) throw Error('The date changed. Close this drawer and reopen it to add today’s photo.');
+      const entry = await getOrCreateDailyEntry(userId, date);
+      if (entry.error || !entry.data) throw Error('Could not load your day. Please try again.');
+      const saved = await uploadDailyPhoto({ userId, dailyEntryId: entry.data.id, image: { uri, base64: uri.split(',')[1], mimeType: 'image/jpeg' } });
+      if (saved.error || !saved.data) throw Error('Your photo could not be saved. Please try again.');
+      dismiss(onSaved);
+    } catch (e) { setError(e instanceof Error ? e.message : 'Your photo could not be saved. Please try again.'); }
+    finally { lock.current = false; setBusy(false); }
+  }
   function field(key: string, label: string, placeholder: string, numeric = true) {
     return <View style={{ gap: 8 }}><Copy style={{ color: t.ink }}>{label}</Copy><TextInput accessibilityLabel={label} value={values[key]} onChangeText={value => set(key, value)} editable={!busy} placeholder={placeholder} placeholderTextColor={t.muted} inputMode={numeric ? 'decimal' : 'text'} maxLength={numeric ? 8 : 100} style={{ minHeight: 50, paddingHorizontal: 14, borderWidth: 1, borderColor: t.line, borderRadius: 12, color: t.ink, backgroundColor: t.surface, fontSize: 16 }} /></View>;
   }
@@ -89,24 +108,29 @@ export function DayMetricDrawer({ metric, data, userId, onClose, onSaved }: {
   }
   const close = () => { if (!lock.current) dismiss(onClose); };
   return <Modal transparent visible animationType="none" onRequestClose={close}>
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
+    <ReportSurface><KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
       <Animated.View pointerEvents="none" style={{ position: 'absolute', inset: 0, backgroundColor: '#000', opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0, 0.47] }) }} />
       <Pressable accessibilityRole="button" accessibilityLabel="Dismiss metric drawer" onPress={close} style={{ position: 'absolute', inset: 0 }} />
       <Animated.View style={{ maxHeight: '85%', width: '100%', maxWidth: 620, alignSelf: 'center', transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [height, 0] }) }] }}>
       <SafeAreaView edges={['bottom']} style={{ flexShrink: 1, backgroundColor: t.paper, borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 24, gap: 16 }}>
         <View style={{ width: 36, height: 4, backgroundColor: t.line, borderRadius: 2, alignSelf: 'center' }} />
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}><Copy kind="heading" style={{ color: t.ink }}>{metric}</Copy><Pressable accessibilityRole="button" accessibilityLabel="Close metric drawer" disabled={busy} onPress={close} style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}><X color={t.ink} size={22} /></Pressable></View>
-        <Copy kind="small" style={{ color: t.muted }}>{metric === 'Weather' ? 'Enter a city or ZIP code. We’ll fetch your weather and remember this location for future days.' : `Enter your ${metric.toLowerCase()} details for today.`}</Copy>
+        <Copy kind="small" style={{ color: t.muted }}>{metric === 'Photo' ? 'Add a photo for today. Use natural light and keep your face centered.' : metric === 'Weather' ? 'Enter a city or ZIP code. We’ll fetch your weather and remember this location for future days.' : `Enter your ${metric.toLowerCase()} details for today.`}</Copy>
         <ScrollView style={{flexShrink:1,minHeight:0}} alwaysBounceVertical={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ gap: 20, paddingBottom: 8 }}>
+          {metric === 'Photo' && data.photo?.signedUrl ? <Image source={{uri:data.photo.signedUrl}} accessibilityLabel="Today’s saved photo" contentFit="cover" style={{width:160,height:160,borderRadius:16,alignSelf:'center'}}/> : null}
           {metric === 'Sleep' ? <>{field('sleepHours', 'Hours slept', 'e.g. 7.5')}{choices('sleepQuality', 'How did you sleep?', dailyOptions.sleepQuality)}</> : null}
           {metric === 'HRV' ? field('hrvMs', 'Heart rate variability (ms)', 'e.g. 62') : null}
           {metric === 'Cycle' ? <>{field('cycleDay', 'Cycle day', 'e.g. 16')}{choices('cyclePhase', 'Cycle tracking', ['Not tracking', 'Not applicable'])}</> : null}
           {metric === 'Weather' ? field('location', 'City or ZIP code', 'e.g. Los Gatos or 95030', false) : null}
           {error ? <Notice>{error}</Notice> : null}
         </ScrollView>
-        <ReportButton copper label={metric === 'Weather' ? 'Get Weather & Save Location' : 'Save'} busy={busy} onPress={() => void save()} />
+        {metric === 'Photo' ? <View style={{gap:12}}>
+          <ReportButton copper label={data.photo ? 'Retake Photo' : 'Take Photo'} busy={busy} onPress={() => void savePhoto(true)} />
+          <ReportButton secondary label="Choose from Library" disabled={busy} onPress={() => void savePhoto(false)} />
+        </View> : <ReportButton copper label={metric === 'Weather' ? 'Get Weather & Save Location' : 'Save'} busy={busy} onPress={() => void save()} />}
       </SafeAreaView>
       </Animated.View>
-    </KeyboardAvoidingView>
+      {cameraDialog}
+    </KeyboardAvoidingView></ReportSurface>
   </Modal>;
 }

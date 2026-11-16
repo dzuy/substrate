@@ -13,6 +13,7 @@ export function TateDrawerProvider({ children }: PropsWithChildren) {
   const { theme:t } = useReportTheme();
   const { height } = useWindowDimensions();
   const [visible,setVisible] = useState(false);
+  const [openVersion,setOpenVersion] = useState(0);
   const [prompt,setPrompt] = useState('');
   const [editingDay,setEditingDay] = useState(false);
   const [messages,setMessages] = useState<Message[]>([]);
@@ -22,7 +23,7 @@ export function TateDrawerProvider({ children }: PropsWithChildren) {
   const progress = useRef(new Animated.Value(0)).current;
   const closing = useRef(false);
   const openTate = useCallback((text?:string)=>{closing.current=false;setEditingDay(false);setPrompt(text||'');setVisible(true);},[]);
-  const openDayEditor = useCallback(()=>{closing.current=false;setEditingDay(true);setVisible(true);},[]);
+  const openDayEditor = useCallback(()=>{setOpenVersion(v=>v+1);closing.current=false;setEditingDay(true);setVisible(true);},[]);
   const planDay = useCallback((text:string)=>{closing.current=false;setEditingDay(true);setPrompt('');setDayRequest({id:++requestId.current,text});setVisible(true);},[]);
   useEffect(()=>{
     if(!visible)return;
@@ -45,7 +46,7 @@ export function TateDrawerProvider({ children }: PropsWithChildren) {
         <Animated.View accessibilityViewIsModal style={{height:'90%',width:'100%',maxWidth:620,alignSelf:'center',borderTopLeftRadius:26,borderTopRightRadius:26,overflow:'hidden',backgroundColor:t.paper,transform:[{translateY:progress.interpolate({inputRange:[0,1],outputRange:[height,0]})}]}}>
           <View style={{alignItems:'center',paddingTop:9}}><View style={{width:36,height:4,borderRadius:2,backgroundColor:'#CFC6B9'}}/></View>
           <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between',paddingLeft:23,paddingRight:10,paddingVertical:4,borderBottomWidth:1,borderColor:t.line}}><Copy kind="heading" style={{color:t.ink,fontSize:25}}>Ask Tate</Copy><Pressable accessibilityRole="button" accessibilityLabel="Close Tate chat" onPress={close} style={{width:44,height:44,alignItems:'center',justifyContent:'center'}}><X size={23} color={t.ink}/></Pressable></View>
-          <SafeAreaView edges={['bottom']} style={{flex:1,minHeight:0}}><TateChatPage initialPrompt={prompt} messages={messages} onMessagesChange={setMessages} dayMode={editingDay} dayRequest={dayRequest} onDayRequestHandled={()=>setDayRequest(null)} onDaySaved={()=>setDayVersion(v=>v+1)} onNavigate={close}/></SafeAreaView>
+          <SafeAreaView edges={['bottom']} style={{flex:1,minHeight:0}}><TateChatPage active={visible} contextVersion={openVersion+dayVersion} initialPrompt={prompt} messages={messages} onMessagesChange={setMessages} dayMode={editingDay} dayRequest={dayRequest} onDayRequestHandled={()=>setDayRequest(null)} onDaySaved={()=>setDayVersion(v=>v+1)} onNavigate={close}/></SafeAreaView>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>

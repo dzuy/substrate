@@ -1,3 +1,7 @@
+import { applyConversationalDayChange } from '@/services/conversational-day-change';
+import { isDayChangeRequest, resolveDayChangeRequest } from '../../shared/conversational-day-change.mjs';
+import { loadTateRoutineContext } from '@/services/tate-routine-context';
+import { withRoutineContext } from '../../shared/tate-routine-context.mjs';
 import { DailyMicrophone } from '@/components/daily-microphone';
 import { useRouter } from 'expo-router';
 import { prepareDayWithTate, confirmDayWithTate, type DayProposal } from '@/services/tate-day';
@@ -22,7 +26,9 @@ export type Message = {
   sources?: { id: string; name: string; brand: string }[];
   followUps?: { label: string; question: string }[];
 };
-export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onMessagesChange, dayMode = false, dayRequest, onDayRequestHandled, onDaySaved, onNavigate }: {
+export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onMessagesChange, dayMode = false, dayRequest, onDayRequestHandled, onDaySaved, onNavigate, active = true, contextVersion = 0 }: {
+  active?: boolean;
+  contextVersion?: number;
   initialPrompt?: string;
   messages?: Message[];
   onMessagesChange?: Dispatch<SetStateAction<Message[]>>;
@@ -41,6 +47,15 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
   const [question, setQuestion] = useState(prompt || "");
   useEffect(()=>{if(prompt)setQuestion(prompt);},[prompt]);
   const [proposal, setProposal] = useState<DayProposal | null>(null);
+  const [routineContext, setRoutineContext] = useState<{summary:string;snapshot:string}|null>(null);
+  const [contextError,setContextError] = useState('');
+  const [voiceFeedback,setVoiceFeedback] = useState('');
+  useEffect(()=>{
+    if(!dayMode || !active)return;
+    let alive=true;setRoutineContext(null);setContextError('');
+    loadTateRoutineContext().then(value=>{if(alive)setRoutineContext(value);}).catch(()=>{if(alive)setContextError('Could not load today’s saved routine.');});
+    return ()=>{alive=false;};
+  },[dayMode,active,contextVersion]);
   const [activitiesText, setActivitiesText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -85,8 +100,17 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
     controller.current = request;
     const timeout = setTimeout(() => request.abort(), 175000);
     try {
-      if (dayMode || newDay) {
-        const prepared = await prepareDayWithTate(text.trim(), !newDay, request.signal);
+      const currentContext = dayMode ? await loadTateRoutineContext() : null;
+      if(currentContext)setRoutineContext(currentContext);
+      if (dayMode && isDayChangeRequest(text)) {
+        const intent = resolveDayChangeRequest(text.trim(),messages);
+        const saved = await applyConversationalDayChange(intent,request.signal,currentContext?.snapshot);
+        setProposal(null);onDaySaved?.();
+        setMessages([...next,{role:'assistant',content:saved.routineReady ? `Updated your day and routine.\n${saved.summary.replace('What would you like to adjust?','').trim()}` : 'Your activity change is saved, but the routine could not be regenerated. The previous routine may still show the old activity. Open Routine and retry the update.',routineLink:true}]);
+        return;
+      }
+      if (newDay) {
+        const prepared = await prepareDayWithTate(text.trim(), !newDay, request.signal, currentContext?.snapshot);
         if (prepared) {
           setProposal(prepared); setActivitiesText(prepared.activities.join('\n'));
           setMessages([...next, {role: 'assistant', content: 'Review my interpretation below. Edit activities and times before applying it.'}]);
@@ -95,14 +119,8 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
       }
       const { data } = await supabase.auth.getSession();
       if (!data.session) throw Error("Sign in again to ask Tate.");
-      const endpoint =
-        process.env.EXPO_PUBLIC_TATE_API_URL ||
-        (Platform.OS === "web"
-          ? __DEV__ &&
-            ["localhost", "127.0.0.1"].includes(window.location.hostname)
-            ? `http://${window.location.hostname}:4318/api/ask-tate`
-            : "/api/ask-tate"
-          : "");
+      const localWeb = Platform.OS === 'web' && __DEV__ && ['localhost','127.0.0.1'].includes(window.location.hostname);
+      const endpoint = localWeb ? 'http://127.0.0.1:4318/api/ask-tate' : process.env.EXPO_PUBLIC_TATE_API_URL || (Platform.OS === 'web' ? '/api/ask-tate' : '');
       if (!endpoint)
         throw Error("The chat server address is not configured for this app.");
       const response = await fetch(endpoint, {
@@ -111,7 +129,7 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
           "Content-Type": "application/json",
           Authorization: `Bearer ${data.session.access_token}`,
         },
-        body: JSON.stringify({ messages: history, audience: "customer" }),
+        body: JSON.stringify({ messages: withRoutineContext(history,currentContext?.snapshot), audience: "customer" }),
         signal: request.signal,
       });
       const result = await response.json();
@@ -176,7 +194,8 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
           keyboardDismissMode="interactive"
           contentContainerStyle={{ padding: 24, gap: 20 }}
         >
-          {!messages.length ? (
+          {dayMode ? <View style={{gap:8}}><Copy kind="small" style={{color:t.ink}}>{routineContext?.summary || contextError || 'Loading your saved routine…'}</Copy></View> : null}
+          {!messages.length && !dayMode ? (
             <View style={{ gap: 16 }}>
               <Copy kind="heading">{dayMode ? "What would you like to change about your day?" : "What would you like to understand?"}</Copy>
               <Copy style={{ color: t.muted }}>
@@ -271,9 +290,9 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
             backgroundColor: t.surface,
           }}
         >
-          <DailyMicrophone disabled={busy} onTranscript={text => setQuestion(current => [current.trim(), text].filter(Boolean).join(' '))}/>
         {error ? <Notice>{error}</Notice> : null}
           <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+            <View style={{flex:1,minWidth:0,flexDirection:'row',alignItems:'center',borderWidth:1,borderColor:t.line,borderRadius:t.radius,backgroundColor:t.paper,paddingRight:4}}>
             <TextInput
               ref={input}
               accessibilityLabel="Ask Tate a question"
@@ -294,15 +313,14 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
               maxLength={4000}
               editable={!busy}
               value={question}
-              onChangeText={setQuestion}
+              onChangeText={text=>{setVoiceFeedback('');setQuestion(text);}}
               style={{
                 flex: 1,
                 minWidth: 0,
                 minHeight: 48,
                 maxHeight: 120,
                 paddingVertical: 12,
-                borderWidth: 1,
-                borderColor: t.line,
+                borderWidth: 0,
                 borderRadius: t.radius,
                 paddingHorizontal: 16,
                 color: t.ink,
@@ -311,6 +329,8 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
                 fontSize: 16 * t.scale,
               }}
             />
+            <DailyMicrophone compact disabled={busy} onFeedback={setVoiceFeedback} onTranscript={text=>setQuestion(current=>[current.trim(),text].filter(Boolean).join(' '))}/>
+            </View>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Send question"
@@ -336,6 +356,7 @@ export function TateChatPage({ initialPrompt = "", messages: sharedMessages, onM
               )}
             </Pressable>
           </View>
+          {voiceFeedback?<Copy kind="small" style={{color:t.muted,fontSize:12}}>{voiceFeedback}</Copy>:null}
         </View>
       </View>
     </View>

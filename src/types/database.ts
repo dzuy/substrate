@@ -6,6 +6,9 @@ export type { SkinStory } from '@/skin-intelligence/skinStoryTypes';
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type CheckInResponses = {
+  routineEvents?: string[];
+  routineNoteHistory?: string[];
+  routineEventsSource?: 'model' | 'fallback';
   journeyVersion?: number;
   confirmedAt?: string;
   timezone?: string;
@@ -139,6 +142,8 @@ export type ProfileContext = {
 };
 
 export type DailyPlan = {
+  sections?: {id:string;title:string;itemIds:string[]}[];
+  eventPlanningSource?: 'model' | 'fallback';
   catalogComparedCount?: number;
   productMatches?: {id: string; name: string; brand: string; matchedIngredients: string[]; note: string}[];
   inputFingerprint?: string;

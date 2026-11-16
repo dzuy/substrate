@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Modal, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Copy, Notice, ReportButton } from '@/report/ui';
+import { Copy, Notice, ReportButton, ReportSurface } from '@/report/ui';
 import { useReportTheme } from '@/report/theme';
 import { pickReportPhoto } from '@/report/service';
 
@@ -81,7 +81,7 @@ function CameraDialog({ onFinish, faceGuide }: { onFinish: (photo: string | null
   }
 
   return <Modal transparent animationType="fade" onRequestClose={() => onFinish(null)}>
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#00121DCC', justifyContent: 'center', padding: 16 }}>
+    <ReportSurface><SafeAreaView style={{ flex: 1, backgroundColor: '#00121DCC', justifyContent: 'center', padding: 16 }}>
       <ScrollView style={{ flexGrow: 0, width: '100%', maxWidth: 600, maxHeight: '100%', alignSelf: 'center', backgroundColor: t.paper, borderRadius: 24 }} contentContainerStyle={{ padding: 20, gap: 16 }}>
         <Copy kind="heading">Take a photo</Copy>
         <Copy kind="small">{photo ? 'Review your photo before using it.' : faceGuide ? 'Position your face clearly in the center with bright, natural lighting if possible.' : 'Center your product in the camera preview.'}</Copy>
@@ -99,6 +99,6 @@ function CameraDialog({ onFinish, faceGuide }: { onFinish: (photo: string | null
         </View> : error ? <ReportButton secondary label="Try camera again" onPress={() => setAttempt(value => value + 1)} /> : <ReportButton label={ready ? 'Capture photo' : 'Waiting for camera…'} disabled={!ready} onPress={capture} />}
         <ReportButton secondary label="Cancel" onPress={() => onFinish(null)} />
       </ScrollView>
-    </SafeAreaView>
+    </SafeAreaView></ReportSurface>
   </Modal>;
 }

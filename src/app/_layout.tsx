@@ -3,7 +3,7 @@ import { useMobileViewport } from "@/lib/use-mobile-viewport";
 import { TateDrawerProvider } from "@/components/tate-drawer";
 import { Redirect, Stack, useGlobalSearchParams, usePathname } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 
 import { AppHeader, ProfilePanelProvider } from "@/components/app-header";
 import { ReportThemeProvider } from "@/report/theme";
@@ -25,13 +25,13 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const { isLoading, session, isPasswordRecovery, pendingOnboarding, clearOnboardingRedirect } = useAuth();
+  const { isLoading, session, isPasswordRecovery, signInRouting, signInRoute, signInRouteError, completeSignIn, clearSignInRedirect } = useAuth();
   const pathname = usePathname();
   useEffect(() => {
-    if (session && pathname === "/onboarding" && pendingOnboarding) {
-      clearOnboardingRedirect();
+    if (session && pathname === signInRoute && signInRoute) {
+      clearSignInRedirect();
     }
-  }, [session, pathname, pendingOnboarding, clearOnboardingRedirect]);
+  }, [session, pathname, signInRoute, clearSignInRedirect]);
   const { onboarding } = useGlobalSearchParams<{ onboarding?: string }>();
   const isOnboarding = pathname === "/onboarding" || (pathname.startsWith("/skin-wardrobe") && onboarding === "1");
   const isLandingRoute = pathname === "/";
@@ -48,7 +48,7 @@ function RootNavigator() {
   return (
     <TateDrawerProvider key={session?.user.id || "guest"}><ProfilePanelProvider>
       <View style={styles.appFrame}>
-        {session && !isLoading &&
+        {session && !isLoading && !signInRouting && !signInRoute && !signInRouteError &&
         !isOnboarding &&
         !isLandingRoute &&
         !isAdminRoute &&
@@ -59,7 +59,16 @@ function RootNavigator() {
         <Stack
           screenLayout={({ children }) => {
             if (isPasswordRecovery && !isResetPasswordRoute) return <Redirect href="/reset-password" />;
-            if (session && pendingOnboarding && pathname !== "/onboarding") return <Redirect href="/onboarding" />;
+            if (session && (signInRouting || signInRouteError)) return (
+              <View style={styles.loadingScreen}>
+                {signInRouting ? <ActivityIndicator color={Colors.light.accent} /> : null}
+                <SubstrateText variant="small" color={Colors.light.textMuted}>
+                  {signInRouteError || 'Loading your saved progress'}
+                </SubstrateText>
+                {signInRouteError && session ? <Pressable accessibilityRole="button" onPress={() => void completeSignIn(session.user.id)} style={{ padding: 16 }}><SubstrateText>Retry</SubstrateText></Pressable> : null}
+              </View>
+            );
+            if (session && signInRoute && pathname !== signInRoute) return <Redirect href={signInRoute} />;
             if (isLandingRoute || isResetPasswordRoute) return children;
             if (isLoading) return (
               <View style={styles.loadingScreen}>
@@ -109,7 +118,7 @@ function RootNavigator() {
           <Stack.Screen name="admin" />
           <Stack.Screen name="reset-password" />
         </Stack>
-        {session && !isLoading && !isLandingRoute && !isResetPasswordRoute && !isAdminRoute && !isStyleGuideRoute && !isOnboarding && pathname !== "/daily-check-in" && pathname !== "/home" ? (
+        {session && !isLoading && !signInRouting && !signInRoute && !signInRouteError && !isLandingRoute && !isResetPasswordRoute && !isAdminRoute && !isStyleGuideRoute && !isOnboarding && pathname !== "/daily-check-in" && pathname !== "/home" ? (
           <BottomNav />
         ) : null}
       </View>

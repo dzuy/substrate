@@ -21,6 +21,11 @@ import { fontFamily, useReportTheme } from "./theme";
 const DarkSurface = createContext(false);
 const CompactLayout = createContext(false);
 
+/** Reset inherited foreground styling when a nested sheet changes surface color. */
+export function ReportSurface({ children, dark = false }: PropsWithChildren<{ dark?: boolean }>) {
+  return <DarkSurface.Provider value={dark}>{children}</DarkSurface.Provider>;
+}
+
 export function NautilusArt({size = 220}: {size?: number}) {
   return <Image source={require("@/assets/images/nautilus-daily-v3.png")} accessible={false} style={{width:size,height:size,maxWidth:"100%",alignSelf:"center",borderRadius:24}} contentFit="contain"/>;
 }

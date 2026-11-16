@@ -1,3 +1,4 @@
+import { organizeRoutineSections } from '../../shared/routine-sections.mjs';
 import { activityRoutineItems } from '../../shared/activity-routine.mjs';
 import { matchDailyProducts } from '../../shared/catalog-matching.mjs';
 import { listUserWardrobe } from '@/services/catalog';
@@ -38,9 +39,7 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
     return existing;
   }
 
-  const inputs = await readPlanInputs(userId,dailyEntryId);
-  if (inputs.error || !inputs.data) return {data:null,error:inputs.error};
-  if(existing.data && isCurrentSkinStory(existing.data.skinStory) && existing.data.dailyPlan.inputFingerprint === inputs.data.fingerprint) return {data:{...existing.data,dailyPlan:{...existing.data.dailyPlan,items:existing.data.dailyPlan.items||[]},isGenerated:false},error:null};
+
 
   const entry = await supabase
     .from('daily_entries')
@@ -73,6 +72,13 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
     photoAnalysis = analyzed.data ?? photoAnalysis;
   }
 
+  // Photo analysis may persist quality_checks. Snapshot after that write so our
+  // own analysis does not invalidate the routine we are about to generate.
+  const inputs = await readPlanInputs(userId,dailyEntryId);
+  if (inputs.error || !inputs.data) return {data:null,error:inputs.error};
+  if(existing.data && isCurrentSkinStory(existing.data.skinStory) && existing.data.dailyPlan.inputFingerprint === inputs.data.fingerprint) return {data:{...existing.data,dailyPlan:{...existing.data.dailyPlan,items:existing.data.dailyPlan.items||[]},isGenerated:false},error:null};
+  entry.data = inputs.data.entry;
+
   const environment = await getEnvironmentSnapshot(userId, dailyEntryId);
 
   if (environment.error) {
@@ -101,7 +107,13 @@ export async function getOrCreateTodayRecommendation(userId: string, dailyEntryI
   const owned = ownedRoutine(inputs.data.wardrobe,entry.data.check_in);
   const previousItems=existing.data?.dailyPlan.items||[];
   generated.dailyPlan={...generated.dailyPlan,productMatches,catalogComparedCount:catalog.data.length,inputFingerprint:inputs.data.fingerprint,analysisSnapshot:generated.analysis,
-    items:[...activityRoutineItems(entry.data.check_in),...owned,...generated.dailyPlan.items.filter(i=>!owned.some(o=>o.moment===i.moment && /cleanser|moisturiz|spf/i.test(i.label)))].map(i=>({...i,completed:previousItems.some(old=>old.id===i.id && old.label===i.label && old.completed)}))};
+    items:[...activityRoutineItems(entry.data.check_in),...owned,...generated.dailyPlan.items.filter(i=>!owned.some(o=>o.moment===i.moment && /cleanser|moisturiz|spf/i.test(i.label)))].map(i=>({...i,completed:previousItems.some(old=>old.label===i.label && (old.id===i.id || (i.id.startsWith('activity-') && old.reason===i.reason && old.moment===i.moment)) && old.completed)}))};
+  const organized = organizeRoutineSections(entry.data.check_in.routineNote || '', entry.data.check_in.routineEvents || [], generated.dailyPlan.items);
+  generated.dailyPlan = { ...generated.dailyPlan, ...organized, items: organized.items.map(item => ({...item, completed: previousItems.some(old => old.label === item.label && (old.id === item.id || (item.id.startsWith('activity-') && old.reason === item.reason && old.moment === item.moment)) && old.completed)})), eventPlanningSource: entry.data.check_in.routineEventsSource };
+  // Apply saved profile priorities consistently for both create and update paths.
+  const personalized = personalizeFallbackRecommendation({ ...generated.skinStory, dailyPlan: generated.dailyPlan, safetyNotes: generated.safetyNotes, provider: 'substrate-prototype', model: 'skin-intelligence-rules-v1', rawResponse: null }, profileContext);
+  generated.dailyPlan = personalized.dailyPlan;
+  generated.skinStory = { ...generated.skinStory, contributors: personalized.contributors };
   const current=await readPlanInputs(userId,dailyEntryId);
   if(current.error || current.data?.fingerprint!==inputs.data.fingerprint) return {data:null,error:new Error('Your inputs changed while the plan was building. Generate it again.')};
   if (existing.data) {
@@ -908,6 +920,6 @@ export async function readPlanInputs(userId:string,entryId:string) {
  ]);
  const error=entry.error||photo.error||profile.error||environment.error||wardrobe.error;
  if(error)return {data:null,error};
- const fingerprint=stableInput({policy:'daily-full-catalog-v3',checkIn:entry.data.check_in,photo:photo.data,profile:profile.data,environment:environment.data,wardrobe:wardrobe.data});
+ const fingerprint=stableInput({policy:'daily-event-sections-v1',checkIn:entry.data.check_in,photo:photo.data,profile:profile.data,environment:environment.data,wardrobe:wardrobe.data});
  return {data:{fingerprint,wardrobe:wardrobe.data||[],entry:entry.data},error:null};
 }
